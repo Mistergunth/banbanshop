@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart'; 
+import 'main_screen.dart';
 
 class ProvinceSelection extends StatelessWidget {
   ProvinceSelection({super.key});
@@ -35,21 +36,35 @@ class ProvinceSelection extends StatelessWidget {
           children: [
             const Text(
               'เลือกจังหวัดที่คุณต้องการ:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            const Text('เพื่อให้เราแสดงร้านค้าในพื้นที่ของคุณ',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey)),
+            const SizedBox(height: 20),
             Expanded(
               child: ListView.builder(
                 itemCount: provinces.length,
                 itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text(provinces[index]),
-                    onTap: () {
-                      // Handle province selection
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('คุณเลือก ${provinces[index]}')),
-                      );
-                    },
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.location_on,
+                      color: Colors.green
+                      ),
+                      title: Text(provinces[index]),
+                      trailing: const Icon(Icons.arrow_forward_ios),
+                      onTap: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MainScreen(
+                              selectedProvince: provinces[index]),
+                          ),
+                        );
+                      }
+                    ),
                   );
                 },
               ),
