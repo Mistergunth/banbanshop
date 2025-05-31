@@ -1,9 +1,17 @@
-import 'package:flutter/material.dart'; 
-import 'main_screen.dart';
+import 'package:flutter/material.dart';
 
-class ProvinceSelection extends StatelessWidget {
-  ProvinceSelection({super.key});
+class ProvinceSelectionPage extends StatefulWidget {
+  const ProvinceSelectionPage({super.key});
 
+  @override
+  // ignore: library_private_types_in_public_api
+  _ProvinceSelectionPageState createState() => _ProvinceSelectionPageState();
+}
+
+class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
+  String? selectedProvince;
+  
+  // รายชื่อจังหวัดในประเทศไทย
   final List<String> provinces = [
     'กรุงเทพมหานคร',
     'กระบี่',
@@ -38,7 +46,6 @@ class ProvinceSelection extends StatelessWidget {
     'ปราจีนบุรี',
     'ปัตตานี',
     'พระนครศรีอยุธยา',
-    'พะเยา',
     'พังงา',
     'พัทลุง',
     'พิจิตร',
@@ -46,12 +53,13 @@ class ProvinceSelection extends StatelessWidget {
     'เพชรบุรี',
     'เพชรบูรณ์',
     'แพร่',
+    'พะเยา',
     'ภูเก็ต',
     'มหาสารคาม',
     'มุกดาหาร',
     'แม่ฮ่องสอน',
-    'ยโซธร',
     'ยะลา',
+    'ยโซธร',
     'ร้อยเอ็ด',
     'ระนอง',
     'ระยอง',
@@ -77,64 +85,125 @@ class ProvinceSelection extends StatelessWidget {
     'หนองคาย',
     'หนองบัวลำภู',
     'อ่างทอง',
-    'อำนาจเจริญ',
     'อุดรธานี',
-    'อุตรดิตถ์',
     'อุทัยธานี',
+    'อุตรดิตถ์',
     'อุบลราชธานี',
+    'อำนาจเจริญ',
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('เลือกจังหวัด'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        backgroundColor: Color(0xFFE8F4FD),
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'บ้านบ้านช้อป',
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'เลือกจังหวัดที่คุณต้องการ:',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            SizedBox(height: 20),
+            Text(
+              'เลือกจังหวัดของคุณ',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
-            const SizedBox(height: 8),
-            const Text('เพื่อให้เราแสดงร้านค้าในพื้นที่ของคุณ',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey)),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: provinces.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.location_on,
-                      color: Colors.green
+            SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: DropdownButtonFormField<String>(
+                value: selectedProvince,
+                decoration: InputDecoration(
+                  hintText: 'เลือกจังหวัด',
+                  hintStyle: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 16,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                ),
+                icon: Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Colors.grey[600],
+                ),
+                items: provinces.map((String province) {
+                  return DropdownMenuItem<String>(
+                    value: province,
+                    child: Text(
+                      province,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
                       ),
-                      title: Text(provinces[index]),
-                      trailing: const Icon(Icons.arrow_forward_ios),
-                      onTap: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MainScreen(
-                              selectedProvince: provinces[index]),
-                          ),
-                        );
-                      }
                     ),
                   );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    selectedProvince = newValue;
+                  });
                 },
+              ),
+            ),
+            SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: selectedProvince != null
+                    ? () {
+                        // ส่งค่าจังหวัดที่เลือกกลับไปยังหน้าก่อนหน้า
+                        Navigator.pop(context, selectedProvince);
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF9C6ADE),
+                  // ignore: deprecated_member_use
+                  disabledBackgroundColor: Color(0xFF9C6ADE).withOpacity(0.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'ยืนยันจังหวัด',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ],
         ),
-      )
+      ),
     );
   }
 }
