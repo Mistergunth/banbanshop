@@ -26,8 +26,8 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
       icon: Icons.sports_soccer_outlined,
     ),
     CategoryItem(
-      title: 'หนังสือ & เครื่องเขียน',
-      icon: Icons.book_outlined,
+      title: 'สิ่งของเครื่องใช้',
+      icon: Icons.house_outlined,
     ),
   ];
 
