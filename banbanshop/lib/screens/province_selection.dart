@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'category_selection.dart';
 
 class ProvinceSelectionPage extends StatefulWidget {
   const ProvinceSelectionPage({super.key});
@@ -179,7 +180,14 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                 onPressed: selectedProvince != null
                     ? () {
                         // ส่งค่าจังหวัดที่เลือกกลับไปยังหน้าก่อนหน้า
-                        Navigator.pop(context, selectedProvince);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CategorySelectionPage(
+                              selectedProvince: selectedProvince!,
+                            )
+                            ),
+                        );
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
