@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
       title: 'บ้านบ้านช้อป',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        fontFamily: GoogleFonts.kanit().fontFamily, // ใช้ฟอนต์ไทยถ้ามี
+        fontFamily: GoogleFonts.kanit().fontFamily,
       ),
       home: HomePage(),
       debugShowCheckedModeBanner: false,
