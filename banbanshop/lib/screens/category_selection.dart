@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'feed_page.dart';
 
 class CategorySelectionPage extends StatefulWidget {
   final String? selectedProvince;
@@ -146,17 +147,13 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                   return GestureDetector(
                     onTap: () {
                       // เมื่อเลือกหมวดหมู่
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('เลือกหมวดหมู่'),
-                          content: Text('คุณเลือก: ${category.title}'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text('ตกลง'),
-                            ),
-                          ],
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FeedPage(
+                          selectedCategory: category.title,
+                          selectedProvince: widget.selectedProvince ?? '',
+                          ),
                         ),
                       );
                     },
