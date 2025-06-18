@@ -40,7 +40,7 @@ class HomePage extends StatelessWidget {
               Text(
                 'บ้านบ้านช็อป',
                 style: TextStyle(
-                  fontSize: 60,
+                  fontSize: 50,
                   fontWeight: FontWeight.w700,
                   color: Colors.black87,
                 ),
