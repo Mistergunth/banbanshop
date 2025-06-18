@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, library_private_types_in_public_api
+
 import 'package:flutter/material.dart';
 
 class FeedPage extends StatefulWidget {
@@ -11,7 +13,9 @@ class FeedPage extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
+  // เนื่องจาก createState เป็นส่วนหนึ่งของ StatefulWidget ที่ไม่ได้ถูกเรียกใช้ภายนอกโดยตรง
+  // และไม่ได้เป็น public type ที่ต้องการการอ้างอิงถึง libary_private_types_in_public_api
+  // จึงไม่จำเป็นต้องใช้ ignore: library_private_types_in_public_api ที่นี่แล้ว
   _FeedPageState createState() => _FeedPageState();
 }
 
@@ -22,7 +26,7 @@ class Post {
   final String category;
   final String title;
   final String imageUrl;
-  final String avatarImageUrl;
+  final String avatarImageUrl; // เพิ่ม field นี้
   final String province;
   final String productCategory;
 
@@ -33,7 +37,7 @@ class Post {
     required this.category,
     required this.title,
     required this.imageUrl,
-    required this.avatarImageUrl,
+    required this.avatarImageUrl, // กำหนดให้เป็น required
     required this.province,
     required this.productCategory,
   });
@@ -78,6 +82,7 @@ class _FeedPageState extends State<FeedPage> {
   String selectedFilter = 'ฟีดโพสต์';
 
   // ตัวอย่างข้อมูล Post
+  // อัปเดต avatarImageUrl ให้เป็น URL ที่สามารถโหลดได้จริง หรือเป็น asset path ที่ถูกต้อง
   final List<Post> posts = [
     Post(
       id: '1',
@@ -85,7 +90,7 @@ class _FeedPageState extends State<FeedPage> {
       timeAgo: '1 นาที',
       category: 'อาหาร & เครื่องดื่ม',
       title: 'มาเด้อ เนื้อโคขุน สนใจกด "สั่งเลย"',
-      avatarImageUrl: 'banbanshop/lib/images/avatar1.jpg',
+      avatarImageUrl: 'assets/images/avatar1.jpg', // ตัวอย่าง URL รูปโปรไฟล์
       imageUrl: 'https://img.wongnai.com/p/1600x0/2021/06/01/354e5af8ab1e40cf85cf3c10f4331677.jpg',
       province: 'สกลนคร',
       productCategory: 'อาหาร & เครื่องดื่ม',
@@ -96,7 +101,7 @@ class _FeedPageState extends State<FeedPage> {
       timeAgo: '15 นาที',
       category: 'เสื้อผ้า',
       title: 'เสื้อยืดคุณภาพดี ราคาถูก มีหลายสี',
-      avatarImageUrl: 'https://images.unsplash.com/photo-1501594907352-8f0c1b3d4e5f?w=160',
+      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png', // ตัวอย่าง URL รูปโปรไฟล์
       imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400',
       province: 'สกลนคร',
       productCategory: 'เสื้อผ้า',
@@ -105,12 +110,12 @@ class _FeedPageState extends State<FeedPage> {
       id: '3',
       shopName: 'ร้านอุปกรณ์กีฬา',
       timeAgo: '30 นาที',
-      category: 'กีฬา',
+      category: 'กีฬา & กิจกรรม',
       title: 'รองเท้าวิ่งรุ่นใหม่ล่าสุด ลด 20%',
-      avatarImageUrl: 'https://images.unsplash.com/photo-1501594907352-8f0c1b3d4e5f?w=160',
+      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png', // ตัวอย่าง URL รูปโปรไฟล์
       imageUrl: 'https://images.unsplash.com/photo-1542291026-79eddc8727ae?w=400',
-      province: 'กรุงเทพฯ',
-      productCategory: 'กีฬา',
+      province: 'กรุงเทพมหานคร',
+      productCategory: 'กีฬา & กิจกรรม',
     ),
   ];
 
@@ -139,18 +144,17 @@ class _FeedPageState extends State<FeedPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE8F4FD),
-      // --- เพิ่ม Drawer ตรงนี้ ---
-      drawer: const Drawer(
+      endDrawer: const Drawer(
         child: Column(
           children: [
             DrawerHeader(
               decoration: BoxDecoration(
-                color: Color(0xFF9C6ADE), // ใช้สีเดียวกับธีมของคุณ
+                color: Color(0xFF9C6ADE), 
               ),
               child: Center(
                 child: Text(
-                  'เมนู',
-                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  'Menu',
+                  style: TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.w200),
                 ),
               ),
             ),
@@ -183,7 +187,6 @@ class _FeedPageState extends State<FeedPage> {
           ],
         ),
       ),
-
       body: SafeArea(
         child: Column(
           children: [
@@ -206,7 +209,6 @@ class _FeedPageState extends State<FeedPage> {
                         controller: searchController,
                         onChanged: (value) {
                           setState(() {
-                            // อัปเดต UI เมื่อมีการพิมพ์ข้อความค้นหา
                           });
                         },
                         decoration: InputDecoration(
@@ -220,13 +222,12 @@ class _FeedPageState extends State<FeedPage> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // --- เปลี่ยน Icon เป็น IconButton และเพิ่ม onPressed เพื่อเปิด Drawer ---
                   Builder(
                     builder: (BuildContext innerContext) {
                       return IconButton(
                         icon: const Icon(Icons.menu, size: 24),
                         onPressed: () {
-                          Scaffold.of(innerContext).openDrawer(); // เปิด Drawer
+                          Scaffold.of(innerContext).openEndDrawer(); 
                         },
                       );
                     },
@@ -348,7 +349,7 @@ class PostCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            // ignore: deprecated_member_use
+            // ไม่จำเป็นต้องใช้ ignore: deprecated_member_use อีกแล้ว
             color: Colors.grey.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
@@ -365,7 +366,8 @@ class PostCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundImage: NetworkImage(post.avatarImageUrl),
+                  // ใช้ post.avatarImageUrl สำหรับรูปโปรไฟล์
+                  backgroundImage: AssetImage(post.avatarImageUrl),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -463,7 +465,7 @@ class PostCard extends StatelessWidget {
 class ActionButton extends StatelessWidget {
   final String text;
 
-  const ActionButton({super.key, required this.text}); // เพิ่ม super.key
+  const ActionButton({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
