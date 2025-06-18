@@ -134,8 +134,8 @@ class _FeedPageState extends State<FeedPage> {
       final query = searchController.text.toLowerCase();
       return filteredByProvinceAndCategory.where((post) {
         return post.title.toLowerCase().contains(query) ||
-               post.shopName.toLowerCase().contains(query) ||
-               post.category.toLowerCase().contains(query);
+              post.shopName.toLowerCase().contains(query) ||
+              post.category.toLowerCase().contains(query);
       }).toList();
     }
   }
@@ -321,7 +321,7 @@ class _FeedPageState extends State<FeedPage> {
             label: 'โปรไฟล์',
           ),
         ],
-        selectedIndex: 1, // ตั้งค่าเริ่มต้นให้ตะกร้าถูกเลือก
+        selectedIndex: 0, // ตั้งค่าเริ่มต้นให้ตะกร้าถูกเลือก
         onDestinationSelected: (int value) {
           // สามารถเพิ่ม logic การนำทางไปยังหน้าต่างๆ ได้ที่นี่
           // ตัวอย่างเช่น:
@@ -334,6 +334,21 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 }
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  Widget build(BuildContext context) {
+    return const Placeholder();
+  }
+}
+
 
 class PostCard extends StatelessWidget {
   final Post post;
@@ -349,7 +364,6 @@ class PostCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            // ไม่จำเป็นต้องใช้ ignore: deprecated_member_use อีกแล้ว
             color: Colors.grey.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
