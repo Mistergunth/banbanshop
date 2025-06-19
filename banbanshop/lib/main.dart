@@ -1,3 +1,4 @@
+import 'package:banbanshop/screens/seller_register_screen.dart';
 import 'package:flutter/material.dart';
 import 'screens/province_selection.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -60,10 +61,14 @@ class HomePage extends StatelessWidget {
                 height: 60,
                 child: ElevatedButton(
                   onPressed: () {
-                    // ไปหน้าผู้ซื้อ (ยังไม่ได้สร้าง)
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('หน้าผู้ซื้อยังไม่ได้สร้าง')),
+                    // ไปหน้าเลือกจังหวัดสำหรับผู้ซื้อ
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProvinceSelectionPage(),
+                      ),
                     );
+                    
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Color(0xFF4285F4),
@@ -92,7 +97,7 @@ class HomePage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ProvinceSelectionPage(),
+                        builder: (context) => SellerRegisterScreen(),
                       ),
                     );
                   },
