@@ -13,9 +13,6 @@ class FeedPage extends StatefulWidget {
   });
 
   @override
-  // เนื่องจาก createState เป็นส่วนหนึ่งของ StatefulWidget ที่ไม่ได้ถูกเรียกใช้ภายนอกโดยตรง
-  // และไม่ได้เป็น public type ที่ต้องการการอ้างอิงถึง libary_private_types_in_public_api
-  // จึงไม่จำเป็นต้องใช้ ignore: library_private_types_in_public_api ที่นี่แล้ว
   _FeedPageState createState() => _FeedPageState();
 }
 
@@ -64,6 +61,7 @@ class FilterButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF9C6ADE) : Colors.white,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? const Color(0xFF9C6ADE) : Colors.blue, width: 1), // เพิ่มขอบเพื่อให้เห็นความแตกต่างชัดขึ้น
         ),
         child: Text(
           text,
@@ -79,10 +77,13 @@ class FilterButton extends StatelessWidget {
 
 class _FeedPageState extends State<FeedPage> {
   final TextEditingController searchController = TextEditingController();
-  String selectedFilter = 'ฟีดโพสต์';
+  // ตัวแปรสำหรับ Filter Button (ฟีดโพสต์/ร้านค้า)
+  String _selectedTopFilter = 'ฟีดโพสต์'; // เปลี่ยนชื่อให้ชัดเจนขึ้นว่าเป็น Filter ด้านบน
+
+  // ตัวแปรสถานะสำหรับ Bottom Navigation Bar
+  int _selectedIndex = 0; // index ของปุ่มที่ถูกเลือกใน Bottom Navigation Bar
 
   // ตัวอย่างข้อมูล Post
-  // อัปเดต avatarImageUrl ให้เป็น URL ที่สามารถโหลดได้จริง หรือเป็น asset path ที่ถูกต้อง
   final List<Post> posts = [
     Post(
       id: '1',
@@ -90,7 +91,7 @@ class _FeedPageState extends State<FeedPage> {
       timeAgo: '1 นาที',
       category: 'อาหาร & เครื่องดื่ม',
       title: 'มาเด้อ เนื้อโคขุน สนใจกด "สั่งเลย"',
-      avatarImageUrl: 'assets/images/avatar1.jpg', // ตัวอย่าง URL รูปโปรไฟล์
+      avatarImageUrl: 'assets/images/avatar1.jpg', // ต้องแน่ใจว่ามีรูปนี้ใน assets
       imageUrl: 'https://img.wongnai.com/p/1600x0/2021/06/01/354e5af8ab1e40cf85cf3c10f4331677.jpg',
       province: 'สกลนคร',
       productCategory: 'อาหาร & เครื่องดื่ม',
@@ -101,7 +102,7 @@ class _FeedPageState extends State<FeedPage> {
       timeAgo: '15 นาที',
       category: 'เสื้อผ้า',
       title: 'เสื้อยืดคุณภาพดี ราคาถูก มีหลายสี',
-      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png', // ตัวอย่าง URL รูปโปรไฟล์
+      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
       imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400',
       province: 'สกลนคร',
       productCategory: 'เสื้อผ้า',
@@ -112,12 +113,43 @@ class _FeedPageState extends State<FeedPage> {
       timeAgo: '30 นาที',
       category: 'กีฬา & กิจกรรม',
       title: 'รองเท้าวิ่งรุ่นใหม่ล่าสุด ลด 20%',
-      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png', // ตัวอย่าง URL รูปโปรไฟล์
+      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
       imageUrl: 'https://images.unsplash.com/photo-1542291026-79eddc8727ae?w=400',
       province: 'กรุงเทพมหานคร',
       productCategory: 'กีฬา & กิจกรรม',
     ),
   ];
+
+  List<Widget> _pages = []; // List ของ Widget หน้าต่างๆ ที่จะแสดงผล
+
+  @override
+  void initState() {
+    super.initState();
+    // กำหนดลิสต์ของหน้าที่ต้องการให้ Bottom Navigation Bar สลับไป
+    _pages = [
+      _buildFeedContent(), // หน้าฟีดโพสต์ปัจจุบันของคุณ
+      const CartPage(), // ตัวอย่างหน้าตะกร้าสินค้า (ต้องสร้างไฟล์แยก)
+      const ProfilePage(), // ตัวอย่างหน้าโปรไฟล์ (ต้องสร้างไฟล์แยก)
+    ];
+
+    // เพิ่ม Listener ให้กับ searchController เพื่อเรียก setState เมื่อข้อความเปลี่ยน
+    searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    searchController.removeListener(_onSearchChanged);
+    searchController.dispose();
+    super.dispose();
+  }
+
+  // เมธอดสำหรับ Listener ของ TextField
+  void _onSearchChanged() {
+    setState(() {
+      // การเรียก setState ตรงนี้จะทำให้ _buildFeedContent ถูกสร้างใหม่
+      // และ filteredPosts จะถูกคำนวณใหม่โดยใช้ค่าล่าสุดจาก searchController.text
+    });
+  }
 
   List<Post> get filteredPosts {
     // กรองตามจังหวัดและหมวดหมู่ที่ถูกส่งเข้ามา
@@ -133,15 +165,148 @@ class _FeedPageState extends State<FeedPage> {
     } else {
       final query = searchController.text.toLowerCase();
       return filteredByProvinceAndCategory.where((post) {
+        // ค้นหาจากชื่อร้าน, ชื่อโพสต์, หรือหมวดหมู่
         return post.title.toLowerCase().contains(query) ||
-              post.shopName.toLowerCase().contains(query) ||
-              post.category.toLowerCase().contains(query);
+            post.shopName.toLowerCase().contains(query) ||
+            post.category.toLowerCase().contains(query);
       }).toList();
     }
   }
 
+  // สร้าง Widget สำหรับส่วนของ Feed Content แยกออกมา
+  Widget _buildFeedContent() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+              Expanded(
+                child: Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: TextField(
+                    controller: searchController,
+                    // ไม่ต้องมี onChanged ตรงนี้แล้ว เพราะเราใช้ addListener แทน
+                    decoration: InputDecoration(
+                      hintText: 'ค้นหา',
+                      hintStyle: TextStyle(color: Colors.grey[500]),
+                      prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Builder(
+                builder: (BuildContext innerContext) {
+                  return IconButton(
+                    icon: const Icon(Icons.menu, size: 24),
+                    onPressed: () {
+                      Scaffold.of(innerContext).openEndDrawer();
+                    },
+                  );
+                },
+              )
+            ],
+          ),
+        ),
+        // Filter Buttons
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          child: Row(
+            children: [
+              FilterButton(
+                text: 'ฟีดโพสต์',
+                isSelected: _selectedTopFilter == 'ฟีดโพสต์', // ใช้ _selectedTopFilter
+                onTap: () {
+                  setState(() {
+                    _selectedTopFilter = 'ฟีดโพสต์'; // อัปเดต _selectedTopFilter
+                    // อาจจะเพิ่ม logic การกรองตาม "ฟีดโพสต์" ตรงนี้ได้
+                    // เช่น ถ้า selectedFilter เป็น 'ฟีดโพสต์' ก็ให้แสดงเฉพาะโพสต์
+                    // ถ้าเป็น 'ร้านค้า' ก็อาจจะไปดึงข้อมูลร้านค้ามาแสดงแทน
+                    // ณ ตอนนี้ โค้ดกรองแค่โพสต์ ดังนั้นผลลัพธ์จะยังเหมือนเดิม
+                  });
+                },
+              ),
+              const SizedBox(width: 10),
+              FilterButton(
+                text: 'ร้านค้า',
+                isSelected: _selectedTopFilter == 'ร้านค้า', // ใช้ _selectedTopFilter
+                onTap: () {
+                  setState(() {
+                    _selectedTopFilter = 'ร้านค้า'; // อัปเดต _selectedTopFilter
+                    // อาจจะเพิ่ม logic การกรองตาม "ร้านค้า" ตรงนี้ได้
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: _selectedTopFilter == 'ฟีดโพสต์' // แสดงโพสต์เมื่อเลือก "ฟีดโพสต์"
+                ? (filteredPosts.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.shopping_bag_outlined, size: 50, color: Colors.grey),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'ไม่มีโพสต์ที่ตรงกับเงื่อนไข',
+                              style: TextStyle(fontSize: 18, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '${widget.selectedCategory} ใน ${widget.selectedProvince}',
+                              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(15),
+                        itemCount: filteredPosts.length,
+                        itemBuilder: (context, index) {
+                          final post = filteredPosts[index];
+                          return PostCard(post: post);
+                        },
+                      ))
+                : const Center( // แสดงหน้า "ร้านค้า" เมื่อเลือก "ร้านค้า"
+                    child: Text('นี่คือหน้าสำหรับแสดงร้านค้า', style: TextStyle(fontSize: 20, color: Colors.blueGrey)),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
+    // อัปเดต _pages ทุกครั้งที่ build เพื่อให้ _buildFeedContent ได้รับค่าล่าสุด
+    _pages = [
+      _buildFeedContent(), // หน้าฟีดโพสต์ปัจจุบันของคุณ
+      const CartPage(), // ตัวอย่างหน้าตะกร้าสินค้า (ต้องสร้างไฟล์แยก)
+      const ProfilePage(), // ตัวอย่างหน้าโปรไฟล์ (ต้องสร้างไฟล์แยก)
+    ];
+
     return Scaffold(
       backgroundColor: const Color(0xFFE8F4FD),
       endDrawer: const Drawer(
@@ -149,7 +314,7 @@ class _FeedPageState extends State<FeedPage> {
           children: [
             DrawerHeader(
               decoration: BoxDecoration(
-                color: Color(0xFF9C6ADE), 
+                color: Color(0xFF9C6ADE),
               ),
               child: Center(
                 child: Text(
@@ -187,120 +352,11 @@ class _FeedPageState extends State<FeedPage> {
           ],
         ),
       ),
+      // ใช้ IndexedStack เพื่อสลับหน้าตาม _selectedIndex
       body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: TextField(
-                        controller: searchController,
-                        onChanged: (value) {
-                          setState(() {
-                          });
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'ค้นหา',
-                          hintStyle: TextStyle(color: Colors.grey[500]),
-                          prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Builder(
-                    builder: (BuildContext innerContext) {
-                      return IconButton(
-                        icon: const Icon(Icons.menu, size: 24),
-                        onPressed: () {
-                          Scaffold.of(innerContext).openEndDrawer(); 
-                        },
-                      );
-                    },
-                  )
-                ],
-              ),
-            ),
-            // Filter Buttons
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-              child: Row(
-                children: [
-                  FilterButton(
-                    text: 'ฟีดโพสต์',
-                    isSelected: selectedFilter == 'ฟีดโพสต์',
-                    onTap: () {
-                      setState(() {
-                        selectedFilter = 'ฟีดโพสต์';
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 10),
-                  FilterButton(
-                    text: 'ร้านค้า',
-                    isSelected: selectedFilter == 'ร้านค้า',
-                    onTap: () {
-                      setState(() {
-                        selectedFilter = 'ร้านค้า';
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: filteredPosts.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.shopping_bag_outlined, size: 50, color: Colors.grey),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'ไม่มีโพสต์ที่ตรงกับเงื่อนไข',
-                              style: TextStyle(fontSize: 18, color: Colors.grey),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              '${widget.selectedCategory} ใน ${widget.selectedProvince}',
-                              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(15),
-                        itemCount: filteredPosts.length,
-                        itemBuilder: (context, index) {
-                          final post = filteredPosts[index];
-                          return PostCard(post: post);
-                        },
-                      ),
-              ),
-            ),
-          ],
+        child: IndexedStack(
+          index: _selectedIndex, // ใช้ _selectedIndex เพื่อควบคุมว่าจะแสดง Widget ไหน
+          children: _pages, // List ของ Widget หน้าต่างๆ
         ),
       ),
       bottomNavigationBar: NavigationBar(
@@ -318,16 +374,15 @@ class _FeedPageState extends State<FeedPage> {
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: Color(0xFF9C6ADE)), // เพิ่ม selectedIcon
             label: 'โปรไฟล์',
           ),
         ],
-        selectedIndex: 0, // ตั้งค่าเริ่มต้นให้ตะกร้าถูกเลือก
+        selectedIndex: _selectedIndex, // ใช้ตัวแปรสถานะ
         onDestinationSelected: (int value) {
-          // สามารถเพิ่ม logic การนำทางไปยังหน้าต่างๆ ได้ที่นี่
-          // ตัวอย่างเช่น:
-          // if (value == 0) { Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage())); }
-          // else if (value == 1) { /* อยู่หน้านี้แล้ว */ }
-          // else if (value == 2) { Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage())); }
+          setState(() {
+            _selectedIndex = value; // อัปเดตค่า _selectedIndex เมื่อมีการเลือก
+          });
           print('Selected index: $value');
         },
       ),
@@ -345,7 +400,30 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return const Placeholder(child: Center(child: Text('หน้าแรก (Home Page)'))); // Placeholder สำหรับหน้าแรก
+  }
+}
+
+// **เพิ่ม Widget สำหรับหน้าตะกร้าและโปรไฟล์**
+class CartPage extends StatelessWidget {
+  const CartPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text('หน้าตะกร้าสินค้า (Cart Page)', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text('หน้าโปรไฟล์ (Profile Page)', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+    );
   }
 }
 
@@ -381,7 +459,10 @@ class PostCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 20,
                   // ใช้ post.avatarImageUrl สำหรับรูปโปรไฟล์
-                  backgroundImage: AssetImage(post.avatarImageUrl),
+                  // ตรวจสอบว่าเป็น asset หรือ network image
+                  backgroundImage: post.avatarImageUrl.startsWith('http')
+                      ? NetworkImage(post.avatarImageUrl)
+                      : AssetImage(post.avatarImageUrl) as ImageProvider,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
