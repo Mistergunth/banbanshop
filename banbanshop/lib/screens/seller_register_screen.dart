@@ -1,5 +1,6 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, avoid_print
 
+import 'package:banbanshop/screens/profile.dart';
 import 'package:banbanshop/screens/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -11,7 +12,8 @@ class SellerRegisterScreen extends StatefulWidget {
 }
 
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
-  final _formKey = GlobalKey<FormState>(); // Key for form validation
+  final _formKey = GlobalKey<FormState>();
+  SellerProfile profile = SellerProfile(fullName: '', phoneNumber: '', idCardNumber: '', province: '', password: ''); // Key for form validation
 
   // Text editing controllers for input fields
   final TextEditingController _fullNameController = TextEditingController();
@@ -389,6 +391,9 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
               child: TextFormField(
                 controller: _phoneNumberController,
                 keyboardType: TextInputType.phone,
+                onSaved: (String? phoneNumber) {
+                  profile.phoneNumber = phoneNumber ?? '';
+                },
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10.0),
@@ -484,6 +489,9 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          onSaved: (String? password) {
+            profile.password = password ?? '';
+          },
           obscureText: !isVisible,
           decoration: InputDecoration(
             border: OutlineInputBorder(
