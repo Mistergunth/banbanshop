@@ -194,7 +194,6 @@ class _FeedPageState extends State<FeedPage> {
                   ),
                   child: TextField(
                     controller: searchController,
-                    // ไม่ต้องมี onChanged ตรงนี้แล้ว เพราะเราใช้ addListener แทน
                     decoration: InputDecoration(
                       hintText: 'ค้นหา',
                       hintStyle: TextStyle(color: Colors.grey[500]),
@@ -226,25 +225,20 @@ class _FeedPageState extends State<FeedPage> {
             children: [
               FilterButton(
                 text: 'ฟีดโพสต์',
-                isSelected: _selectedTopFilter == 'ฟีดโพสต์', // ใช้ _selectedTopFilter
+                isSelected: _selectedTopFilter == 'ฟีดโพสต์', 
                 onTap: () {
                   setState(() {
-                    _selectedTopFilter = 'ฟีดโพสต์'; // อัปเดต _selectedTopFilter
-                    // อาจจะเพิ่ม logic การกรองตาม "ฟีดโพสต์" ตรงนี้ได้
-                    // เช่น ถ้า selectedFilter เป็น 'ฟีดโพสต์' ก็ให้แสดงเฉพาะโพสต์
-                    // ถ้าเป็น 'ร้านค้า' ก็อาจจะไปดึงข้อมูลร้านค้ามาแสดงแทน
-                    // ณ ตอนนี้ โค้ดกรองแค่โพสต์ ดังนั้นผลลัพธ์จะยังเหมือนเดิม
+                    _selectedTopFilter = 'ฟีดโพสต์'; 
                   });
                 },
               ),
               const SizedBox(width: 10),
               FilterButton(
                 text: 'ร้านค้า',
-                isSelected: _selectedTopFilter == 'ร้านค้า', // ใช้ _selectedTopFilter
+                isSelected: _selectedTopFilter == 'ร้านค้า', 
                 onTap: () {
                   setState(() {
-                    _selectedTopFilter = 'ร้านค้า'; // อัปเดต _selectedTopFilter
-                    // อาจจะเพิ่ม logic การกรองตาม "ร้านค้า" ตรงนี้ได้
+                    _selectedTopFilter = 'ร้านค้า';
                   });
                 },
               ),
