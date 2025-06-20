@@ -1,4 +1,4 @@
-import 'package:banbanshop/screens/seller_register_screen.dart';
+import 'package:banbanshop/screens/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 import 'screens/province_selection.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -97,7 +97,7 @@ class HomePage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => SellerRegisterScreen(),
+                        builder: (context) => SellerLoginScreen(),
                       ),
                     );
                   },

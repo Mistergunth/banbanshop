@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
 
-import 'package:banbanshop/screens/profile.dart';
+import 'package:banbanshop/screens/profile.dart'; // ตรวจสอบให้แน่ใจว่า import ถูกต้อง
 import 'package:banbanshop/screens/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -13,8 +13,17 @@ class SellerRegisterScreen extends StatefulWidget {
 
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  // ตรวจสอบให้แน่ใจว่า SellerProfile มี constructor ที่รับค่าว่างได้
-  SellerProfile profile = SellerProfile(fullName: '', phoneNumber: '', idCardNumber: '', province: '', password: ''); 
+  
+  // สร้าง SellerProfile object เริ่มต้นด้วยค่าว่าง
+  // เพิ่ม email เข้าไปใน constructor
+  SellerProfile profile = SellerProfile(
+    fullName: '',
+    phoneNumber: '',
+    idCardNumber: '',
+    province: '',
+    password: '',
+    email: '', // เพิ่ม field email
+  );
 
   // Text editing controllers for input fields
   final TextEditingController _fullNameController = TextEditingController();
@@ -22,6 +31,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final TextEditingController _idCardNumberController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController(); // เพิ่ม controller สำหรับ email
 
   String? _selectedProvince; // For dropdown
   bool _isPasswordVisible = false;
@@ -51,6 +61,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     _idCardNumberController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _emailController.dispose(); // ต้อง dispose controller email ด้วย
     super.dispose();
   }
 
@@ -66,19 +77,19 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
 
       // ตอนนี้ข้อมูลจากฟอร์มจะถูกเก็บไว้ใน object 'profile' แล้ว
       print('Full Name: ${profile.fullName}');
+      print('Email: ${profile.email}'); // แสดง email
       print('Phone Number: ${profile.phoneNumber}');
       print('Selected Province: ${profile.province}');
       print('Password: ${profile.password}');
       print('ID Card Number: ${profile.idCardNumber}');
 
-      // **นี่คือจุดที่คุณจะส่งข้อมูล 'profile' object ไปยัง Backend (Firebase, API อื่นๆ)**
-      // ตัวอย่าง: _sendProfileToFirebase(profile);
-
-      // Simulate a network request for registration
+      // นำข้อมูล 'profile' object ไปยัง Backend (Firebase, API อื่นๆ) ที่นี่
+      // ตัวอย่าง: การจำลองการส่งข้อมูลและรอการตอบกลับจาก Backend
       Future.delayed(const Duration(seconds: 2), () {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')),
         );
+        _formKey.currentState!.reset(); // รีเซ็ตฟอร์มหลังจากสมัครสมาชิกสำเร็จ
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
@@ -131,28 +142,41 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'ชื่อ - นามสกุล',
-                  style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
+                _buildInputField(
+                  label: 'ชื่อ - นามสกุล',
                   controller: _fullNameController,
-                  onSaved: (String? fullname) { // fullName ถูกเก็บแล้ว
+                  onSaved: (String? fullname) {
                     profile.fullName = fullname ?? '';
                   },
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'กรุณากรอกชื่อ - นามสกุล';
+                    }
+                    if (!RegExp(r'^[a-zA-Z\u0E00-\u0E7F\s]+$').hasMatch(value)) {
+                      return 'กรุณากรอกชื่อ - นามสกุลให้ถูกต้อง (ตัวอักษรและเว้นวรรคเท่านั้น)';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 15),
+                // เพิ่มช่องกรอก Email
+                _buildInputField(
+                  label: 'อีเมล',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  onSaved: (String? email) {
+                    profile.email = email ?? '';
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'กรุณากรอกอีเมล';
+                    }
+                    // Regular expression สำหรับตรวจสอบรูปแบบอีเมล
+                    final bool isValidEmail = RegExp(
+                      r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$',
+                    ).hasMatch(value);
+                    if (!isValidEmail) {
+                      return 'กรุณากรอกอีเมลให้ถูกต้อง';
                     }
                     return null;
                   },
@@ -166,7 +190,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   label: 'รหัสผ่าน', 
                   controller: _passwordController,
                   isVisible: _isPasswordVisible,
-                  onSaved: (String? password) { // **เพิ่ม onSaved ที่นี่**
+                  onSaved: (String? password) {
                     profile.password = password ?? '';
                   },
                   onToggleVisibility: () {
@@ -209,7 +233,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   label: 'บัตรประชาชน', 
                   controller: _idCardNumberController,
                   keyboardType: TextInputType.number,
-                  onSaved: (String? idCardNumber) { // **เพิ่ม onSaved ที่นี่**
+                  onSaved: (String? idCardNumber) {
                     profile.idCardNumber = idCardNumber ?? '';
                   },
                   validator: (value) {
@@ -218,6 +242,9 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                     }
                     if (value.length != 13) {
                       return 'เลขบัตรประชาชนต้องมี 13 หลัก';
+                    }
+                    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                      return 'กรุณากรอกเฉพาะตัวเลข';
                     }
                     return null;
                   },
@@ -283,7 +310,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
-    void Function(String?)? onSaved, // **เพิ่ม onSaved property**
+    void Function(String?)? onSaved,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +337,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
           validator: validator,
-          onSaved: onSaved, // **ส่ง onSaved ที่ได้รับมาให้ TextFormField**
+          onSaved: onSaved,
         ),
       ],
     );
@@ -356,7 +383,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
               child: TextFormField(
                 controller: _phoneNumberController,
                 keyboardType: TextInputType.phone,
-                onSaved: (String? phoneNumber) { // **เพิ่ม onSaved ที่นี่**
+                onSaved: (String? phoneNumber) {
                   profile.phoneNumber = phoneNumber ?? '';
                 },
                 decoration: InputDecoration(
@@ -372,8 +399,11 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   if (value == null || value.isEmpty) {
                     return 'กรุณากรอกเบอร์โทรศัพท์';
                   }
-                  if (value.length < 9 || value.length > 10) { // Example for Thai phone numbers (excluding +66)
-                    return 'เบอร์โทรศัพท์ไม่ถูกต้อง';
+                  if (value.length != 10) {
+                    return 'เบอร์โทรศัพท์ต้องมี 10 หลัก';
+                  }
+                  if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                    return 'กรุณากรอกเฉพาะตัวเลข';
                   }
                   return null;
                 },
@@ -390,7 +420,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'จังหวัดที่ตั้งร้าน', 
+          'จังหวัดที่ตั้งร้าน',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -409,7 +439,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
             fillColor: Colors.grey[200],
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-          hint: const Text('เลือกจังหวัด'), 
+          hint: const Text('เลือกจังหวัด'),
           icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
           items: _provinces.map((String province) {
             return DropdownMenuItem<String>(
@@ -422,7 +452,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
               _selectedProvince = newValue;
             });
           },
-          onSaved: (String? value) { // **เพิ่ม onSaved ที่นี่**
+          onSaved: (String? value) {
             profile.province = value ?? '';
           },
           validator: (value) {
@@ -442,7 +472,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     required bool isVisible,
     required VoidCallback onToggleVisibility,
     String? Function(String?)? validator,
-    void Function(String?)? onSaved, // **เพิ่ม onSaved property**
+    void Function(String?)? onSaved,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,7 +506,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
             ),
           ),
           validator: validator,
-          onSaved: onSaved, // **ส่ง onSaved ที่ได้รับมาให้ TextFormField**
+          onSaved: onSaved,
         ),
       ],
     );

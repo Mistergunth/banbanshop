@@ -1,16 +1,18 @@
-// ignore_for_file: deprecated_member_use
-
+import 'package:banbanshop/screens/profile.dart';
 import 'package:banbanshop/screens/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 
 class SellerAccountScreen extends StatelessWidget {
-  const SellerAccountScreen({super.key});
+  final SellerProfile? sellerProfile;
+  const SellerAccountScreen({super.key, this.sellerProfile}); 
+
+  
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('บัญชีผู้ขาย', style: TextStyle(color: Colors.black)),
+        title: const Text('บัญชีผู้ขาย', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: const Color(0xFFE8F0F7), // Light blue background for app bar
         elevation: 0,
@@ -38,7 +40,7 @@ class SellerAccountScreen extends StatelessWidget {
                 children: [
                   const CircleAvatar(
                     radius: 50,
-                    backgroundImage: AssetImage('assets/profile_placeholder.png'), // Replace with your image asset
+                    backgroundImage: AssetImage('assets/images/gunth.jpg'), // Replace with your image asset
                     // Or use NetworkImage if loading from URL:
                     // backgroundImage: NetworkImage('https://via.placeholder.com/150'),
                   ),
@@ -201,6 +203,7 @@ class SellerAccountScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
+              // ignore: deprecated_member_use
               color: Colors.grey.withOpacity(0.1),
               spreadRadius: 1,
               blurRadius: 3,

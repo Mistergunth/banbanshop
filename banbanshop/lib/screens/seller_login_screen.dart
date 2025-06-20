@@ -1,6 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:banbanshop/screens/seller_register_screen.dart'; // Import register screen
 import 'package:banbanshop/screens/seller_account_screen.dart'; // Import seller account screen
+import 'package:banbanshop/screens/profile.dart'; // Import profile class
 
 class SellerLoginScreen extends StatefulWidget {
   const SellerLoginScreen({super.key});
@@ -11,7 +14,7 @@ class SellerLoginScreen extends StatefulWidget {
 
 class _SellerLoginScreenState extends State<SellerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _usernameController = TextEditingController(); // หรือ _phoneNumberController
+  final TextEditingController _usernameController = TextEditingController(); // For email or phone number
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
 
@@ -22,29 +25,63 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     super.dispose();
   }
 
-  void _loginSeller() {
+  void _loginSeller() async {
     if (_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กำลังเข้าสู่ระบบ...')),
       );
 
-      // --- ตัวอย่างการตรวจสอบข้อมูลแบบง่ายๆ (ไม่ใช่การยืนยันตัวตนจริง) ---
-      // ในแอปจริง คุณจะต้องส่งข้อมูลไปยัง API เพื่อยืนยันตัวตน
-      if (_usernameController.text == 'testuser' && _passwordController.text == 'password') {
+      final String username = _usernameController.text.trim();
+      final String password = _passwordController.text;
+
+      // Simulate a network request for login
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Check if the widget is still mounted before using context
+      if (!mounted) return; 
+
+      bool loginSuccess = false;
+      SellerProfile? loggedInProfile;
+
+      // Mock login logic based on username (email or phone)
+      if (username == 'seller@example.com' && password == 'password123') {
+        loginSuccess = true;
+        loggedInProfile = SellerProfile(
+          fullName: 'ผู้ขายตัวอย่าง อีเมล',
+          phoneNumber: '0812345678',
+          idCardNumber: '1234567890123',
+          province: 'กรุงเทพมหานคร',
+          password: password, // In a real app, password should not be stored or passed like this
+          email: username,
+        );
+      } else if (username == '0812345678' && password == 'password123') {
+        loginSuccess = true;
+        loggedInProfile = SellerProfile(
+          fullName: 'ผู้ขายตัวอย่าง เบอร์โทร',
+          phoneNumber: username,
+          idCardNumber: '9876543210987',
+          province: 'เชียงใหม่',
+          password: password, // In a real app, password should not be stored or passed like this
+          email: 'another_seller@example.com', 
+        );
+      } else {
+        loginSuccess = false;
+      }
+
+      if (loginSuccess && loggedInProfile != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
         );
         // Navigate to SellerAccountScreen after successful login
-        Navigator.pushReplacement( // Use pushReplacement to prevent going back to login screen
+        Navigator.pushReplacement( 
           context,
-          MaterialPageRoute(builder: (context) => const SellerAccountScreen()),
+          MaterialPageRoute(builder: (context) => SellerAccountScreen(sellerProfile: loggedInProfile)),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')),
         );
       }
-      // --------------------------------------------------------------
     }
   }
 
@@ -72,8 +109,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
             borderRadius: BorderRadius.circular(15.0),
             boxShadow: [
               BoxShadow(
-                // ignore: deprecated_member_use
-                color: Colors.grey.withOpacity(0.2),
+                color: Colors.grey.withOpacity(0.2), // Corrected deprecated use
                 spreadRadius: 2,
                 blurRadius: 5,
                 offset: const Offset(0, 3),
@@ -94,11 +130,23 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                 ),
                 const SizedBox(height: 20),
                 _buildInputField(
-                  label: 'ชื่อผู้ใช้ / เบอร์โทรศัพท์',
+                  label: 'อีเมล / เบอร์โทรศัพท์', // Updated label
                   controller: _usernameController,
+                  keyboardType: TextInputType.emailAddress, // Default keyboard type for convenience
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'กรุณากรอกชื่อผู้ใช้หรือเบอร์โทรศัพท์';
+                      return 'กรุณากรอกอีเมลหรือเบอร์โทรศัพท์';
+                    }
+                    // Validate if it's an email
+                    final bool isEmail = RegExp(
+                      r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$',
+                    ).hasMatch(value);
+
+                    // Validate if it's a 10-digit Thai phone number
+                    final bool isPhoneNumber = RegExp(r'^[0-9]{10}$').hasMatch(value);
+
+                    if (!isEmail && !isPhoneNumber) {
+                      return 'กรุณากรอกอีเมลหรือเบอร์โทรศัพท์ให้ถูกรูปแบบ';
                     }
                     return null;
                   },
