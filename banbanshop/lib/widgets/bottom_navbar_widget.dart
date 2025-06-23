@@ -1,41 +1,46 @@
 import 'package:flutter/material.dart';
 
-class BottomNavbarWidget extends StatefulWidget {
-  const BottomNavbarWidget({super.key});
+// เปลี่ยน BottomNavbarWidget ให้เป็น StatelessWidget
+// เพื่อให้ Widget ภายนอก (Parent) เป็นผู้ควบคุม selectedIndex และการเปลี่ยนหน้า
+class BottomNavbarWidget extends StatelessWidget {
+  // selectedIndex คือ Index ของแท็บที่ถูกเลือกในปัจจุบัน
+  final int selectedIndex; 
+  // onItemSelected คือ Callback ที่จะถูกเรียกเมื่อผู้ใช้เลือกแท็บ
+  final ValueChanged<int> onItemSelected; 
 
-  @override
-  State<BottomNavbarWidget> createState() => _BottomNavbarWidgetState();
-}
+  const BottomNavbarWidget({
+    super.key,
+    required this.selectedIndex,
+    required this.onItemSelected,
+  });
 
-class _BottomNavbarWidgetState extends State<BottomNavbarWidget> {
-  int selectedIndex = 0; // สร้างตัวแปรสถานะเพื่อเก็บค่า index ของ destination ที่ถูกเลือก
   @override
   Widget build(BuildContext context) {
     return NavigationBar(
         backgroundColor: Colors.white,
+        // กำหนด Destination (แท็บ) สำหรับ Navigation Bar
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home, color: Color(0xFF9C6ADE)),
-            label: 'หน้าแรก',
+            icon: Icon(Icons.home_outlined), // Icon เมื่อไม่ได้เลือก
+            selectedIcon: Icon(Icons.home, color: Color(0xFF9C6ADE)), // Icon เมื่อเลือก
+            label: 'หน้าแรก', // ข้อความกำกับแท็บ
           ),
           NavigationDestination(
             icon: Icon(Icons.shopping_bag_outlined),
             selectedIcon: Icon(Icons.shopping_bag, color: Color(0xFF9C6ADE)),
-            label: 'ตะกร้า',
+            label: 'ออเดอร์', // สำหรับผู้ขาย, แท็บนี้อาจหมายถึง "ออเดอร์"
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: Color(0xFF9C6ADE)), // เพิ่ม selectedIcon
+            icon: Icon(Icons.person_outlined),
+            selectedIcon: Icon(Icons.person, color: Color(0xFF9C6ADE)),
             label: 'โปรไฟล์',
           ),
         ],
-        selectedIndex: selectedIndex, // ใช้ตัวแปรสถานะ
+        // selectedIndex ที่ถูกส่งมาจาก Parent Widget
+        selectedIndex: selectedIndex, 
+        // Callback ที่จะส่งค่า index ของแท็บที่เลือกกลับไปให้ Parent Widget
         onDestinationSelected: (int value) {
-          setState(() {
-            selectedIndex = value; // อัปเดตค่า _selectedIndex เมื่อมีการเลือก
-          });
-          print('Selected index: $value');
+          onItemSelected(value); 
         },
       );
   }

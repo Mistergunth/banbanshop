@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:banbanshop/screens/auth/seller_register_screen.dart'; // Import register screen
-import 'package:banbanshop/screens/seller/seller_account_screen.dart'; // Import seller account screen
+import 'package:banbanshop/screens/feed_page.dart'; // Import FeedPage
 import 'package:banbanshop/screens/profile.dart'; // Import profile class
 
 class SellerLoginScreen extends StatefulWidget {
@@ -34,14 +34,12 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       final String username = _usernameController.text.trim();
       final String password = _passwordController.text;
 
-      // Simulate a network request for login
       await Future.delayed(const Duration(seconds: 2));
 
-      // Check if the widget is still mounted before using context
       if (!mounted) return; 
 
       bool loginSuccess = false;
-      SellerProfile? loggedInProfile;
+      SellerProfile? loggedInProfile; // ประกาศเป็นชนิดที่สามารถเป็น null ได้
 
       // Mock login logic based on username (email or phone)
       if (username == 'seller@example.com' && password == 'password123') {
@@ -51,7 +49,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           phoneNumber: '0812345678',
           idCardNumber: '1234567890123',
           province: 'กรุงเทพมหานคร',
-          password: password, // In a real app, password should not be stored or passed like this
+          password: password, 
           email: username,
         );
       } else if (username == '0812345678' && password == 'password123') {
@@ -60,22 +58,30 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           fullName: 'ผู้ขายตัวอย่าง เบอร์โทร',
           phoneNumber: username,
           idCardNumber: '9876543210987',
-          province: 'เชียงใหม่',
-          password: password, // In a real app, password should not be stored or passed like this
+          province: 'สกลนคร', // ตั้งให้เป็นสกลนครสำหรับผู้ขายจำลองนี้
+          password: password,
           email: 'another_seller@example.com', 
         );
       } else {
         loginSuccess = false;
       }
 
+      // ตรวจสอบว่า loginSuccess เป็นจริง และ loggedInProfile ไม่เป็น null ก่อนนำทาง
       if (loginSuccess && loggedInProfile != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
         );
-        // Navigate to SellerAccountScreen after successful login
+        // นำทางไปยัง FeedPage โดยตรง
         Navigator.pushReplacement( 
           context,
-          MaterialPageRoute(builder: (context) => SellerAccountScreen(sellerProfile: loggedInProfile)),
+          MaterialPageRoute(
+            builder: (context) => FeedPage(
+              // ใช้ loggedInProfile!.province เพื่อยืนยันว่ามันจะไม่เป็น null
+              selectedProvince: loggedInProfile!.province, 
+              selectedCategory: 'ทั้งหมด', 
+              sellerProfile: loggedInProfile, 
+            ),
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -109,7 +115,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
             borderRadius: BorderRadius.circular(15.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.2), // Corrected deprecated use
+                color: Colors.grey.withOpacity(0.2), 
                 spreadRadius: 2,
                 blurRadius: 5,
                 offset: const Offset(0, 3),
@@ -130,19 +136,17 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                 ),
                 const SizedBox(height: 20),
                 _buildInputField(
-                  label: 'อีเมล / เบอร์โทรศัพท์', // Updated label
+                  label: 'อีเมล / เบอร์โทรศัพท์', 
                   controller: _usernameController,
-                  keyboardType: TextInputType.emailAddress, // Default keyboard type for convenience
+                  keyboardType: TextInputType.emailAddress, 
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'กรุณากรอกอีเมลหรือเบอร์โทรศัพท์';
                     }
-                    // Validate if it's an email
                     final bool isEmail = RegExp(
                       r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$',
                     ).hasMatch(value);
 
-                    // Validate if it's a 10-digit Thai phone number
                     final bool isPhoneNumber = RegExp(r'^[0-9]{10}$').hasMatch(value);
 
                     if (!isEmail && !isPhoneNumber) {
@@ -227,7 +231,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
   Widget _buildInputField({
     required String label,
     required TextEditingController controller,
-    TextInputType keyboardType = TextInputType.text,
+    TextInputType keyboardType = TextInputType.text, 
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -244,7 +248,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
-          keyboardType: keyboardType,
+          keyboardType: keyboardType, 
           decoration: InputDecoration(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.0),

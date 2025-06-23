@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
 
 import 'package:banbanshop/screens/profile.dart'; // ตรวจสอบให้แน่ใจว่า import ถูกต้อง
-import 'package:banbanshop/screens/auth/seller_login_screen.dart';
+import 'package:banbanshop/screens/auth/seller_login_screen.dart'; // ใช้ auth/seller_login_screen.dart
 import 'package:flutter/material.dart';
 
 class SellerRegisterScreen extends StatefulWidget {
@@ -14,30 +14,26 @@ class SellerRegisterScreen extends StatefulWidget {
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   
-  // สร้าง SellerProfile object เริ่มต้นด้วยค่าว่าง
-  // เพิ่ม email เข้าไปใน constructor
   SellerProfile profile = SellerProfile(
     fullName: '',
     phoneNumber: '',
     idCardNumber: '',
     province: '',
     password: '',
-    email: '', // เพิ่ม field email
+    email: '',
   );
 
-  // Text editing controllers for input fields
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _phoneNumberController = TextEditingController();
   final TextEditingController _idCardNumberController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController(); // เพิ่ม controller สำหรับ email
+  final TextEditingController _emailController = TextEditingController();
 
   String? _selectedProvince; // For dropdown
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
 
-  // List of provinces for the dropdown (example)
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
     'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร',
@@ -49,9 +45,21 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน', 'ยะลา', 'ยโสธร', 'ร้อยเอ็ด',
     'ระนอง', 'ระยอง', 'ราชบุรี', 'ลพบุรี', 'ลำปาง', 'ลำพูน', 'เลย',
     'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ', 'สมุทรสงคราม',
-    'สมุทรสาคร', 'สระแก้ว', 'สระบุรี', 'สิงห์บุรี', 'สุโขทัย', 'สุพรรณบุรี',
-    'สุราษฎร์ธานี', 'สุรินทร์', 'หนองคาย', 'หนองบัวลำภู', 'อ่างทอง', 'อุดรธานี',
-    'อุทัยธานี', 'อุตรดิตถ์', 'อุบลราชธานี', 'อำนาจเจริญ',
+    'สมุทรสาคร', 'สระแก้ว',
+    'สระบุรี',
+    'สิงห์บุรี',
+    'สุโขทัย',
+    'สุพรรณบุรี',
+    'สุราษฎร์ธานี',
+    'สุรินทร์',
+    'หนองคาย',
+    'หนองบัวลำภู',
+    'อ่างทอง',
+    'อุดรธานี',
+    'อุทัยธานี',
+    'อุตรดิตถ์',
+    'อุบลราชธานี',
+    'อำนาจเจริญ',
   ];
 
   @override
@@ -61,35 +69,30 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     _idCardNumberController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _emailController.dispose(); // ต้อง dispose controller email ด้วย
+    _emailController.dispose();
     super.dispose();
   }
 
   void _registerSeller() {
-    // 1. ตรวจสอบความถูกต้องของฟอร์ม
     if (_formKey.currentState!.validate()) {
-      // 2. ถ้าผ่าน validation ให้เรียก onSaved ของทุก TextFormField/DropdownButtonFormField
       _formKey.currentState!.save(); 
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กำลังดำเนินการสมัครสมาชิก...')),
       );
 
-      // ตอนนี้ข้อมูลจากฟอร์มจะถูกเก็บไว้ใน object 'profile' แล้ว
       print('Full Name: ${profile.fullName}');
-      print('Email: ${profile.email}'); // แสดง email
+      print('Email: ${profile.email}');
       print('Phone Number: ${profile.phoneNumber}');
       print('Selected Province: ${profile.province}');
       print('Password: ${profile.password}');
       print('ID Card Number: ${profile.idCardNumber}');
 
-      // นำข้อมูล 'profile' object ไปยัง Backend (Firebase, API อื่นๆ) ที่นี่
-      // ตัวอย่าง: การจำลองการส่งข้อมูลและรอการตอบกลับจาก Backend
       Future.delayed(const Duration(seconds: 2), () {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')),
         );
-        _formKey.currentState!.reset(); // รีเซ็ตฟอร์มหลังจากสมัครสมาชิกสำเร็จ
+        _formKey.currentState!.reset(); 
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
@@ -159,7 +162,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 15),
-                // เพิ่มช่องกรอก Email
                 _buildInputField(
                   label: 'อีเมล',
                   controller: _emailController,
@@ -171,7 +173,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                     if (value == null || value.isEmpty) {
                       return 'กรุณากรอกอีเมล';
                     }
-                    // Regular expression สำหรับตรวจสอบรูปแบบอีเมล
                     final bool isValidEmail = RegExp(
                       r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$',
                     ).hasMatch(value);
@@ -184,7 +185,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                 const SizedBox(height: 15),
                 _buildPhoneNumberField(), 
                 const SizedBox(height: 15),
-                _buildProvinceDropdown(), 
+                _buildProvinceDropdown(), // เพิ่ม Dropdown จังหวัดที่นี่
                 const SizedBox(height: 15),
                 _buildPasswordField(
                   label: 'รหัสผ่าน', 
@@ -229,7 +230,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 15),
-                _buildInputField( // This is the ID Card Number field
+                _buildInputField(
                   label: 'บัตรประชาชน', 
                   controller: _idCardNumberController,
                   keyboardType: TextInputType.number,
@@ -415,6 +416,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     );
   }
 
+  // สร้าง Dropdown สำหรับเลือกจังหวัด
   Widget _buildProvinceDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,7 +455,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
             });
           },
           onSaved: (String? value) {
-            profile.province = value ?? '';
+            profile.province = value ?? ''; // บันทึกจังหวัดลงใน profile
           },
           validator: (value) {
             if (value == null || value.isEmpty) {

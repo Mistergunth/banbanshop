@@ -1,5 +1,7 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
-import 'feed_page.dart';
+import 'package:banbanshop/screens/feed_page.dart'; // import path ใหม่
 
 class CategorySelectionPage extends StatefulWidget {
   final String? selectedProvince;
@@ -55,15 +57,15 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFE8F4FD),
+      backgroundColor: const Color(0xFFE8F4FD),
       appBar: AppBar(
-        backgroundColor: Color(0xFFE8F4FD),
+        backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
+        title: const Text(
           'บ้านบ้านช้อป',
           style: TextStyle(
             color: Colors.black87,
@@ -78,8 +80,8 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 10),
-            Text(
+            const SizedBox(height: 10),
+            const Text(
               'โปรดเลือก',
               style: TextStyle(
                 fontSize: 22,
@@ -87,7 +89,7 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                 color: Colors.black87,
               ),
             ),
-            Text(
+            const Text(
               'หมวดหมู่ที่ท่านสนใจ',
               style: TextStyle(
                 fontSize: 22,
@@ -95,7 +97,7 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                 color: Colors.black87,
               ),
             ),
-            SizedBox(height: 25),
+            const SizedBox(height: 25),
             // ช่องค้นหา
             Container(
               decoration: BoxDecoration(
@@ -103,10 +105,9 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                 borderRadius: BorderRadius.circular(25),
                 boxShadow: [
                   BoxShadow(
-                    // ignore: deprecated_member_use
                     color: Colors.grey.withOpacity(0.1),
                     blurRadius: 5,
-                    offset: Offset(0, 2),
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -123,7 +124,7 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                     color: Colors.grey[500],
                   ),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 15,
                   ),
@@ -131,11 +132,11 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                 onChanged: filterCategories,
               ),
             ),
-            SizedBox(height: 30),
+            const SizedBox(height: 30),
             // หมวดหมู่สินค้า
             Expanded(
               child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 15,
                   mainAxisSpacing: 15,
@@ -146,13 +147,13 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                   final category = filteredCategories[index];
                   return GestureDetector(
                     onTap: () {
-                      // เมื่อเลือกหมวดหมู่
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => FeedPage(
                           selectedCategory: category.title,
                           selectedProvince: widget.selectedProvince ?? '',
+                          sellerProfile: null, // ผู้ซื้อจะส่งค่า null สำหรับ sellerProfile
                           ),
                         ),
                       );
@@ -163,10 +164,9 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                         borderRadius: BorderRadius.circular(15),
                         boxShadow: [
                           BoxShadow(
-                            // ignore: deprecated_member_use
                             color: Colors.grey.withOpacity(0.1),
                             blurRadius: 8,
-                            offset: Offset(0, 4),
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -176,12 +176,12 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                           Icon(
                             category.icon,
                             size: 40,
-                            color: Color(0xFF9C6ADE),
+                            color: const Color(0xFF9C6ADE),
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           Text(
                             category.title,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                               color: Colors.black87,

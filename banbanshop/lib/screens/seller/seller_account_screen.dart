@@ -1,135 +1,121 @@
 import 'package:banbanshop/screens/profile.dart';
-import 'package:banbanshop/screens/auth/seller_login_screen.dart';
+import 'package:banbanshop/screens/auth/seller_login_screen.dart'; // ยังคง import ไว้สำหรับปุ่ม Logout
 import 'package:flutter/material.dart';
-import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
+
 
 class SellerAccountScreen extends StatelessWidget {
-  final SellerProfile? sellerProfile;
+  final SellerProfile? sellerProfile; 
   const SellerAccountScreen({super.key, this.sellerProfile}); 
-
-  
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('บัญชีผู้ขาย', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        backgroundColor: const Color(0xFFE8F0F7), // Light blue background for app bar
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8F0F7), // Light blue background
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(25),
-                  bottomRight: Radius.circular(25),
+    // หน้านี้จะไม่มี Scaffold หรือ AppBar ของตัวเองแล้ว
+    // เพราะจะถูกฝังใน FeedPage ซึ่งเป็น Navigation Shell
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F0F7), 
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(25),
+                bottomRight: Radius.circular(25),
+              ),
+            ),
+            child: Column(
+              children: [
+                const CircleAvatar(
+                  radius: 50,
+                  backgroundImage: AssetImage('assets/images/gunth.jpg'), 
                 ),
-              ),
-              child: Column(
-                children: [
-                  const CircleAvatar(
-                    radius: 50,
-                    backgroundImage: AssetImage('assets/images/gunth.jpg'), // Replace with your image asset
-                    // Or use NetworkImage if loading from URL:
-                    // backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+                const SizedBox(height: 10),
+                Text(
+                  sellerProfile?.fullName ?? 'ชื่อ - นามสกุล', 
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'กันตพงศ์ ศรีลิว', // Replace with actual user name
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                ),
+                Text(
+                  sellerProfile?.phoneNumber ?? '099 999 9999', 
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[700],
                   ),
-                  Text(
-                    '099 999 9999', // Replace with actual phone number
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[700],
-                    ),
+                ),
+                 Text(
+                  sellerProfile?.email ?? 'email@example.com', 
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[700],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                children: [
-                  _buildActionButton(
-                    context,
-                    text: 'สร้างร้านค้า',
-                    color: const Color(0xFFE2CCFB), // Purple from image
-                    onTap: () {
-                      // Handle "สร้างร้านค้า" action
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('ไปยังหน้าสร้างร้านค้า')),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  _buildActionButton(
-                    context,
-                    text: 'เปิด/ปิดร้าน',
-                    color: const Color(0xFFD6F6E0), // Light green from image
-                    onTap: () {
-                      // Handle "เปิด/ปิดร้าน" action
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('เปิด/ปิดร้านค้า')),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  _buildActionButton(
-                    context,
-                    text: 'ดูออเดอร์',
-                    color: const Color(0xFFE2CCFB),
-                    onTap: () {
-                      // Handle "ดูออเดอร์" action
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('ดูรายการออเดอร์')),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  _buildActionButton(
-                    context,
-                    text: 'จัดการสินค้า',
-                    color: const Color(0xFFE2CCFB),
-                    onTap: () {
-                      // Handle "จัดการสินค้า" action
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('จัดการสินค้า')),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 30),
-                  _buildLogoutButton(context),
-                ],
-              ),
+          ),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              children: [
+                _buildActionButton(
+                  text: 'สร้างร้านค้า', 
+                  color: const Color(0xFFE2CCFB), 
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('ไปยังหน้าสร้างร้านค้า')),
+                    );
+                    // TODO: Navigator.push(context, MaterialPageRoute(builder: (context) => const SellerCreateStoreScreen(sellerProfile: sellerProfile)));
+                  },
+                ),
+                const SizedBox(height: 15),
+                _buildActionButton(
+                  text: 'เปิด/ปิดร้าน', 
+                  color: const Color(0xFFD6F6E0), 
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('เปิด/ปิดร้านค้า')),
+                    );
+                    // TODO: Implement logic to toggle shop status (requires Firebase/Backend)
+                  },
+                ),
+                const SizedBox(height: 15),
+                _buildActionButton(
+                  text: 'ดูออเดอร์', 
+                  color: const Color(0xFFE2CCFB),
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('เปลี่ยนไปหน้าดูออเดอร์')),
+                    );
+                    // TODO: หากต้องการเปลี่ยนแท็บใน Bottom Navbar ของ FeedPage
+                    // ต้องส่ง callback กลับไปที่ FeedPage หรือใช้ State Management ที่สูงขึ้น
+                  },
+                ),
+                const SizedBox(height: 15),
+                _buildActionButton(
+                  text: 'จัดการสินค้า', 
+                  color: const Color(0xFFE2CCFB),
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('จัดการสินค้า')),
+                    );
+                    // TODO: Navigator.push(context, MaterialPageRoute(builder: (context) => const SellerProductManagementScreen()));
+                  },
+                ),
+                const SizedBox(height: 30),
+                _buildLogoutButton(context), // ต้องส่ง context กลับมา
+              ],
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavbarWidget( 
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildActionButton(BuildContext context, {
+  Widget _buildActionButton({
     required String text,
     required Color color,
     required VoidCallback onTap,
@@ -156,18 +142,16 @@ class SellerAccountScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context) {
+  Widget _buildLogoutButton(BuildContext context) { 
     return GestureDetector(
       onTap: () {
-        // Handle logout logic here
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ออกจากระบบ...')),
         );
-        // Example: Navigate back to login screen or home screen
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const SellerLoginScreen()), // หรือหน้าหลักของแอป
-          (route) => false, // Remove all previous routes
+          MaterialPageRoute(builder: (context) => const SellerLoginScreen()), 
+          (route) => false, 
         );
       },
       child: Container(
@@ -179,7 +163,7 @@ class SellerAccountScreen extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               // ignore: deprecated_member_use
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withOpacity(0.1), 
               spreadRadius: 1,
               blurRadius: 3,
               offset: const Offset(0, 2),

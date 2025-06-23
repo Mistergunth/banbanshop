@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'category_selection.dart';
+import 'package:banbanshop/screens/buyer/category_selection.dart'; // import path ใหม่
 
 class ProvinceSelectionPage extends StatefulWidget {
   const ProvinceSelectionPage({super.key});
@@ -60,7 +60,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
     'มุกดาหาร',
     'แม่ฮ่องสอน',
     'ยะลา',
-    'ยโซธร',
+    'ยโสธร',
     'ร้อยเอ็ด',
     'ระนอง',
     'ระยอง',
@@ -96,15 +96,15 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: Color(0xFFE8F4FD),
+        backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
+        title: const Text(
           'บ้านบ้านช้อป',
           style: TextStyle(
             color: Colors.black87,
@@ -119,8 +119,8 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 20),
-            Text(
+            const SizedBox(height: 20),
+            const Text(
               'เลือกจังหวัดของคุณ',
               style: TextStyle(
                 fontSize: 20,
@@ -128,7 +128,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                 color: Colors.black87,
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -144,7 +144,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                     fontSize: 16,
                   ),
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 16,
                   ),
@@ -158,7 +158,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                     value: province,
                     child: Text(
                       province,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 16,
                         color: Colors.black87,
                       ),
@@ -172,34 +172,33 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                 },
               ),
             ),
-            SizedBox(height: 30),
+            const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
                 onPressed: selectedProvince != null
                     ? () {
-                        // ส่งค่าจังหวัดที่เลือกกลับไปยังหน้าก่อนหน้า
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => CategorySelectionPage(
                               selectedProvince: selectedProvince!,
-                            )
                             ),
+                          ),
                         );
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF9C6ADE),
+                  backgroundColor: const Color(0xFF9C6ADE),
                   // ignore: deprecated_member_use
-                  disabledBackgroundColor: Color(0xFF9C6ADE).withOpacity(0.5),
+                  disabledBackgroundColor: const Color(0xFF9C6ADE).withOpacity(0.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),
-                child: Text(
+                child: const Text(
                   'ยืนยันจังหวัด',
                   style: TextStyle(
                     color: Colors.white,
