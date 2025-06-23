@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print
 
+import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
 import 'package:flutter/material.dart';
 
 class FeedPage extends StatefulWidget {
@@ -80,8 +81,6 @@ class _FeedPageState extends State<FeedPage> {
   // ตัวแปรสำหรับ Filter Button (ฟีดโพสต์/ร้านค้า)
   String _selectedTopFilter = 'ฟีดโพสต์'; // เปลี่ยนชื่อให้ชัดเจนขึ้นว่าเป็น Filter ด้านบน
 
-  // ตัวแปรสถานะสำหรับ Bottom Navigation Bar
-  int _selectedIndex = 0; // index ของปุ่มที่ถูกเลือกใน Bottom Navigation Bar
 
   // ตัวอย่างข้อมูล Post
   final List<Post> posts = [
@@ -348,38 +347,11 @@ class _FeedPageState extends State<FeedPage> {
       ),
       // ใช้ IndexedStack เพื่อสลับหน้าตาม _selectedIndex
       body: SafeArea(
-        child: IndexedStack(
-          index: _selectedIndex, // ใช้ _selectedIndex เพื่อควบคุมว่าจะแสดง Widget ไหน
+        child: IndexedStack(// ใช้ _selectedIndex เพื่อควบคุมว่าจะแสดง Widget ไหน
           children: _pages, // List ของ Widget หน้าต่างๆ
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: Colors.white,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home, color: Color(0xFF9C6ADE)),
-            label: 'หน้าแรก',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_bag_outlined),
-            selectedIcon: Icon(Icons.shopping_bag, color: Color(0xFF9C6ADE)),
-            label: 'ตะกร้า',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: Color(0xFF9C6ADE)), // เพิ่ม selectedIcon
-            label: 'โปรไฟล์',
-          ),
-        ],
-        selectedIndex: _selectedIndex, // ใช้ตัวแปรสถานะ
-        onDestinationSelected: (int value) {
-          setState(() {
-            _selectedIndex = value; // อัปเดตค่า _selectedIndex เมื่อมีการเลือก
-          });
-          print('Selected index: $value');
-        },
-      ),
+      bottomNavigationBar: BottomNavbarWidget(),
     );
   }
 }

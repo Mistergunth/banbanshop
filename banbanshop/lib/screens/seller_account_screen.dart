@@ -1,6 +1,7 @@
 import 'package:banbanshop/screens/profile.dart';
 import 'package:banbanshop/screens/seller_login_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
 
 class SellerAccountScreen extends StatelessWidget {
   final SellerProfile? sellerProfile;
@@ -123,34 +124,7 @@ class SellerAccountScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'หน้าหลัก',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_bag),
-            label: 'สินค้า',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'บัญชี',
-          ),
-        ],
-        currentIndex: 2, // Highlight the "บัญชี" icon
-        selectedItemColor: Color(0xFF9B7DD9), // Matching your theme color
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          // Handle navigation for bottom navigation bar
-          // For example:
-          // if (index == 0) {
-          //   Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
-          // } else if (index == 1) {
-          //   Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProductScreen()));
-          // }
-        },
-      ),
+      bottomNavigationBar: BottomNavbarWidget(),
     );
   }
 
