@@ -8,7 +8,7 @@ class BottomNavbarWidget extends StatefulWidget {
 }
 
 class _BottomNavbarWidgetState extends State<BottomNavbarWidget> {
-  int _selectedIndex = 0; // สร้างตัวแปรสถานะเพื่อเก็บค่า index ของ destination ที่ถูกเลือก
+  int selectedIndex = 0; // สร้างตัวแปรสถานะเพื่อเก็บค่า index ของ destination ที่ถูกเลือก
   @override
   Widget build(BuildContext context) {
     return NavigationBar(
@@ -30,10 +30,10 @@ class _BottomNavbarWidgetState extends State<BottomNavbarWidget> {
             label: 'โปรไฟล์',
           ),
         ],
-        selectedIndex: _selectedIndex, // ใช้ตัวแปรสถานะ
+        selectedIndex: selectedIndex, // ใช้ตัวแปรสถานะ
         onDestinationSelected: (int value) {
           setState(() {
-            _selectedIndex = value; // อัปเดตค่า _selectedIndex เมื่อมีการเลือก
+            selectedIndex = value; // อัปเดตค่า _selectedIndex เมื่อมีการเลือก
           });
           print('Selected index: $value');
         },
