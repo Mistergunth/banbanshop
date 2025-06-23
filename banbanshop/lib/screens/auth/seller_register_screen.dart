@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
 
 import 'package:banbanshop/screens/profile.dart'; // ตรวจสอบให้แน่ใจว่า import ถูกต้อง
-import 'package:banbanshop/screens/seller_login_screen.dart';
+import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 
 class SellerRegisterScreen extends StatefulWidget {

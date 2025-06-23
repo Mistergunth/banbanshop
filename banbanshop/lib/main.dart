@@ -1,6 +1,6 @@
-import 'package:banbanshop/screens/seller_login_screen.dart';
+import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:flutter/material.dart';
-import 'screens/province_selection.dart';
+import 'screens/buyer/province_selection.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 

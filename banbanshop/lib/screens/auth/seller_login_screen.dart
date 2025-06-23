@@ -1,8 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:banbanshop/screens/seller_register_screen.dart'; // Import register screen
-import 'package:banbanshop/screens/seller_account_screen.dart'; // Import seller account screen
+import 'package:banbanshop/screens/auth/seller_register_screen.dart'; // Import register screen
+import 'package:banbanshop/screens/seller/seller_account_screen.dart'; // Import seller account screen
 import 'package:banbanshop/screens/profile.dart'; // Import profile class
 
 class SellerLoginScreen extends StatefulWidget {

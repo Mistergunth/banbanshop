@@ -1,5 +1,5 @@
 import 'package:banbanshop/screens/profile.dart';
-import 'package:banbanshop/screens/seller_login_screen.dart';
+import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
 
@@ -124,7 +124,8 @@ class SellerAccountScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavbarWidget(),
+      bottomNavigationBar: BottomNavbarWidget( 
+      ),
     );
   }
 
