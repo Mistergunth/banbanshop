@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
 import 'package:banbanshop/screens/profile.dart'; // สำหรับ SellerProfile
 import 'package:banbanshop/screens/seller/seller_account_screen.dart';
-import 'package:banbanshop/screens/auth/seller_login_screen.dart'; // สำหรับหน้าโปรไฟล์ผู้ขาย
+import 'package:banbanshop/screens/auth/seller_login_screen.dart';
+import 'package:banbanshop/screens/seller/seller_orders_screen.dart'; 
+import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart'; // สำหรับหน้าตะกร้าสินค้าของผู้ซื้อ\
+import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; // สำหรับหน้าจัดการร้านค้าของผู้ขาย
 
 // TODO: สร้างไฟล์แยกสำหรับหน้า Cart ของผู้ซื้อใน screens/buyer/
 // import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart';    
@@ -214,29 +217,11 @@ class _FeedPageState extends State<FeedPage> {
   Widget _buildMiddlePage() {
     if (widget.sellerProfile != null) {
       // ถ้าเป็นผู้ขาย ให้แสดงหน้ารายการออเดอร์
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('รายการออเดอร์', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          centerTitle: true,
-          backgroundColor: const Color(0xFFE8F4FD),
-          elevation: 0,
-        ),
-        body: const Center(
-          child: Text('นี่คือหน้าสำหรับดูรายการออเดอร์ของผู้ขาย', style: TextStyle(fontSize: 20, color: Colors.blueGrey)),
-        ),
+      return SellerOrdersScreenContent(
       );
     } else {
       // ถ้าเป็นผู้ซื้อ ให้แสดงหน้าตะกร้าสินค้า
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('ตะกร้าสินค้า', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          centerTitle: true,
-          backgroundColor: const Color(0xFFE8F4FD),
-          elevation: 0,
-        ),
-        body: const Center(
-          child: Text('นี่คือหน้าตะกร้าสินค้า (สำหรับผู้ซื้อ)', style: TextStyle(fontSize: 20, color: Colors.blueGrey)),
-        ),
+      return BuyerCartScreenContent( // ส่ง controller ให้หน้าตะกร้า
       );
     }
   }
@@ -248,17 +233,8 @@ class _FeedPageState extends State<FeedPage> {
       return SellerAccountScreen(sellerProfile: widget.sellerProfile);
     } else {
       // ถ้าเป็นผู้ซื้อ ให้แสดงหน้าโปรไฟล์ผู้ซื้อ (Placeholder)
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('โปรไฟล์ผู้ซื้อ', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          centerTitle: true,
-          backgroundColor: const Color(0xFFE8F4FD),
-          elevation: 0,
-        ),
-        body: const Center(
-          child: Text('นี่คือหน้าโปรไฟล์ผู้ซื้อ', style: TextStyle(fontSize: 20, color: Colors.blueGrey)),
-        ),
-      );
+      return BuyerProfileScreenContent(
+);
     }
   }
 
