@@ -1,5 +1,5 @@
 import 'package:banbanshop/screens/profile.dart';
-import 'package:banbanshop/screens/auth/seller_login_screen.dart'; // ยังคง import ไว้สำหรับปุ่ม Logout
+import 'package:banbanshop/screens/auth/seller_login_screen.dart'; 
 import 'package:flutter/material.dart';
 
 
@@ -9,8 +9,6 @@ class SellerAccountScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // หน้านี้จะไม่มี Scaffold หรือ AppBar ของตัวเองแล้ว
-    // เพราะจะถูกฝังใน FeedPage ซึ่งเป็น Navigation Shell
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -68,7 +66,6 @@ class SellerAccountScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้าสร้างร้านค้า')),
                     );
-                    // TODO: Navigator.push(context, MaterialPageRoute(builder: (context) => const SellerCreateStoreScreen(sellerProfile: sellerProfile)));
                   },
                 ),
                 const SizedBox(height: 15),
@@ -79,7 +76,6 @@ class SellerAccountScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('เปิด/ปิดร้านค้า')),
                     );
-                    // TODO: Implement logic to toggle shop status (requires Firebase/Backend)
                   },
                 ),
                 const SizedBox(height: 15),
@@ -90,8 +86,6 @@ class SellerAccountScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('เปลี่ยนไปหน้าดูออเดอร์')),
                     );
-                    // TODO: หากต้องการเปลี่ยนแท็บใน Bottom Navbar ของ FeedPage
-                    // ต้องส่ง callback กลับไปที่ FeedPage หรือใช้ State Management ที่สูงขึ้น
                   },
                 ),
                 const SizedBox(height: 15),
@@ -102,11 +96,10 @@ class SellerAccountScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('จัดการสินค้า')),
                     );
-                    // TODO: Navigator.push(context, MaterialPageRoute(builder: (context) => const SellerProductManagementScreen()));
                   },
                 ),
                 const SizedBox(height: 30),
-                _buildLogoutButton(context), // ต้องส่ง context กลับมา
+                _buildLogoutButton(context), 
               ],
             ),
           ),
@@ -162,7 +155,6 @@ class SellerAccountScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              // ignore: deprecated_member_use
               color: Colors.grey.withOpacity(0.1), 
               spreadRadius: 1,
               blurRadius: 3,

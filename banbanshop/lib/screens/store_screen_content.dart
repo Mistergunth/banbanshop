@@ -1,0 +1,265 @@
+import 'package:flutter/material.dart';
+
+class StoreScreenContent extends StatefulWidget {
+  // รับ province และ category เพื่อใช้ในการกรองร้านค้า
+  final String selectedProvince;
+  final String selectedCategory;
+
+  const StoreScreenContent({
+    super.key,
+    required this.selectedProvince,
+    required this.selectedCategory,
+  });
+
+  @override
+  State<StoreScreenContent> createState() => _StoreScreenContentState();
+}
+
+class StoreItem {
+  final String name;
+  final String description;
+  final double distance;
+  final double rating;
+  final String imageUrl;
+  final String province; // เพิ่มจังหวัดของร้าน
+  final String category; // เพิ่มหมวดหมู่ของร้าน
+
+  StoreItem({
+    required this.name,
+    required this.description,
+    required this.distance,
+    required this.rating,
+    required this.imageUrl,
+    required this.province,
+    required this.category,
+  });
+}
+
+class _StoreScreenContentState extends State<StoreScreenContent> {
+  final TextEditingController _searchController = TextEditingController();
+
+  // ตัวอย่างข้อมูลร้านค้า (สามารถเชื่อมกับ Backend ในอนาคต)
+  final List<StoreItem> _allStores = [
+    StoreItem(
+      name: 'ดอนกอยผ้าคราม',
+      description: 'ผ้าครามสวย ๆ เส้นใยธรรมชาติ 100% พร้อมส่ง',
+      distance: 1.0,
+      rating: 4.8,
+      imageUrl: 'https://placehold.co/100x100/A0E7E2/000000?text=Store1', // Placeholder image
+      province: 'สกลนคร',
+      category: 'เสื้อผ้า',
+    ),
+    StoreItem(
+      name: 'เนื้อโคขุนโพนยางคำ',
+      description: 'เนื้อวัวคุณภาพดีพร้อมทาน',
+      distance: 2.0,
+      rating: 4.9,
+      imageUrl: 'https://placehold.co/100x100/FFDDC1/000000?text=Store2', // Placeholder image
+      province: 'สกลนคร',
+      category: 'อาหาร & เครื่องดื่ม',
+    ),
+    StoreItem(
+      name: 'เครื่องจักสานไม้ไผ่',
+      description: 'สินค้าทำมือคุณภาพดี การันตี 100%',
+      distance: 3.0,
+      rating: 4.8,
+      imageUrl: 'https://placehold.co/100x100/CCE8CC/000000?text=Store3', // Placeholder image
+      province: 'อุดรธานี',
+      category: 'สิ่งของเครื่องใช้',
+    ),
+     StoreItem(
+      name: 'ร้านชุดว่ายน้ำสุดแซ่บ',
+      description: 'ชุดว่ายน้ำหลากหลายสไตล์',
+      distance: 0.5,
+      rating: 4.5,
+      imageUrl: 'https://placehold.co/100x100/D0F0C0/000000?text=Store4', // Placeholder image
+      province: 'กรุงเทพมหานคร',
+      category: 'เสื้อผ้า',
+    ),
+    StoreItem(
+      name: 'ร้านอาหารทะเลสดๆ',
+      description: 'อาหารทะเลจากทะเลอันดามัน',
+      distance: 5.0,
+      rating: 4.7,
+      imageUrl: 'https://placehold.co/100x100/FFF8DC/000000?text=Store5', // Placeholder image
+      province: 'ภูเก็ต',
+      category: 'อาหาร & เครื่องดื่ม',
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      // Rebuild UI to filter stores based on search query
+    });
+  }
+
+  // ฟิลเตอร์ร้านค้าตามจังหวัดและหมวดหมู่ที่ได้รับจาก FeedPage
+  List<StoreItem> get _filteredStores {
+    final filteredByProps = _allStores.where((store) {
+      final matchesProvince = widget.selectedProvince == 'ทั้งหมด' || store.province == widget.selectedProvince;
+      final matchesCategory = widget.selectedCategory == 'ทั้งหมด' || store.category == widget.selectedCategory;
+      return matchesProvince && matchesCategory;
+    }).toList();
+
+    if (_searchController.text.isEmpty) {
+      return filteredByProps;
+    } else {
+      final query = _searchController.text.toLowerCase();
+      return filteredByProps.where((store) {
+        return store.name.toLowerCase().contains(query) ||
+               store.description.toLowerCase().contains(query);
+      }).toList();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Search bar (ถ้าต้องการให้มีในหน้าร้านค้า)
+        // Note: ในภาพ Figma Search bar อยู่ที่ AppBar ซึ่งจัดการโดย FeedPage
+        // ดังนั้นส่วนนี้อาจจะไม่จำเป็นต้องมีตรงนี้ ถ้า FeedPage จัดการ Search bar ใน AppBar อยู่แล้ว
+        // แต่ถ้าต้องการแยก Search bar สำหรับร้านค้าโดยเฉพาะ ก็ใส่ได้
+        // ... (สามารถเพิ่ม Search bar ตรงนี้ได้ถ้าต้องการ)
+
+        Expanded(
+          child: _filteredStores.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.store_outlined, size: 50, color: Colors.grey),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'ไม่มีร้านค้าที่ตรงกับเงื่อนไข',
+                        style: TextStyle(fontSize: 18, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${widget.selectedCategory} ใน ${widget.selectedProvince}',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(15),
+                  itemCount: _filteredStores.length,
+                  itemBuilder: (context, index) {
+                    final store = _filteredStores[index];
+                    return StoreCard(store: store);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class StoreCard extends StatelessWidget {
+  final StoreItem store;
+
+  const StoreCard({super.key, required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            // ignore: deprecated_member_use
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Store Image
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              image: DecorationImage(
+                image: NetworkImage(store.imageUrl),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(width: 15),
+          // Store Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  store.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  store.description,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${store.distance.toStringAsFixed(1)} km', // แสดงระยะทาง
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    const Icon(Icons.star, size: 16, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      store.rating.toStringAsFixed(1), // แสดงคะแนน
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

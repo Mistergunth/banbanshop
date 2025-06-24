@@ -79,7 +79,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
               // ใช้ loggedInProfile!.province เพื่อยืนยันว่ามันจะไม่เป็น null
               selectedProvince: loggedInProfile!.province, 
               selectedCategory: 'ทั้งหมด', 
-              sellerProfile: loggedInProfile,
+              sellerProfile: loggedInProfile, 
             ),
           ),
         );
