@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "329459505690",
+    "project_id": "banbanshop",
+    "storage_bucket": "banbanshop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:329459505690:android:ef21c8fee92c5677900fa3",
+        "android_client_info": {
+          "package_name": "com.example.banbanshop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPW7zj9TLXyCtiZGMPOxIeWnIeAL7njKY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
