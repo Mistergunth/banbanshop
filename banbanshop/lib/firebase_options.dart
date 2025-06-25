@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'banbanshop.firebasestorage.app',
     measurementId: 'G-DNEK70DK3M',
   );
+
 }
