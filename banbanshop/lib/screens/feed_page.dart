@@ -6,13 +6,11 @@ import 'package:banbanshop/screens/profile.dart'; // สำหรับ SellerPr
 import 'package:banbanshop/screens/seller/seller_account_screen.dart';
 import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:banbanshop/screens/seller/seller_orders_screen.dart'; 
-import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart'; // สำหรับหน้าตะกร้าสินค้าของผู้ซื้อ\
+import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart'; // สำหรับหน้าตะกร้าสินค้าของผู้ซื้อ
 import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; // สำหรับหน้าจัดการร้านค้าของผู้ขาย
+import 'package:banbanshop/screens/store_screen_content.dart'; // Import ไฟล์หน้าร้านค้า
+import 'package:banbanshop/screens/create_post.dart'; // Import ไฟล์สร้างโพสต์ใหม่
 
-// TODO: สร้างไฟล์แยกสำหรับหน้า Cart ของผู้ซื้อใน screens/buyer/
-// import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart';    
-// TODO: สร้างไฟล์แยกสำหรับหน้า Profile ของผู้ซื้อใน screens/buyer/ (ถ้าจะต่างจาก SellerAccountScreen)
-// import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; 
 
 class FeedPage extends StatefulWidget {
   final String selectedProvince;
@@ -217,11 +215,11 @@ class _FeedPageState extends State<FeedPage> {
   Widget _buildMiddlePage() {
     if (widget.sellerProfile != null) {
       // ถ้าเป็นผู้ขาย ให้แสดงหน้ารายการออเดอร์
-      return SellerOrdersScreenContent(
+      return SellerOrdersScreen(
       );
     } else {
       // ถ้าเป็นผู้ซื้อ ให้แสดงหน้าตะกร้าสินค้า
-      return BuyerCartScreenContent( // ส่ง controller ให้หน้าตะกร้า
+      return BuyerCartScreen( 
       );
     }
   }
@@ -233,7 +231,7 @@ class _FeedPageState extends State<FeedPage> {
       return SellerAccountScreen(sellerProfile: widget.sellerProfile);
     } else {
       // ถ้าเป็นผู้ซื้อ ให้แสดงหน้าโปรไฟล์ผู้ซื้อ (Placeholder)
-      return BuyerProfileScreenContent(
+      return BuyerProfileScreen(
 );
     }
   }
@@ -253,7 +251,8 @@ class _FeedPageState extends State<FeedPage> {
       return filteredByProvinceAndCategory.where((post) {
         return post.title.toLowerCase().contains(query) ||
             post.shopName.toLowerCase().contains(query) ||
-            post.category.toLowerCase().contains(query);
+            post.category.toLowerCase().contains(query) ||
+            post.province.toLowerCase().contains(query); // เพิ่มการค้นหาจากจังหวัด
       }).toList();
     }
   }
@@ -262,9 +261,10 @@ class _FeedPageState extends State<FeedPage> {
   Widget build(BuildContext context) {
     // List ของหน้าย่อยสำหรับ IndexedStack
     final List<Widget> pages = [
-      _buildFeedContent(), // Index 0: หน้าฟีด
+      _buildFeedContent(), // Index 0: หน้าฟีด (และร้านค้า)
       _buildMiddlePage(), // Index 1: ตะกร้า (ผู้ซื้อ) / ออเดอร์ (ผู้ขาย)
-      _buildProfilePage(), // Index 2: โปรไฟล์ (ผู้ซื้อ) / บัญชีผู้ขาย (ผู้ขาย)
+      const CreatePostScreen(), // Index 2: หน้าสร้างโพสต์
+      _buildProfilePage(), // Index 3: โปรไฟล์ (ผู้ซื้อ) / บัญชีผู้ขาย (ผู้ขาย)
     ];
 
     return Scaffold(
@@ -272,51 +272,34 @@ class _FeedPageState extends State<FeedPage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
-        // ปุ่ม Back (leading) ควรแสดงเมื่อหน้านี้ถูก push เข้ามาใน Navigator stack
-        // แต่ถ้าเป็น root ของ Bottom Navbar อาจไม่จำเป็นต้องมีปุ่ม Back
-        leading: Navigator.of(context).canPop() && _selectedIndex == 0 // แสดงปุ่ม back ถ้าสามารถ pop ได้ และอยู่หน้า Feed เท่านั้น
+        // ปุ่ม Back (leading)
+        leading: Navigator.of(context).canPop() 
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_ios, size: 20),
                 onPressed: () => Navigator.pop(context),
               )
             : null, 
-        title: _selectedIndex == 0 // แสดง Search bar เฉพาะหน้า Feed
-            ? Container(
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: TextField(
-                  controller: searchController,
-                  decoration: InputDecoration(
-                    hintText: 'ค้นหา',
-                    hintStyle: TextStyle(color: Colors.grey[500]),
-                    prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-                  ),
-                ),
-              )
-            : Text( // แสดงชื่อ AppBar ตามหน้าที่เลือกสำหรับหน้าอื่นที่ไม่ใช่ Feed
-                _getAppBarTitle(),
-                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-              ),
-        centerTitle: _selectedIndex != 0, // ให้ title อยู่ตรงกลางถ้าไม่ใช่หน้า Feed
+        // Title ของ AppBar
+        title: Text(
+          _getAppBarTitle(),
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true, // จัด Title ให้อยู่ตรงกลาง
+        // ปุ่ม Menu (actions)
         actions: [
           Builder(
             builder: (BuildContext innerContext) {
               return IconButton(
                 icon: const Icon(Icons.menu, size: 24),
                 onPressed: () {
-                  Scaffold.of(innerContext).openEndDrawer(); // ปุ่ม Drawer
+                  Scaffold.of(innerContext).openEndDrawer();
                 },
               );
             },
-          )
+          ),
         ],
       ),
-      endDrawer: Drawer( // Drawer เดียวกันสำหรับทั้งผู้ซื้อและผู้ขาย
+      endDrawer: Drawer( 
         child: Column(
           children: [
             DrawerHeader(
@@ -328,10 +311,10 @@ class _FeedPageState extends State<FeedPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช้อป', // แสดงชื่อผู้ใช้ถ้ามี
+                      widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช้อป', 
                       style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    if (widget.sellerProfile != null) // ถ้าเป็นผู้ขาย แสดง Province และ Email
+                    if (widget.sellerProfile != null) 
                       Text(
                         '${widget.sellerProfile!.province} | ${widget.sellerProfile!.email}',
                         style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
@@ -348,32 +331,27 @@ class _FeedPageState extends State<FeedPage> {
                 Navigator.pop(context); // ปิด Drawer
               },
             ),
-            // ปุ่มสำหรับสลับดู "ร้านค้าของฉัน" สำหรับผู้ขาย หรือ "รายการโปรด" สำหรับผู้ซื้อ
-            if (widget.sellerProfile != null) // ถ้าเป็นผู้ขาย
+            if (widget.sellerProfile != null) 
               ListTile(
                 leading: const Icon(Icons.storefront_outlined),
                 title: const Text('จัดการร้านค้าของฉัน'),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้าจัดการร้านค้า')));
-                  Navigator.pop(context); // ปิด Drawer
-                  // TODO: Navigate to SellerStoreManagementScreen
-                  // Navigator.push(context, MaterialPageRoute(builder: (context) => const SellerStoreManagementScreen(sellerProfile: widget.sellerProfile)));
+                  Navigator.pop(context); 
                 },
               )
-            else // ถ้าเป็นผู้ซื้อ
+            else 
               ListTile(
                 leading: const Icon(Icons.favorite_outline),
                 title: const Text('รายการโปรด'),
                 onTap: () { 
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้ารายการโปรด')));
-                  Navigator.pop(context); // ปิด Drawer
-                  // TODO: Navigate to BuyerFavoriteScreen
+                  Navigator.pop(context); 
                 },
               ),
             
-            // Dropdown สำหรับเลือกจังหวัดใน Drawer
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: DropdownButtonFormField<String>(
@@ -393,14 +371,10 @@ class _FeedPageState extends State<FeedPage> {
                 onChanged: (String? newValue) {
                   setState(() {
                     _drawerSelectedProvince = newValue;
-                    // อัปเดต FeedPage ด้วยจังหวัดใหม่
-                    // ไม่จำเป็นต้อง Navigator.push ใหม่ เพราะ FeedPage อยู่ใน IndexedStack
-                    // แค่อัปเดต state ก็พอ
                   });
                 },
               ),
             ),
-            // Dropdown สำหรับเลือกหมวดหมู่สินค้าใน Drawer
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: DropdownButtonFormField<String>(
@@ -420,21 +394,19 @@ class _FeedPageState extends State<FeedPage> {
                 onChanged: (String? newValue) {
                   setState(() {
                     _drawerSelectedCategory = newValue;
-                    // อัปเดต FeedPage ด้วยหมวดหมู่ใหม่
                   });
                 },
               ),
             ),
-            Divider(), 
+            const Divider(), 
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('ออกจากระบบ'),
               onTap: () { 
-                Navigator.pop(context); // ปิด Drawer ก่อน
-                // TODO: Implement actual logout logic
+                Navigator.pop(context); 
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => const SellerLoginScreen()), // หรือหน้าแรกของแอป
+                  MaterialPageRoute(builder: (context) => const SellerLoginScreen()), 
                   (route) => false,
                 );
               },
@@ -443,9 +415,70 @@ class _FeedPageState extends State<FeedPage> {
         ),
       ),
       body: SafeArea(
-        child: IndexedStack(
-          index: _selectedIndex, 
-          children: pages, 
+        child: Column( // เพิ่ม Column ที่นี่เพื่อวาง Search Bar และ Filter Buttons
+          children: [
+            if (_selectedIndex == 0) // แสดง Search Bar และ Filter Buttons เฉพาะหน้า Feed
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    // Search bar
+                    Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: TextField(
+                        controller: searchController,
+                        decoration: InputDecoration(
+                          hintText: 'ค้นหา',
+                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                        ),
+                        onChanged: (query) {
+                          setState(() { /* Trigger rebuild for filteredPosts/filteredStores */ });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 10), // เพิ่มระยะห่างระหว่าง Search bar และปุ่ม Filter
+                    // Filter Buttons (ฟีดโพสต์/ร้านค้า)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center, // จัดปุ่ม Filter ให้อยู่ตรงกลาง
+                      children: [
+                        FilterButton(
+                          text: 'ฟีดโพสต์',
+                          isSelected: _selectedTopFilter == 'ฟีดโพสต์', 
+                          onTap: () {
+                            setState(() {
+                              _selectedTopFilter = 'ฟีดโพสต์'; 
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        FilterButton(
+                          text: 'ร้านค้า',
+                          isSelected: _selectedTopFilter == 'ร้านค้า', 
+                          onTap: () {
+                            setState(() {
+                              _selectedTopFilter = 'ร้านค้า';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedIndex, 
+                children: pages, 
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: BottomNavbarWidget(
@@ -459,34 +492,6 @@ class _FeedPageState extends State<FeedPage> {
   Widget _buildFeedContent() {
     return Column(
       children: [
-        // Filter Buttons (ฟีดโพสต์/ร้านค้า)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-          child: Row(
-            children: [
-              FilterButton(
-                text: 'ฟีดโพสต์',
-                isSelected: _selectedTopFilter == 'ฟีดโพสต์', 
-                onTap: () {
-                  setState(() {
-                    _selectedTopFilter = 'ฟีดโพสต์'; 
-                  });
-                },
-              ),
-              const SizedBox(width: 10),
-              FilterButton(
-                text: 'ร้านค้า',
-                isSelected: _selectedTopFilter == 'ร้านค้า', 
-                onTap: () {
-                  setState(() {
-                    _selectedTopFilter = 'ร้านค้า';
-                    // TODO: เมื่อกด "ร้านค้า" ควรแสดงหน้ารายชื่อร้านค้าจริง (seller_store_page.dart)
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
         Expanded(
           child: Container(
             decoration: const BoxDecoration(
@@ -524,8 +529,9 @@ class _FeedPageState extends State<FeedPage> {
                           return PostCard(post: post);
                         },
                       ))
-                : const Center( 
-                    child: Text('นี่คือหน้าสำหรับแสดงร้านค้า (ผู้ซื้อ)', style: TextStyle(fontSize: 20, color: Colors.blueGrey)),
+                : StoreScreenContent( // แสดง StoreScreenContent เมื่อเลือก "ร้านค้า"
+                    selectedProvince: _drawerSelectedProvince ?? 'ทั้งหมด',
+                    selectedCategory: _drawerSelectedCategory ?? 'ทั้งหมด',
                   ),
           ),
         ),
@@ -536,9 +542,13 @@ class _FeedPageState extends State<FeedPage> {
   // กำหนดชื่อ AppBar สำหรับหน้าที่ไม่ใช่ Feed
   String _getAppBarTitle() {
     switch (_selectedIndex) {
-      case 1:
+      case 0: // หน้าแรก (ฟีดโพสต์/ร้านค้า)
+        return 'บ้านบ้านช้อป';
+      case 1: // ออเดอร์ / ตะกร้า
         return widget.sellerProfile != null ? 'รายการออเดอร์' : 'ตะกร้าสินค้า';
-      case 2:
+      case 2: // สร้างโพสต์
+        return 'สร้างโพสต์';
+      case 3: // โปรไฟล์
         return widget.sellerProfile != null ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ';
       default:
         return 'บ้านบ้านช้อป';
@@ -603,6 +613,7 @@ class PostCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
+                          // กล่องม่วงแสดง หมวดหมู่ และ จังหวัด
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
@@ -610,7 +621,7 @@ class PostCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              post.category,
+                              '${post.category} | ${post.province}', // แสดงทั้งหมวดหมู่และจังหวัด
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -662,9 +673,22 @@ class PostCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
             child: Row(
               children: [
-                ActionButton(text: 'สั่งเลย'),
+                ActionButton(text: 'สั่งเลย', onTap: () {
+                  print('สั่งเลย button pressed for ${post.shopName}');
+                }),
                 const SizedBox(width: 10),
-                ActionButton(text: 'ดูหน้าร้าน'),
+                ActionButton(text: 'ดูหน้าร้าน', onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => StoreScreenContent(
+                        selectedProvince: post.province,
+                        selectedCategory: post.productCategory,
+                      ),
+                    ),
+                  );
+                  print('ดูหน้าร้าน button pressed for ${post.shopName}');
+                }),
               ],
             ),
           ),
@@ -676,25 +700,30 @@ class PostCard extends StatelessWidget {
 
 class ActionButton extends StatelessWidget {
   final String text;
+  final VoidCallback onTap;
 
-  const ActionButton({super.key, required this.text});
+  const ActionButton({super.key, required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8E4FF),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Color(0xFF9C6ADE),
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8E4FF),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xFF9C6ADE),
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+          ),
         ),
       ),
     );
   }
 }
+

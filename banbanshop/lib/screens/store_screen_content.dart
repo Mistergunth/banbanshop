@@ -120,7 +120,9 @@ class _StoreScreenContentState extends State<StoreScreenContent> {
       final query = _searchController.text.toLowerCase();
       return filteredByProps.where((store) {
         return store.name.toLowerCase().contains(query) ||
-               store.description.toLowerCase().contains(query);
+               store.description.toLowerCase().contains(query) ||
+               store.province.toLowerCase().contains(query) || // เพิ่มการค้นหาจากจังหวัด
+               store.category.toLowerCase().contains(query); // เพิ่มการค้นหาจากหมวดหมู่
       }).toList();
     }
   }
@@ -129,12 +131,6 @@ class _StoreScreenContentState extends State<StoreScreenContent> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Search bar (ถ้าต้องการให้มีในหน้าร้านค้า)
-        // Note: ในภาพ Figma Search bar อยู่ที่ AppBar ซึ่งจัดการโดย FeedPage
-        // ดังนั้นส่วนนี้อาจจะไม่จำเป็นต้องมีตรงนี้ ถ้า FeedPage จัดการ Search bar ใน AppBar อยู่แล้ว
-        // แต่ถ้าต้องการแยก Search bar สำหรับร้านค้าโดยเฉพาะ ก็ใส่ได้
-        // ... (สามารถเพิ่ม Search bar ตรงนี้ได้ถ้าต้องการ)
-
         Expanded(
           child: _filteredStores.isEmpty
               ? Center(
@@ -184,7 +180,6 @@ class StoreCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            // ignore: deprecated_member_use
             color: Colors.grey.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
@@ -208,7 +203,7 @@ class StoreCard extends StatelessWidget {
           ),
           const SizedBox(width: 15),
           // Store Details
-          Expanded(
+          Expanded( // ใช้ Expanded เพื่อให้ Column นี้ใช้พื้นที่ที่เหลือทั้งหมด
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -236,21 +231,52 @@ class StoreCard extends StatelessWidget {
                   children: [
                     Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
                     const SizedBox(width: 4),
-                    Text(
-                      '${store.distance.toStringAsFixed(1)} km', // แสดงระยะทาง
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
+                    // ใช้ Flexible เพื่อให้ข้อความระยะทางไม่ล้น
+                    Flexible( 
+                      child: Text(
+                        '${store.distance.toStringAsFixed(1)} km', // แสดงระยะทาง
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 15),
                     const Icon(Icons.star, size: 16, color: Colors.orange),
                     const SizedBox(width: 4),
-                    Text(
-                      store.rating.toStringAsFixed(1), // แสดงคะแนน
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
+                    // ใช้ Flexible เพื่อให้ข้อความคะแนนไม่ล้น
+                    Flexible( 
+                      child: Text(
+                        store.rating.toStringAsFixed(1), // แสดงคะแนน
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    // ใช้ Expanded เพื่อให้ Container นี้ใช้พื้นที่ที่เหลือทั้งหมด
+                    Expanded( 
+                      child: Container( // กล่องแสดงหมวดหมู่และจังหวัดของร้าน
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8E4FF), // สีที่แตกต่างจาก PostCard เพื่อให้แยกแยะได้
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${store.category} | ${store.province}', // แสดงทั้งหมวดหมู่และจังหวัด
+                          style: const TextStyle(
+                            color: Color(0xFF9C6ADE),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1, // จำกัดให้แสดงแค่ 1 บรรทัด
+                          overflow: TextOverflow.ellipsis, // หากล้นให้แสดง ...
+                        ),
                       ),
                     ),
                   ],

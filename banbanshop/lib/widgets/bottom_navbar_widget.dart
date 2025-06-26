@@ -30,6 +30,12 @@ class BottomNavbarWidget extends StatelessWidget {
             selectedIcon: Icon(Icons.shopping_bag, color: Color(0xFF9C6ADE)),
             label: 'ออเดอร์', // สำหรับผู้ขาย, แท็บนี้อาจหมายถึง "ออเดอร์"
           ),
+          // เพิ่มปุ่ม "สร้างโพสต์" ที่นี่
+          NavigationDestination(
+            icon: Icon(Icons.add_box_outlined), // ไอคอนสำหรับสร้างโพสต์
+            selectedIcon: Icon(Icons.add_box, color: Color(0xFF9C6ADE)), // ไอคอนเมื่อเลือก
+            label: 'สร้างโพสต์', // ข้อความกำกับแท็บ
+          ),
           NavigationDestination(
             icon: Icon(Icons.person_outlined),
             selectedIcon: Icon(Icons.person, color: Color(0xFF9C6ADE)),
