@@ -10,6 +10,7 @@ import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart'; // สำห�
 import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; // สำหรับหน้าจัดการร้านค้าของผู้ขาย
 import 'package:banbanshop/screens/store_screen_content.dart'; // Import ไฟล์หน้าร้านค้า
 import 'package:banbanshop/screens/create_post.dart'; // Import ไฟล์สร้างโพสต์ใหม่
+import 'package:banbanshop/screens/post_model.dart'; // Import Post model
 
 
 class FeedPage extends StatefulWidget {
@@ -28,29 +29,6 @@ class FeedPage extends StatefulWidget {
   _FeedPageState createState() => _FeedPageState();
 }
 
-class Post {
-  final String id;
-  final String shopName;
-  final String timeAgo;
-  final String category;
-  final String title;
-  final String imageUrl;
-  final String avatarImageUrl; 
-  final String province;
-  final String productCategory;
-
-  Post({
-    required this.id,
-    required this.shopName,
-    required this.timeAgo,
-    required this.category,
-    required this.title,
-    required this.imageUrl,
-    required this.avatarImageUrl, 
-    required this.province,
-    required this.productCategory,
-  });
-}
 
 class FilterButton extends StatelessWidget {
   final String text;
@@ -205,10 +183,36 @@ class _FeedPageState extends State<FeedPage> {
     });
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  void _onItemTapped(int index) async {
+    // ถ้าเลือกแท็บ "สร้างโพสต์" (Index 2)
+    if (index == 2) {
+      final newPost = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const CreatePostScreen()),
+      );
+
+      // ตรวจสอบว่า Widget ยังคง mounted ก่อนที่จะ setState หรือใช้ BuildContext
+      if (!mounted) return; 
+
+      if (newPost != null && newPost is Post) {
+        setState(() {
+          posts.insert(0, newPost); // เพิ่มโพสต์ใหม่ที่ด้านบนสุดของรายการ
+          _selectedIndex = 0; // กลับไปที่หน้าแรก (ฟีดโพสต์)
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('โพสต์ใหม่ถูกเพิ่มแล้ว!')),
+        );
+      } else {
+        // ถ้าผู้ใช้ยกเลิกการสร้างโพสต์ ให้กลับไปที่หน้าปัจจุบัน (หน้าแรก)
+        setState(() {
+          _selectedIndex = 0; 
+        });
+      }
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   // สร้าง Widget สำหรับหน้าตะกร้าสินค้า (Buyer) หรือ รายการออเดอร์ (Seller)
@@ -263,7 +267,7 @@ class _FeedPageState extends State<FeedPage> {
     final List<Widget> pages = [
       _buildFeedContent(), // Index 0: หน้าฟีด (และร้านค้า)
       _buildMiddlePage(), // Index 1: ตะกร้า (ผู้ซื้อ) / ออเดอร์ (ผู้ขาย)
-      const CreatePostScreen(), // Index 2: หน้าสร้างโพสต์
+      const CreatePostScreen(), // Index 2: หน้าสร้างโพสต์ (จะถูก push แทนการแสดงใน IndexedStack)
       _buildProfilePage(), // Index 3: โปรไฟล์ (ผู้ซื้อ) / บัญชีผู้ขาย (ผู้ขาย)
     ];
 
@@ -328,7 +332,7 @@ class _FeedPageState extends State<FeedPage> {
               title: const Text('หน้าแรก (ฟีดโพสต์)'),
               onTap: () { 
                 _onItemTapped(0); // สลับไปหน้า Feed
-                Navigator.pop(context); // ปิด Drawer
+                if (mounted) Navigator.pop(context); // ปิด Drawer
               },
             ),
             if (widget.sellerProfile != null) 
@@ -336,9 +340,9 @@ class _FeedPageState extends State<FeedPage> {
                 leading: const Icon(Icons.storefront_outlined),
                 title: const Text('จัดการร้านค้าของฉัน'),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้าจัดการร้านค้า')));
-                  Navigator.pop(context); 
+                  if (mounted) Navigator.pop(context); 
                 },
               )
             else 
@@ -346,9 +350,9 @@ class _FeedPageState extends State<FeedPage> {
                 leading: const Icon(Icons.favorite_outline),
                 title: const Text('รายการโปรด'),
                 onTap: () { 
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้ารายการโปรด')));
-                  Navigator.pop(context); 
+                  if (mounted) Navigator.pop(context); 
                 },
               ),
             
@@ -403,8 +407,8 @@ class _FeedPageState extends State<FeedPage> {
               leading: const Icon(Icons.logout),
               title: const Text('ออกจากระบบ'),
               onTap: () { 
-                Navigator.pop(context); 
-                Navigator.pushAndRemoveUntil(
+                if (mounted) Navigator.pop(context); 
+                if (mounted) Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const SellerLoginScreen()), 
                   (route) => false,
@@ -547,7 +551,7 @@ class _FeedPageState extends State<FeedPage> {
       case 1: // ออเดอร์ / ตะกร้า
         return widget.sellerProfile != null ? 'รายการออเดอร์' : 'ตะกร้าสินค้า';
       case 2: // สร้างโพสต์
-        return 'สร้างโพสต์';
+        return 'สร้างโพสต์'; // ชื่อหน้าจะถูกกำหนดใน CreatePostScreen เอง
       case 3: // โปรไฟล์
         return widget.sellerProfile != null ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ';
       default:
@@ -674,7 +678,7 @@ class PostCard extends StatelessWidget {
             child: Row(
               children: [
                 ActionButton(text: 'สั่งเลย', onTap: () {
-                  print('สั่งเลย button pressed for ${post.shopName}');
+                  // print('สั่งเลย button pressed for ${post.shopName}'); // ลบ print()
                 }),
                 const SizedBox(width: 10),
                 ActionButton(text: 'ดูหน้าร้าน', onTap: () {
@@ -687,7 +691,7 @@ class PostCard extends StatelessWidget {
                       ),
                     ),
                   );
-                  print('ดูหน้าร้าน button pressed for ${post.shopName}');
+                  // print('ดูหน้าร้าน button pressed for ${post.shopName}'); // ลบ print()
                 }),
               ],
             ),
