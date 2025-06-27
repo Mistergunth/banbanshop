@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print
+// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_structures
 
 import 'package:flutter/material.dart';
 import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
@@ -13,7 +13,7 @@ import 'package:banbanshop/screens/create_post.dart'; // Import ไฟล์ส�
 import 'package:banbanshop/screens/post_model.dart'; // Import Post model จากไฟล์แยก
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
-import 'dart:async'; // สำหรับ StreamSubscription
+import 'dart:async'; // สำหรับ StreamSubscription และ Timer
 import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
 
 class FeedPage extends StatefulWidget {
@@ -230,8 +230,8 @@ class _FeedPageState extends State<FeedPage> {
           publicId = '${pathSegments[pathSegments.length - 2]}/${pathSegments.last.split('.').first}';
         }
         
-        // ใช้ cloudinary.destroy เพื่อลบรูปภาพ (แก้ไขกลับมาใช้แบบนี้)
-        final deleteResponse = await cloudinary.deleteResource(publicId: publicId); // <--- ใช้ deleteResource แทน destroy
+        // ใช้ cloudinary.destroy เพื่อลบรูปภาพ
+        final deleteResponse = await cloudinary.deleteResource(publicId: publicId); 
 
         if (deleteResponse.isSuccessful) {
           if (mounted) {
@@ -660,10 +660,11 @@ class _FeedPageState extends State<FeedPage> {
   }
 }
 
-class PostCard extends StatelessWidget {
+// เปลี่ยน PostCard เป็น StatefulWidget เพื่อให้สามารถอัปเดตเวลาได้
+class PostCard extends StatefulWidget {
   final Post post;
-  final Function(Post) onDelete; // Callback สำหรับลบโพสต์
-  final String? currentUserId; // UID ของผู้ใช้ที่ล็อกอินอยู่
+  final Function(Post) onDelete; 
+  final String? currentUserId; 
 
   const PostCard({
     super.key,
@@ -673,9 +674,65 @@ class PostCard extends StatelessWidget {
   });
 
   @override
+  State<PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<PostCard> {
+  late String _timeAgoString;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateTimeAgo(); // คำนวณเวลาครั้งแรก
+    // ตั้งค่า Timer เพื่ออัปเดตทุกๆ 1 นาที
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      _updateTimeAgo();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // ยกเลิก Timer เมื่อ Widget ถูก dispose
+    super.dispose();
+  }
+
+  void _updateTimeAgo() {
+    if (mounted) { // ตรวจสอบว่า Widget ยัง mounted ก่อน setState
+      setState(() {
+        _timeAgoString = _formatTimeAgo(widget.post.createdAt);
+      });
+    }
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inSeconds < 60) {
+      return 'เมื่อสักครู่';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} นาทีที่แล้ว';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} ชั่วโมงที่แล้ว';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} วันที่แล้ว';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).ceil();
+      return '$weeks สัปดาห์ที่แล้ว';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).ceil();
+      return '$months เดือนที่แล้ว';
+    } else {
+      final years = (difference.inDays / 365).ceil();
+      return '$years ปีที่แล้ว';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // ตรวจสอบว่าเป็นโพสต์ของผู้ใช้ปัจจุบันหรือไม่
-    final isMyPost = currentUserId != null && currentUserId == post.ownerUid;
+    final isMyPost = widget.currentUserId != null && widget.currentUserId == widget.post.ownerUid;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -700,9 +757,9 @@ class PostCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundImage: post.avatarImageUrl.startsWith('http')
-                      ? NetworkImage(post.avatarImageUrl)
-                      : AssetImage(post.avatarImageUrl) as ImageProvider,
+                  backgroundImage: widget.post.avatarImageUrl.startsWith('http')
+                      ? NetworkImage(widget.post.avatarImageUrl)
+                      : AssetImage(widget.post.avatarImageUrl) as ImageProvider,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -710,7 +767,7 @@ class PostCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        post.shopName,
+                        widget.post.shopName,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
@@ -719,7 +776,7 @@ class PostCard extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            post.timeAgo,
+                            _timeAgoString, // <--- ใช้ _timeAgoString ที่คำนวณแล้ว
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 12,
@@ -734,7 +791,7 @@ class PostCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              '${post.category} | ${post.province}', // แสดงทั้งหมวดหมู่และจังหวัด
+                              '${widget.post.category} | ${widget.post.province}', // แสดงทั้งหมวดหมู่และจังหวัด
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -751,7 +808,7 @@ class PostCard extends StatelessWidget {
                 if (isMyPost)
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => onDelete(post), // เรียกใช้ callback onDelete
+                    onPressed: () => widget.onDelete(widget.post), // เรียกใช้ callback onDelete
                   ),
               ],
             ),
@@ -761,7 +818,7 @@ class PostCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15),
             child: Text(
-              post.title,
+              widget.post.title,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -779,7 +836,7 @@ class PostCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               image: DecorationImage(
-                image: NetworkImage(post.imageUrl),
+                image: NetworkImage(widget.post.imageUrl),
                 fit: BoxFit.cover,
               ),
             ),
@@ -801,8 +858,8 @@ class PostCard extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => StoreScreenContent(
-                        selectedProvince: post.province,
-                        selectedCategory: post.productCategory,
+                        selectedProvince: widget.post.province,
+                        selectedCategory: widget.post.productCategory,
                       ),
                     ),
                   );

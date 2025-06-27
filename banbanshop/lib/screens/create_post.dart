@@ -166,7 +166,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final newPost = Post(
       id: '', // ID จะถูกสร้างโดย Firestore อัตโนมัติ
       shopName: shopName, 
-      timeAgo: 'เมื่อสักครู่', // สามารถอัปเดตเป็นเวลาจริงได้ในภายหลัง
+      createdAt: DateTime.now(), // สามารถอัปเดตเป็นเวลาจริงได้ในภายหลัง
       category: _selectedCategory!,
       title: _captionController.text,
       imageUrl: uploadedImageUrl!, // ใช้ URL ที่ได้จาก Cloudinary
