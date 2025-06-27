@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart'; 
 import 'dart:io'; 
-import 'package:banbanshop/screens/post_model.dart'; 
-import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
+import 'package:banbanshop/screens/post_model.dart'; // ตรวจสอบว่า Post model อยู่ที่นี่
+import 'package:cloudinary_sdk/cloudinary_sdk.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth เพื่อดึง UID ของผู้ใช้
+import 'package:banbanshop/screens/profile.dart'; // Import SellerProfile
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -18,13 +21,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   String? _selectedCategory; 
   bool _isUploading = false; // สถานะการอัปโหลด
 
-  // กำหนดค่า Cloudinary ของคุณที่นี่ (เหมือนกับใน seller_account_screen.dart)
-  // **คำเตือน: การเก็บ Cloud Name และ Upload Preset ในโค้ดฝั่ง Client-side สำหรับ Unsigned Uploads นั้นปลอดภัยพอสำหรับการทดสอบ
-  // แต่สำหรับ Production Environment ที่ต้องการความปลอดภัยสูง ควรใช้ Signed Uploads ผ่าน Backend Server เพื่อซ่อน API Secret**
+  // กำหนดค่า Cloudinary ของคุณที่นี่
   final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
-    apiKey: '157343641351425', // ไม่จำเป็นสำหรับ Unsigned Uploads
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // ไม่จำเป็นสำหรับ Unsigned Uploads
+    cloudName: 'dbgybkvms', apiKey: '157343641351425', apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- แทนที่ด้วย Cloud Name ของคุณ
+    // apiKey และ apiSecret ไม่จำเป็นสำหรับ Unsigned Uploads
   );
   final String uploadPreset = 'flutter_unsigned_upload'; // <-- แทนที่ด้วยชื่อ Upload Preset ที่คุณสร้าง
 
@@ -75,7 +75,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     });
   }
 
-  void _postContent() async { // เปลี่ยนเป็น async
+  void _postContent() async { 
     if (_image == null || _captionController.text.isEmpty || _selectedProvince == null || _selectedCategory == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,8 +90,44 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     });
 
     String? uploadedImageUrl;
+    User? currentUser = FirebaseAuth.instance.currentUser; // ดึงผู้ใช้ที่ล็อกอินอยู่
+
+    if (currentUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('กรุณาเข้าสู่ระบบเพื่อสร้างโพสต์')),
+        );
+      }
+      setState(() {
+        _isUploading = false;
+      });
+      return;
+    }
+
+    // ดึงข้อมูลโปรไฟล์ผู้ขายจาก Firestore
+    String shopName = 'ไม่ระบุชื่อร้าน';
+    String avatarImageUrl = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; // รูป Avatar เริ่มต้น
+    String ownerUid = currentUser.uid; // UID ของผู้โพสต์
+
     try {
-      // 1. อัปโหลดรูปภาพไปยัง Cloudinary โดยใช้ uploadResource และ CloudinaryUploadResource
+      DocumentSnapshot sellerDoc = await FirebaseFirestore.instance
+          .collection('sellers')
+          .doc(currentUser.uid)
+          .get();
+
+      if (sellerDoc.exists) {
+        SellerProfile sellerProfile = SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
+        shopName = sellerProfile.fullName; // ใช้ชื่อเต็มเป็นชื่อร้าน
+        avatarImageUrl = sellerProfile.profileImageUrl ?? avatarImageUrl; // ใช้รูปโปรไฟล์ของผู้ขาย
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error fetching seller profile for post: $e');
+      // ไม่ต้องแสดง SnackBar เพราะเป็นแค่ข้อมูลเสริม
+    }
+
+    try {
+      // 1. อัปโหลดรูปภาพไปยัง Cloudinary
       final response = await cloudinary.uploadResource(
         CloudinaryUploadResource(
           filePath: _image!.path,
@@ -112,7 +148,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         setState(() {
           _isUploading = false;
         });
-        return; // หยุดการทำงานหากอัปโหลดรูปไม่สำเร็จ
+        return; 
       }
     } catch (e) {
       if (mounted) {
@@ -123,30 +159,47 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       setState(() {
         _isUploading = false;
       });
-      return; // หยุดการทำงานหากเกิดข้อผิดพลาด
+      return; 
     }
 
-    // สร้าง Post object ใหม่
+    // 2. สร้าง Post object ใหม่
     final newPost = Post(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), 
-      shopName: 'ผู้ใช้ปัจจุบัน', 
-      timeAgo: 'เมื่อสักครู่', 
+      id: '', // ID จะถูกสร้างโดย Firestore อัตโนมัติ
+      shopName: shopName, 
+      timeAgo: 'เมื่อสักครู่', // สามารถอัปเดตเป็นเวลาจริงได้ในภายหลัง
       category: _selectedCategory!,
       title: _captionController.text,
       imageUrl: uploadedImageUrl!, // ใช้ URL ที่ได้จาก Cloudinary
-      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png', 
+      avatarImageUrl: avatarImageUrl, 
       province: _selectedProvince!,
       productCategory: _selectedCategory!,
+      ownerUid: ownerUid, // <--- ตรงนี้คือส่วนที่เพิ่ม ownerUid เข้าไป
     );
 
-    // ส่งโพสต์ใหม่กลับไปยังหน้า FeedPage
-    if (mounted) {
-      Navigator.pop(context, newPost);
+    // 3. บันทึกข้อมูลโพสต์ลงใน Cloud Firestore
+    try {
+      await FirebaseFirestore.instance.collection('posts').add(newPost.toJson());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('โพสต์สำเร็จ!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการบันทึกโพสต์: $e')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isUploading = false; // หยุดโหลด
+      });
     }
 
-    setState(() {
-      _isUploading = false; // หยุดโหลด
-    });
+    // ส่งโพสต์ใหม่กลับไปยังหน้า FeedPage (ถ้าต้องการให้ FeedPage อัปเดตทันที)
+    if (mounted) {
+      Navigator.pop(context, newPost); // ส่ง newPost กลับไป
+    }
   }
 
   @override

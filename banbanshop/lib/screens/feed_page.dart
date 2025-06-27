@@ -10,8 +10,11 @@ import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart'; // สำห�
 import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; // สำหรับหน้าจัดการร้านค้าของผู้ขาย
 import 'package:banbanshop/screens/store_screen_content.dart'; // Import ไฟล์หน้าร้านค้า
 import 'package:banbanshop/screens/create_post.dart'; // Import ไฟล์สร้างโพสต์ใหม่
-import 'package:banbanshop/screens/post_model.dart'; // Import Post model
-
+import 'package:banbanshop/screens/post_model.dart'; // Import Post model จากไฟล์แยก
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+import 'dart:async'; // สำหรับ StreamSubscription
+import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
 
 class FeedPage extends StatefulWidget {
   final String selectedProvince;
@@ -28,7 +31,6 @@ class FeedPage extends StatefulWidget {
   @override
   _FeedPageState createState() => _FeedPageState();
 }
-
 
 class FilterButton extends StatelessWidget {
   final String text;
@@ -110,52 +112,17 @@ class _FeedPageState extends State<FeedPage> {
     'ทั้งหมด', 'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'กีฬา & กิจกรรม', 'สิ่งของเครื่องใช้'
   ];
 
-  final List<Post> posts = [
-    Post(
-      id: '1',
-      shopName: 'เดอะเต่าถ่านพรีเมี่ยม',
-      timeAgo: '1 นาที',
-      category: 'อาหาร & เครื่องดื่ม',
-      title: 'มาเด้อ เนื้อโคขุน สนใจกด "สั่งเลย"',
-      avatarImageUrl: 'assets/images/avatar1.jpg', 
-      imageUrl: 'https://img.wongnai.com/p/1600x0/2021/06/01/354e5af8ab1e40cf85cf3c10f4331677.jpg',
-      province: 'สกลนคร',
-      productCategory: 'อาหาร & เครื่องดื่ม',
-    ),
-    Post(
-      id: '2',
-      shopName: 'ร้านเสื้อผ้าแฟชั่น',
-      timeAgo: '15 นาที',
-      category: 'เสื้อผ้า',
-      title: 'เสื้อยืดคุณภาพดี ราคาถูก มีหลายสี',
-      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
-      imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400',
-      province: 'สกลนคร',
-      productCategory: 'เสื้อผ้า',
-    ),
-    Post(
-      id: '3',
-      shopName: 'ร้านอุปกรณ์กีฬา',
-      timeAgo: '30 นาที',
-      category: 'กีฬา & กิจกรรม',
-      title: 'รองเท้าวิ่งรุ่นใหม่ล่าสุด ลด 20%',
-      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
-      imageUrl: 'https://images.unsplash.com/photo-1542291026-79eddc8727ae?w=400',
-      province: 'กรุงเทพมหานคร',
-      productCategory: 'กีฬา & กิจกรรม',
-    ),
-    Post(
-      id: '4',
-      shopName: 'ร้านขายของใช้ในบ้าน',
-      timeAgo: '45 นาที',
-      category: 'สิ่งของเครื่องใช้',
-      title: 'ของใช้ในบ้านน่ารักๆ ราคาพิเศษ',
-      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
-      imageUrl: 'https://images.unsplash.com/photo-1579735706240-a17d5a5b5b0d?w=400',
-      province: 'เชียงใหม่',
-      productCategory: 'สิ่งของเครื่องใช้',
-    ),
-  ];
+  List<Post> _allPosts = []; // เปลี่ยนเป็น _allPosts เพื่อเก็บโพสต์ทั้งหมดที่ดึงมาจาก Firestore
+  bool _isLoadingPosts = true; // สถานะการโหลดโพสต์
+  StreamSubscription? _postsSubscription; // สำหรับจัดการ Stream ของ Firestore
+
+  // กำหนดค่า Cloudinary ของคุณที่นี่ (สำหรับลบรูปภาพ)
+  // ***** สำคัญ: ต้องแทนที่ค่า YOUR_CLOUDINARY_CLOUD_NAME, YOUR_CLOUDINARY_API_KEY, YOUR_CLOUDINARY_API_SECRET ด้วยค่าจริงของคุณ *****
+  final Cloudinary cloudinary = Cloudinary.full(
+    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
+    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Deletion
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Deletion
+  );
 
   @override
   void initState() {
@@ -168,12 +135,15 @@ class _FeedPageState extends State<FeedPage> {
     if (widget.sellerProfile != null && (widget.selectedProvince == 'ทั้งหมด' || widget.selectedProvince.isEmpty)) {
       _drawerSelectedProvince = widget.sellerProfile!.province;
     }
+
+    _fetchPostsFromFirestore(); // เริ่มดึงข้อมูลโพสต์จาก Firestore
   }
 
   @override
   void dispose() {
     searchController.removeListener(_onSearchChanged);
     searchController.dispose();
+    _postsSubscription?.cancel(); // ยกเลิกการ subscribe เมื่อ widget ถูก dispose
     super.dispose();
   }
 
@@ -183,9 +153,129 @@ class _FeedPageState extends State<FeedPage> {
     });
   }
 
+  // ดึงข้อมูลโพสต์จาก Firestore แบบเรียลไทม์
+  void _fetchPostsFromFirestore() {
+    setState(() {
+      _isLoadingPosts = true;
+    });
+
+    _postsSubscription = FirebaseFirestore.instance
+        .collection('posts')
+        .snapshots() // รับ Stream ของ QuerySnapshot
+        .listen((snapshot) {
+      if (!mounted) return; // ตรวจสอบว่า widget ยัง mounted อยู่
+
+      // แปลง QuerySnapshot เป็น List ของ Post objects
+      final fetchedPosts = snapshot.docs.map((doc) {
+        // ใช้ doc.id เป็น id ของ Post
+        return Post.fromJson({...doc.data(), 'id': doc.id});
+      }).toList();
+
+      setState(() {
+        _allPosts = fetchedPosts; // อัปเดตรายการโพสต์
+        _isLoadingPosts = false; // หยุดแสดง loading
+      });
+    }, onError: (error) {
+      if (!mounted) return;
+      print("Error fetching posts: $error");
+      setState(() {
+        _isLoadingPosts = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการดึงโพสต์: $error')),
+      );
+    });
+  }
+
+  // ฟังก์ชันสำหรับลบโพสต์
+  Future<void> _deletePost(Post post) async {
+    // แสดง AlertDialog เพื่อยืนยันการลบ
+    bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('ยืนยันการลบ'),
+          content: const Text('คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('ยกเลิก'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('ลบ'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete == true) {
+      setState(() {
+        _isLoadingPosts = true; // แสดง loading indicator
+      });
+
+      try {
+        // 1. ลบโพสต์ออกจาก Firestore
+        await FirebaseFirestore.instance.collection('posts').doc(post.id).delete();
+
+        // 2. ลบรูปภาพออกจาก Cloudinary
+        // ดึง public_id จาก URL ของ Cloudinary
+        final uri = Uri.parse(post.imageUrl);
+        final pathSegments = uri.pathSegments;
+        // public_id มักจะเป็นส่วนสุดท้ายของ path ก่อนนามสกุลไฟล์
+        // เช่น https://res.cloudinary.com/cloud_name/image/upload/v12345/folder/public_id.jpg
+        String publicId = pathSegments.last.split('.').first;
+        if (pathSegments.length > 2) { // ถ้ามี folder เช่น /image/upload/folder/public_id.jpg
+          publicId = '${pathSegments[pathSegments.length - 2]}/${pathSegments.last.split('.').first}';
+        }
+        
+        // ใช้ cloudinary.destroy เพื่อลบรูปภาพ (แก้ไขกลับมาใช้แบบนี้)
+        final deleteResponse = await cloudinary.deleteResource(publicId: publicId); // <--- ใช้ deleteResource แทน destroy
+
+        if (deleteResponse.isSuccessful) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('ลบโพสต์และรูปภาพสำเร็จ!')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('ลบรูปภาพจาก Cloudinary ไม่สำเร็จ: ${deleteResponse.error}')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('เกิดข้อผิดพลาดในการลบโพสต์: $e')),
+          );
+        }
+      } finally {
+        setState(() {
+          _isLoadingPosts = false; // ซ่อน loading indicator
+        });
+      }
+    }
+  }
+
+
   void _onItemTapped(int index) async {
     // ถ้าเลือกแท็บ "สร้างโพสต์" (Index 2)
     if (index == 2) {
+      // ตรวจสอบว่าผู้ใช้เป็นผู้ขายหรือไม่
+      if (widget.sellerProfile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('คุณต้องเข้าสู่ระบบในฐานะผู้ขายเพื่อสร้างโพสต์')),
+        );
+        // กลับไปหน้าเดิม (หน้าแรก)
+        setState(() {
+          _selectedIndex = 0; 
+        });
+        return;
+      }
+
       final newPost = await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const CreatePostScreen()),
@@ -195,8 +285,10 @@ class _FeedPageState extends State<FeedPage> {
       if (!mounted) return; 
 
       if (newPost != null && newPost is Post) {
+        // ไม่จำเป็นต้องเพิ่มโพสต์ลงใน _allPosts list ด้วยตนเอง
+        // เพราะ Firestore listener (_fetchPostsFromFirestore) จะจัดการให้เอง
+        // เมื่อโพสต์ใหม่ถูกบันทึกลง Firestore
         setState(() {
-          posts.insert(0, newPost); // เพิ่มโพสต์ใหม่ที่ด้านบนสุดของรายการ
           _selectedIndex = 0; // กลับไปที่หน้าแรก (ฟีดโพสต์)
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -240,8 +332,9 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
+  // ใช้ _allPosts ที่ดึงมาจาก Firestore ในการกรอง
   List<Post> get filteredPosts {
-    final filteredByProvinceAndCategory = posts.where((post) {
+    final filteredByProvinceAndCategory = _allPosts.where((post) {
       // ใช้ _drawerSelectedProvince และ _drawerSelectedCategory ในการกรอง
       final matchesProvince = _drawerSelectedProvince == 'ทั้งหมด' || post.province == _drawerSelectedProvince;
       final matchesCategory = _drawerSelectedCategory == 'ทั้งหมด' || post.productCategory == _drawerSelectedCategory;
@@ -477,10 +570,12 @@ class _FeedPageState extends State<FeedPage> {
                 ),
               ),
             Expanded(
-              child: IndexedStack(
-                index: _selectedIndex, 
-                children: pages, 
-              ),
+              child: _isLoadingPosts // แสดง CircularProgressIndicator ขณะโหลด
+                  ? const Center(child: CircularProgressIndicator())
+                  : IndexedStack(
+                      index: _selectedIndex, 
+                      children: pages, 
+                    ),
             ),
           ],
         ),
@@ -530,7 +625,12 @@ class _FeedPageState extends State<FeedPage> {
                         itemCount: filteredPosts.length,
                         itemBuilder: (context, index) {
                           final post = filteredPosts[index];
-                          return PostCard(post: post);
+                          // ส่งฟังก์ชัน _deletePost และ currentUser.uid ไปยัง PostCard
+                          return PostCard(
+                            post: post,
+                            onDelete: _deletePost,
+                            currentUserId: FirebaseAuth.instance.currentUser?.uid,
+                          );
                         },
                       ))
                 : StoreScreenContent( // แสดง StoreScreenContent เมื่อเลือก "ร้านค้า"
@@ -560,14 +660,23 @@ class _FeedPageState extends State<FeedPage> {
   }
 }
 
-
 class PostCard extends StatelessWidget {
   final Post post;
+  final Function(Post) onDelete; // Callback สำหรับลบโพสต์
+  final String? currentUserId; // UID ของผู้ใช้ที่ล็อกอินอยู่
 
-  const PostCard({super.key, required this.post});
+  const PostCard({
+    super.key,
+    required this.post,
+    required this.onDelete,
+    this.currentUserId,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // ตรวจสอบว่าเป็นโพสต์ของผู้ใช้ปัจจุบันหรือไม่
+    final isMyPost = currentUserId != null && currentUserId == post.ownerUid;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -638,6 +747,12 @@ class PostCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // ปุ่มลบ (แสดงเฉพาะโพสต์ของฉัน)
+                if (isMyPost)
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => onDelete(post), // เรียกใช้ callback onDelete
+                  ),
               ],
             ),
           ),
@@ -730,4 +845,3 @@ class ActionButton extends StatelessWidget {
     );
   }
 }
-

@@ -10,6 +10,7 @@ class Post {
   final String avatarImageUrl; 
   final String province;
   final String productCategory;
+  final String ownerUid; // เพิ่ม field นี้เพื่อเก็บ UID ของผู้โพสต์
 
   Post({
     required this.id,
@@ -21,6 +22,7 @@ class Post {
     required this.avatarImageUrl, 
     required this.province,
     required this.productCategory,
+    required this.ownerUid, // ทำให้เป็น required
   });
 
   // Factory constructor สำหรับสร้าง Post จาก Map (เช่น จาก Firestore)
@@ -35,6 +37,7 @@ class Post {
       avatarImageUrl: json['avatarImageUrl'] ?? '',
       province: json['province'] ?? '',
       productCategory: json['productCategory'] ?? '',
+      ownerUid: json['ownerUid'] ?? '', // ดึงค่า ownerUid
     );
   }
 
@@ -50,6 +53,7 @@ class Post {
       'avatarImageUrl': avatarImageUrl,
       'province': province,
       'productCategory': productCategory,
+      'ownerUid': ownerUid, // บันทึก ownerUid
     };
   }
 }
