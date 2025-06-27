@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // Import แพ็คเกจ image_picker
-import 'dart:io'; // Import สำหรับ File
-import 'package:banbanshop/screens/post_model.dart'; // Import Post model
+import 'package:image_picker/image_picker.dart'; 
+import 'dart:io'; 
+import 'package:banbanshop/screens/post_model.dart'; 
+import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -11,10 +12,21 @@ class CreatePostScreen extends StatefulWidget {
 }
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
-  File? _image; // เปลี่ยนกลับมาใช้ File? _image สำหรับรูปภาพจริง
-  final TextEditingController _captionController = TextEditingController(); // Controller สำหรับข้อความแคปชั่น
-  String? _selectedProvince; // สำหรับเลือกจังหวัดของโพสต์
-  String? _selectedCategory; // สำหรับเลือกหมวดหมู่ของโพสต์
+  File? _image; 
+  final TextEditingController _captionController = TextEditingController();
+  String? _selectedProvince; 
+  String? _selectedCategory; 
+  bool _isUploading = false; // สถานะการอัปโหลด
+
+  // กำหนดค่า Cloudinary ของคุณที่นี่ (เหมือนกับใน seller_account_screen.dart)
+  // **คำเตือน: การเก็บ Cloud Name และ Upload Preset ในโค้ดฝั่ง Client-side สำหรับ Unsigned Uploads นั้นปลอดภัยพอสำหรับการทดสอบ
+  // แต่สำหรับ Production Environment ที่ต้องการความปลอดภัยสูง ควรใช้ Signed Uploads ผ่าน Backend Server เพื่อซ่อน API Secret**
+  final Cloudinary cloudinary = Cloudinary.full(
+    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
+    apiKey: '157343641351425', // ไม่จำเป็นสำหรับ Unsigned Uploads
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // ไม่จำเป็นสำหรับ Unsigned Uploads
+  );
+  final String uploadPreset = 'flutter_unsigned_upload'; // <-- แทนที่ด้วยชื่อ Upload Preset ที่คุณสร้าง
 
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
@@ -50,22 +62,22 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery); // ใช้ ImageSource.gallery เพื่อเลือกจากแกลเลอรี
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-    if (!mounted) return; // เพิ่ม mounted check
+    if (!mounted) return; 
 
     setState(() {
       if (pickedFile != null) {
-        _image = File(pickedFile.path); // เก็บ File object
+        _image = File(pickedFile.path); 
       } else {
-        // print('No image selected.'); // ลบ print()
+        // print('No image selected.'); 
       }
     });
   }
 
-  void _postContent() {
+  void _postContent() async { // เปลี่ยนเป็น async
     if (_image == null || _captionController.text.isEmpty || _selectedProvince == null || _selectedCategory == null) {
-      if (mounted) { // เพิ่ม mounted check
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('กรุณาเลือกรูปภาพ, เขียนข้อความ, เลือกจังหวัดและหมวดหมู่')),
         );
@@ -73,23 +85,68 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
+    setState(() {
+      _isUploading = true; // เริ่มโหลด
+    });
+
+    String? uploadedImageUrl;
+    try {
+      // 1. อัปโหลดรูปภาพไปยัง Cloudinary โดยใช้ uploadResource และ CloudinaryUploadResource
+      final response = await cloudinary.uploadResource(
+        CloudinaryUploadResource(
+          filePath: _image!.path,
+          resourceType: CloudinaryResourceType.image,
+          folder: 'post_images', // ชื่อโฟลเดอร์สำหรับรูปโพสต์
+          uploadPreset: uploadPreset, // ใช้ Upload Preset ที่สร้างไว้
+        ),
+      );
+
+      if (response.isSuccessful) {
+        uploadedImageUrl = response.secureUrl;
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ: ${response.error}')),
+          );
+        }
+        setState(() {
+          _isUploading = false;
+        });
+        return; // หยุดการทำงานหากอัปโหลดรูปไม่สำเร็จ
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: $e')),
+        );
+      }
+      setState(() {
+        _isUploading = false;
+      });
+      return; // หยุดการทำงานหากเกิดข้อผิดพลาด
+    }
+
     // สร้าง Post object ใหม่
     final newPost = Post(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), // ID ชั่วคราว
-      shopName: 'ผู้ใช้ปัจจุบัน', // สมมติชื่อร้านค้าของผู้ใช้ปัจจุบัน
-      timeAgo: 'เมื่อสักครู่', // เวลาชั่วคราว
+      id: DateTime.now().millisecondsSinceEpoch.toString(), 
+      shopName: 'ผู้ใช้ปัจจุบัน', 
+      timeAgo: 'เมื่อสักครู่', 
       category: _selectedCategory!,
       title: _captionController.text,
-      imageUrl: _image!.path, // ใช้ path ของรูปภาพที่เลือกจริง
-      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png', // รูป Avatar ชั่วคราว
+      imageUrl: uploadedImageUrl!, // ใช้ URL ที่ได้จาก Cloudinary
+      avatarImageUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png', 
       province: _selectedProvince!,
       productCategory: _selectedCategory!,
     );
 
     // ส่งโพสต์ใหม่กลับไปยังหน้า FeedPage
-    if (mounted) { // เพิ่ม mounted check
+    if (mounted) {
       Navigator.pop(context, newPost);
     }
+
+    setState(() {
+      _isUploading = false; // หยุดโหลด
+    });
   }
 
   @override
@@ -105,7 +162,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16.0, 80.0, 16.0, 16.0), // เพิ่ม padding ด้านบนสำหรับปุ่ม
+            padding: const EdgeInsets.fromLTRB(16.0, 80.0, 16.0, 16.0), 
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -120,7 +177,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       border: Border.all(color: Colors.grey[400]!),
                     ),
                     child: _image != null
-                        ? Image.file( // ใช้ Image.file เพื่อแสดงรูปภาพจาก File object
+                        ? Image.file( 
                             _image!,
                             fit: BoxFit.cover,
                           )
@@ -222,7 +279,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.black, size: 28),
               onPressed: () {
-                if (mounted) Navigator.pop(context); // เพิ่ม mounted check
+                if (mounted) Navigator.pop(context);
               },
             ),
           ),
@@ -231,17 +288,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           Positioned(
             top: 40,
             right: 16,
-            child: TextButton(
-              onPressed: _postContent,
-              child: const Text(
-                'โพสต์',
-                style: TextStyle(
-                  color: Color(0xFF9C6ADE),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+            child: _isUploading
+                ? const CircularProgressIndicator(color: Color(0xFF9C6ADE)) // แสดง Loading Indicator
+                : TextButton(
+                    onPressed: _postContent,
+                    child: const Text(
+                      'โพสต์',
+                      style: TextStyle(
+                        color: Color(0xFF9C6ADE),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),

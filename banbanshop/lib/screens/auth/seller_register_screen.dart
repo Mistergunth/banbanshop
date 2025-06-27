@@ -3,6 +3,8 @@
 import 'package:banbanshop/screens/profile.dart'; // ตรวจสอบให้แน่ใจว่า import ถูกต้อง
 import 'package:banbanshop/screens/auth/seller_login_screen.dart'; // ใช้ auth/seller_login_screen.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 
 class SellerRegisterScreen extends StatefulWidget {
   const SellerRegisterScreen({super.key});
@@ -33,6 +35,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   String? _selectedProvince; // For dropdown
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isLoading = false; // สถานะโหลด
 
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
@@ -73,31 +76,69 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     super.dispose();
   }
 
-  void _registerSeller() {
+  void _registerSeller() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save(); 
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กำลังดำเนินการสมัครสมาชิก...')),
-      );
+      setState(() {
+        _isLoading = true; // เริ่มโหลด
+      });
 
-      print('Full Name: ${profile.fullName}');
-      print('Email: ${profile.email}');
-      print('Phone Number: ${profile.phoneNumber}');
-      print('Selected Province: ${profile.province}');
-      print('Password: ${profile.password}');
-      print('ID Card Number: ${profile.idCardNumber}');
+      try {
+        // 1. สมัครสมาชิกด้วย Email และ Password ผ่าน Firebase Auth
+        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: profile.email,
+          password: profile.password,
+        );
 
-      Future.delayed(const Duration(seconds: 2), () {
+        // 2. บันทึกข้อมูลโปรไฟล์ผู้ขายเพิ่มเติมลงใน Cloud Firestore
+        // ใช้ UID ของผู้ใช้จาก Firebase Auth เป็น Document ID เพื่อให้ง่ายต่อการค้นหา
+        await FirebaseFirestore.instance
+            .collection('sellers') // ชื่อ Collection สำหรับผู้ขาย
+            .doc(userCredential.user!.uid) // ใช้ UID เป็น Document ID
+            .set({
+              'fullName': profile.fullName,
+              'phoneNumber': profile.phoneNumber,
+              'idCardNumber': profile.idCardNumber,
+              'province': profile.province,
+              'email': profile.email,
+              'uid': userCredential.user!.uid, // เก็บ UID ไว้ใน Firestore ด้วย
+              // คุณสามารถเพิ่มข้อมูลอื่นๆ ที่ต้องการได้ที่นี่
+            });
+
+        if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')),
         );
-        _formKey.currentState!.reset(); 
+        _formKey.currentState!.reset(); // รีเซ็ตฟอร์ม
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
         );
-      });
+
+      } on FirebaseAuthException catch (e) {
+        if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
+        String message;
+        if (e.code == 'weak-password') {
+          message = 'รหัสผ่านอ่อนเกินไป';
+        } else if (e.code == 'email-already-in-use') {
+          message = 'อีเมลนี้ถูกใช้ไปแล้ว';
+        } else {
+          message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ${e.message}';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      } catch (e) {
+        if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false; // หยุดโหลด
+        });
+      }
     }
   }
 
@@ -255,21 +296,23 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _registerSeller,
+                    onPressed: _isLoading ? null : _registerSeller, // ปิดการใช้งานปุ่มเมื่อกำลังโหลด
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9B7DD9),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10.0),
                       ),
                     ),
-                    child: const Text(
-                      'สมัครสมาชิก',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white) // แสดง loading indicator
+                        : const Text(
+                            'สมัครสมาชิก',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 20),

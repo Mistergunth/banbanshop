@@ -1,4 +1,4 @@
-// import 'package:flutter/material.dart'; // ลบการ import นี้ออกเนื่องจากไม่ได้ใช้งาน
+// lib/screens/post_model.dart
 
 class Post {
   final String id;
@@ -23,22 +23,22 @@ class Post {
     required this.productCategory,
   });
 
-  // เพิ่ม factory constructor สำหรับสร้าง Post จาก Map (เช่น จาก JSON/Firestore)
+  // Factory constructor สำหรับสร้าง Post จาก Map (เช่น จาก Firestore)
   factory Post.fromJson(Map<String, dynamic> json) {
     return Post(
-      id: json['id'],
-      shopName: json['shopName'],
-      timeAgo: json['timeAgo'],
-      category: json['category'],
-      title: json['title'],
-      imageUrl: json['imageUrl'],
-      avatarImageUrl: json['avatarImageUrl'],
-      province: json['province'],
-      productCategory: json['productCategory'],
+      id: json['id'] ?? '',
+      shopName: json['shopName'] ?? '',
+      timeAgo: json['timeAgo'] ?? '',
+      category: json['category'] ?? '',
+      title: json['title'] ?? '',
+      imageUrl: json['imageUrl'] ?? '',
+      avatarImageUrl: json['avatarImageUrl'] ?? '',
+      province: json['province'] ?? '',
+      productCategory: json['productCategory'] ?? '',
     );
   }
 
-  // เพิ่ม method สำหรับแปลง Post เป็น Map (เช่น สำหรับบันทึกลง JSON/Firestore)
+  // Method สำหรับแปลง Post เป็น Map (สำหรับบันทึกลง Firestore)
   Map<String, dynamic> toJson() {
     return {
       'id': id,

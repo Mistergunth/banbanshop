@@ -1,9 +1,11 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:banbanshop/screens/auth/seller_register_screen.dart'; // Import register screen
 import 'package:banbanshop/screens/feed_page.dart'; // Import FeedPage
 import 'package:banbanshop/screens/profile.dart'; // Import profile class
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 
 class SellerLoginScreen extends StatefulWidget {
   const SellerLoginScreen({super.key});
@@ -14,9 +16,10 @@ class SellerLoginScreen extends StatefulWidget {
 
 class _SellerLoginScreenState extends State<SellerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _usernameController = TextEditingController(); // For email or phone number
+  final TextEditingController _usernameController = TextEditingController(); // For email (Firebase Auth uses email for login)
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false; // สถานะโหลด
 
   @override
   void dispose() {
@@ -27,66 +30,87 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
 
   void _loginSeller() async {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กำลังเข้าสู่ระบบ...')),
-      );
+      setState(() {
+        _isLoading = true; // เริ่มโหลด
+      });
 
-      final String username = _usernameController.text.trim();
+      final String email = _usernameController.text.trim(); // Firebase Auth ใช้ email
       final String password = _passwordController.text;
 
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (!mounted) return; 
-
-      bool loginSuccess = false;
-      SellerProfile? loggedInProfile; // ประกาศเป็นชนิดที่สามารถเป็น null ได้
-
-      // Mock login logic based on username (email or phone)
-      if (username == 'seller@example.com' && password == 'password123') {
-        loginSuccess = true;
-        loggedInProfile = SellerProfile(
-          fullName: 'ผู้ขายตัวอย่าง อีเมล',
-          phoneNumber: '0812345678',
-          idCardNumber: '1234567890123',
-          province: 'กรุงเทพมหานคร',
-          password: password, 
-          email: username,
-        );
-      } else if (username == '0812345678' && password == 'password123') {
-        loginSuccess = true;
-        loggedInProfile = SellerProfile(
-          fullName: 'ผู้ขายตัวอย่าง เบอร์โทร',
-          phoneNumber: username,
-          idCardNumber: '9876543210987',
-          province: 'สกลนคร', // ตั้งให้เป็นสกลนครสำหรับผู้ขายจำลองนี้
+      try {
+        // 1. เข้าสู่ระบบด้วย Email และ Password ผ่าน Firebase Auth
+        UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
           password: password,
-          email: 'another_seller@example.com', 
         );
-      } else {
-        loginSuccess = false;
-      }
 
-      // ตรวจสอบว่า loginSuccess เป็นจริง และ loggedInProfile ไม่เป็น null ก่อนนำทาง
-      if (loginSuccess && loggedInProfile != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
-        );
-        // นำทางไปยัง FeedPage โดยตรง
-        Navigator.pushReplacement( 
-          context,
-          MaterialPageRoute(
-            builder: (context) => FeedPage(
-              // ใช้ loggedInProfile!.province เพื่อยืนยันว่ามันจะไม่เป็น null
-              selectedProvince: loggedInProfile!.province, 
-              selectedCategory: 'ทั้งหมด', 
-              sellerProfile: loggedInProfile, 
+        // 2. ดึงข้อมูลโปรไฟล์ผู้ขายจาก Cloud Firestore
+        DocumentSnapshot sellerDoc = await FirebaseFirestore.instance
+            .collection('sellers')
+            .doc(userCredential.user!.uid)
+            .get();
+
+        if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
+
+        if (sellerDoc.exists) {
+          // แปลงข้อมูลจาก Firestore เป็น SellerProfile object
+          SellerProfile loggedInProfile = SellerProfile(
+            fullName: sellerDoc['fullName'],
+            phoneNumber: sellerDoc['phoneNumber'],
+            idCardNumber: sellerDoc['idCardNumber'],
+            province: sellerDoc['province'],
+            email: sellerDoc['email'],
+            password: '', // ไม่ควรเก็บรหัสผ่านใน SellerProfile object จริงๆ (แต่ในตัวอย่างนี้จำเป็นต้องมี field)
+          );
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
+          );
+          // นำทางไปยัง FeedPage โดยส่งข้อมูลโปรไฟล์ผู้ขายไปด้วย
+          Navigator.pushReplacement( 
+            context,
+            MaterialPageRoute(
+              builder: (context) => FeedPage(
+                selectedProvince: loggedInProfile.province, 
+                selectedCategory: 'ทั้งหมด', 
+                sellerProfile: loggedInProfile, 
+              ),
             ),
-          ),
-        );
-      } else {
+          );
+        } else {
+          // กรณีข้อมูลโปรไฟล์ผู้ขายไม่พบใน Firestore (แต่ล็อกอิน Auth สำเร็จ)
+          // อาจเกิดขึ้นหากการบันทึกข้อมูลใน Firestore ล้มเหลวตอนสมัครสมาชิก
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ไม่พบข้อมูลโปรไฟล์ผู้ขาย กรุณาติดต่อผู้ดูแลระบบ')),
+          );
+          // อาจจะให้ผู้ใช้ออกจากระบบ Firebase Auth ด้วย
+          await FirebaseAuth.instance.signOut();
+        }
+
+      } on FirebaseAuthException catch (e) {
+        if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
+        String message;
+        if (e.code == 'user-not-found') {
+          message = 'ไม่พบผู้ใช้ด้วยอีเมลนี้';
+        } else if (e.code == 'wrong-password') {
+          message = 'รหัสผ่านไม่ถูกต้อง';
+        } else if (e.code == 'invalid-email') {
+          message = 'รูปแบบอีเมลไม่ถูกต้อง';
+        } else {
+          message = 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ: ${e.message}';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')),
+          SnackBar(content: Text(message)),
         );
+      } catch (e) {
+        if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false; // หยุดโหลด
+        });
       }
     }
   }
@@ -136,21 +160,19 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                 ),
                 const SizedBox(height: 20),
                 _buildInputField(
-                  label: 'อีเมล / เบอร์โทรศัพท์', 
+                  label: 'อีเมล', // เปลี่ยนเป็น "อีเมล" เพราะ Firebase Auth ใช้ Email
                   controller: _usernameController,
                   keyboardType: TextInputType.emailAddress, 
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'กรุณากรอกอีเมลหรือเบอร์โทรศัพท์';
+                      return 'กรุณากรอกอีเมล';
                     }
+                    // ตรวจสอบรูปแบบอีเมลเท่านั้น
                     final bool isEmail = RegExp(
                       r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$',
                     ).hasMatch(value);
-
-                    final bool isPhoneNumber = RegExp(r'^[0-9]{10}$').hasMatch(value);
-
-                    if (!isEmail && !isPhoneNumber) {
-                      return 'กรุณากรอกอีเมลหรือเบอร์โทรศัพท์ให้ถูกรูปแบบ';
+                    if (!isEmail) {
+                      return 'กรุณากรอกอีเมลให้ถูกรูปแบบ';
                     }
                     return null;
                   },
@@ -177,21 +199,23 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _loginSeller,
+                    onPressed: _isLoading ? null : _loginSeller, // ปิดการใช้งานปุ่มเมื่อกำลังโหลด
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9B7DD9),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10.0),
                       ),
                     ),
-                    child: const Text(
-                      'เข้าสู่ระบบ',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white) // แสดง loading indicator
+                        : const Text(
+                            'เข้าสู่ระบบ',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 20),
