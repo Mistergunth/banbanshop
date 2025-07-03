@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart'; 
 import 'dart:io'; 
 import 'package:banbanshop/screens/post_model.dart'; // ตรวจสอบว่า Post model อยู่ที่นี่
-import 'package:cloudinary_sdk/cloudinary_sdk.dart'; 
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth เพื่อดึง UID ของผู้ใช้
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import 'package:banbanshop/screens/profile.dart'; // Import SellerProfile
 
 class CreatePostScreen extends StatefulWidget {
@@ -20,13 +18,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   String? _selectedProvince; 
   String? _selectedCategory; 
   bool _isUploading = false; // สถานะการอัปโหลด
-
-  // กำหนดค่า Cloudinary ของคุณที่นี่
-  final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', apiKey: '157343641351425', apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- แทนที่ด้วย Cloud Name ของคุณ
-    // apiKey และ apiSecret ไม่จำเป็นสำหรับ Unsigned Uploads
-  );
-  final String uploadPreset = 'flutter_unsigned_upload'; // <-- แทนที่ด้วยชื่อ Upload Preset ที่คุณสร้าง
 
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
@@ -76,6 +67,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   void _postContent() async { 
+    // ตรวจสอบว่าข้อมูลที่จำเป็นครบถ้วนหรือไม่
     if (_image == null || _captionController.text.isEmpty || _selectedProvince == null || _selectedCategory == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,8 +82,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     });
 
     String? uploadedImageUrl;
-    User? currentUser = FirebaseAuth.instance.currentUser; // ดึงผู้ใช้ที่ล็อกอินอยู่
+    final User? currentUser = Supabase.instance.client.auth.currentUser; // ดึงผู้ใช้ที่ล็อกอินอยู่
 
+    // ตรวจสอบว่ามีผู้ใช้ล็อกอินอยู่หรือไม่
     if (currentUser == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -104,19 +97,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
-    // ดึงข้อมูลโปรไฟล์ผู้ขายจาก Firestore
+    // ดึงข้อมูลโปรไฟล์ผู้ขายจาก Supabase 'sellers' table
     String shopName = 'ไม่ระบุชื่อร้าน';
     String avatarImageUrl = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; // รูป Avatar เริ่มต้น
-    String ownerUid = currentUser.uid; // UID ของผู้โพสต์
+    String ownerUid = currentUser.id; // UID ของผู้โพสต์
 
     try {
-      DocumentSnapshot sellerDoc = await FirebaseFirestore.instance
-          .collection('sellers')
-          .doc(currentUser.uid)
-          .get();
+      final List<Map<String, dynamic>> sellerData = await Supabase.instance.client
+          .from('sellers')
+          .select()
+          .eq('id', currentUser.id)
+          .limit(1);
 
-      if (sellerDoc.exists) {
-        SellerProfile sellerProfile = SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
+      if (sellerData.isNotEmpty) {
+        SellerProfile sellerProfile = SellerProfile.fromJson(sellerData.first);
         shopName = sellerProfile.fullName; // ใช้ชื่อเต็มเป็นชื่อร้าน
         avatarImageUrl = sellerProfile.profileImageUrl ?? avatarImageUrl; // ใช้รูปโปรไฟล์ของผู้ขาย
       }
@@ -127,22 +121,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
 
     try {
-      // 1. อัปโหลดรูปภาพไปยัง Cloudinary
-      final response = await cloudinary.uploadResource(
-        CloudinaryUploadResource(
-          filePath: _image!.path,
-          resourceType: CloudinaryResourceType.image,
-          folder: 'post_images', // ชื่อโฟลเดอร์สำหรับรูปโพสต์
-          uploadPreset: uploadPreset, // ใช้ Upload Preset ที่สร้างไว้
-        ),
-      );
+      // 1. อัปโหลดรูปภาพไปยัง Supabase Storage
+      final String fileName = '${currentUser.id}/${DateTime.now().millisecondsSinceEpoch}_${_image!.path.split('/').last}';
+      final String bucketName = 'post_images'; // กำหนดชื่อ bucket สำหรับรูปภาพโพสต์ (ต้องสร้างใน Supabase)
 
-      if (response.isSuccessful) {
-        uploadedImageUrl = response.secureUrl;
+      final response = await Supabase.instance.client.storage
+          .from(bucketName)
+          .upload(
+            fileName,
+            _image!,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          );
+
+      // ตรวจสอบว่าการอัปโหลดสำเร็จหรือไม่
+      if (response.isNotEmpty) { // Supabase upload returns a path string on success
+        uploadedImageUrl = Supabase.instance.client.storage.from(bucketName).getPublicUrl(fileName);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ: ${response.error}')),
+            const SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ')),
           );
         }
         setState(() {
@@ -150,10 +147,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         });
         return; 
       }
+    } on StorageException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ (Storage): ${e.message}')),
+        );
+      }
+      setState(() {
+        _isUploading = false;
+      });
+      return;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: $e')),
+          SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิดในการอัปโหลดรูปภาพ: $e')),
         );
       }
       setState(() {
@@ -164,21 +171,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     // 2. สร้าง Post object ใหม่
     final newPost = Post(
-      id: '', // ID จะถูกสร้างโดย Firestore อัตโนมัติ
+      id: '', // ID จะถูกสร้างโดย Supabase อัตโนมัติ
       shopName: shopName, 
-      createdAt: DateTime.now(), // สามารถอัปเดตเป็นเวลาจริงได้ในภายหลัง
+      createdAt: DateTime.now(), 
       category: _selectedCategory!,
       title: _captionController.text,
-      imageUrl: uploadedImageUrl!, // ใช้ URL ที่ได้จาก Cloudinary
+      imageUrl: uploadedImageUrl, // ใช้ URL ที่ได้จาก Supabase Storage
       avatarImageUrl: avatarImageUrl, 
       province: _selectedProvince!,
       productCategory: _selectedCategory!,
       ownerUid: ownerUid, // <--- ตรงนี้คือส่วนที่เพิ่ม ownerUid เข้าไป
     );
 
-    // 3. บันทึกข้อมูลโพสต์ลงใน Cloud Firestore
+    // 3. บันทึกข้อมูลโพสต์ลงใน Supabase 'posts' table
     try {
-      await FirebaseFirestore.instance.collection('posts').add(newPost.toJson());
+      await Supabase.instance.client.from('posts').insert(newPost.toJson());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('โพสต์สำเร็จ!')),

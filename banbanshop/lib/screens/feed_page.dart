@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_controls, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
@@ -11,10 +11,8 @@ import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; // สำ�
 import 'package:banbanshop/screens/store_screen_content.dart'; // Import ไฟล์หน้าร้านค้า
 import 'package:banbanshop/screens/create_post.dart'; // Import ไฟล์สร้างโพสต์ใหม่
 import 'package:banbanshop/screens/post_model.dart'; // Import Post model จากไฟล์แยก
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import 'dart:async'; // สำหรับ StreamSubscription และ Timer
-import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
 
 class FeedPage extends StatefulWidget {
   final String selectedProvince;
@@ -112,17 +110,9 @@ class _FeedPageState extends State<FeedPage> {
     'ทั้งหมด', 'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'กีฬา & กิจกรรม', 'สิ่งของเครื่องใช้'
   ];
 
-  List<Post> _allPosts = []; // เปลี่ยนเป็น _allPosts เพื่อเก็บโพสต์ทั้งหมดที่ดึงมาจาก Firestore
+  List<Post> _allPosts = []; // เปลี่ยนเป็น _allPosts เพื่อเก็บโพสต์ทั้งหมดที่ดึงมาจาก Supabase
   bool _isLoadingPosts = true; // สถานะการโหลดโพสต์
-  StreamSubscription? _postsSubscription; // สำหรับจัดการ Stream ของ Firestore
-
-  // กำหนดค่า Cloudinary ของคุณที่นี่ (สำหรับลบรูปภาพ)
-  // ***** สำคัญ: ต้องแทนที่ค่า YOUR_CLOUDINARY_CLOUD_NAME, YOUR_CLOUDINARY_API_KEY, YOUR_CLOUDINARY_API_SECRET ด้วยค่าจริงของคุณ *****
-  final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
-    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Deletion
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Deletion
-  );
+  StreamSubscription? _postsSubscription; // สำหรับจัดการ Stream ของ Supabase
 
   @override
   void initState() {
@@ -136,7 +126,7 @@ class _FeedPageState extends State<FeedPage> {
       _drawerSelectedProvince = widget.sellerProfile!.province;
     }
 
-    _fetchPostsFromFirestore(); // เริ่มดึงข้อมูลโพสต์จาก Firestore
+    _fetchPostsFromSupabase(); // เริ่มดึงข้อมูลโพสต์จาก Supabase
   }
 
   @override
@@ -153,23 +143,21 @@ class _FeedPageState extends State<FeedPage> {
     });
   }
 
-  // ดึงข้อมูลโพสต์จาก Firestore แบบเรียลไทม์
-  void _fetchPostsFromFirestore() {
+  // ดึงข้อมูลโพสต์จาก Supabase แบบเรียลไทม์
+  void _fetchPostsFromSupabase() {
     setState(() {
       _isLoadingPosts = true;
     });
 
-    _postsSubscription = FirebaseFirestore.instance
-        .collection('posts')
-        .snapshots() // รับ Stream ของ QuerySnapshot
-        .listen((snapshot) {
+    _postsSubscription = Supabase.instance.client
+        .from('posts')
+        .stream(primaryKey: ['id']) // ใช้ stream() สำหรับการอัปเดตแบบเรียลไทม์
+        .order('createdAt', ascending: false) // เรียงลำดับตามเวลาสร้างล่าสุด
+        .listen((data) {
       if (!mounted) return; // ตรวจสอบว่า widget ยัง mounted อยู่
 
-      // แปลง QuerySnapshot เป็น List ของ Post objects
-      final fetchedPosts = snapshot.docs.map((doc) {
-        // ใช้ doc.id เป็น id ของ Post
-        return Post.fromJson({...doc.data(), 'id': doc.id});
-      }).toList();
+      // แปลงข้อมูลที่ได้จาก Supabase เป็น List ของ Post objects
+      final fetchedPosts = data.map((map) => Post.fromJson(map)).toList();
 
       setState(() {
         _allPosts = fetchedPosts; // อัปเดตรายการโพสต์
@@ -177,7 +165,7 @@ class _FeedPageState extends State<FeedPage> {
       });
     }, onError: (error) {
       if (!mounted) return;
-      print("Error fetching posts: $error");
+      print("Error fetching posts from Supabase: $error");
       setState(() {
         _isLoadingPosts = false;
       });
@@ -216,35 +204,36 @@ class _FeedPageState extends State<FeedPage> {
       });
 
       try {
-        // 1. ลบโพสต์ออกจาก Firestore
-        await FirebaseFirestore.instance.collection('posts').doc(post.id).delete();
+        // 1. ลบโพสต์ออกจาก Supabase Database
+        await Supabase.instance.client
+            .from('posts')
+            .delete()
+            .eq('id', post.id); // ลบโพสต์ที่มี id ตรงกัน
 
-        // 2. ลบรูปภาพออกจาก Cloudinary
-        // ดึง public_id จาก URL ของ Cloudinary
-        final uri = Uri.parse(post.imageUrl);
-        final pathSegments = uri.pathSegments;
-        // public_id มักจะเป็นส่วนสุดท้ายของ path ก่อนนามสกุลไฟล์
-        // เช่น https://res.cloudinary.com/cloud_name/image/upload/v12345/folder/public_id.jpg
-        String publicId = pathSegments.last.split('.').first;
-        if (pathSegments.length > 2) { // ถ้ามี folder เช่น /image/upload/folder/public_id.jpg
-          publicId = '${pathSegments[pathSegments.length - 2]}/${pathSegments.last.split('.').first}';
+        // 2. ลบรูปภาพออกจาก Supabase Storage
+        // แยก bucket name และ file path จาก URL ของรูปภาพ
+        final Uri uri = Uri.parse(post.imageUrl);
+        // Path ใน Supabase Storage คือส่วนที่อยู่หลัง '/public/'
+        // ตัวอย่าง: /storage/v1/object/public/post_images/user_id/filename.jpg
+        // เราต้องการ 'post_images/user_id/filename.jpg'
+        final String storagePath = uri.path.substring(uri.path.indexOf('/public/') + '/public/'.length);
+        final String bucketName = storagePath.split('/').first; // ควรจะเป็น 'post_images'
+        final String filePathInBucket = storagePath.substring(bucketName.length + 1); // Path หลัง bucket name
+
+        await Supabase.instance.client.storage
+            .from(bucketName)
+            .remove([filePathInBucket]); // ลบไฟล์จาก Storage
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ลบโพสต์และรูปภาพสำเร็จ!')),
+          );
         }
-        
-        // ใช้ cloudinary.destroy เพื่อลบรูปภาพ
-        final deleteResponse = await cloudinary.deleteResource(publicId: publicId); 
-
-        if (deleteResponse.isSuccessful) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('ลบโพสต์และรูปภาพสำเร็จ!')),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('ลบรูปภาพจาก Cloudinary ไม่สำเร็จ: ${deleteResponse.error}')),
-            );
-          }
+      } on StorageException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('เกิดข้อผิดพลาดในการลบรูปภาพ (Storage): ${e.message}')),
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -286,8 +275,8 @@ class _FeedPageState extends State<FeedPage> {
 
       if (newPost != null && newPost is Post) {
         // ไม่จำเป็นต้องเพิ่มโพสต์ลงใน _allPosts list ด้วยตนเอง
-        // เพราะ Firestore listener (_fetchPostsFromFirestore) จะจัดการให้เอง
-        // เมื่อโพสต์ใหม่ถูกบันทึกลง Firestore
+        // เพราะ Supabase listener (_fetchPostsFromSupabase) จะจัดการให้เอง
+        // เมื่อโพสต์ใหม่ถูกบันทึกลง Supabase
         setState(() {
           _selectedIndex = 0; // กลับไปที่หน้าแรก (ฟีดโพสต์)
         });
@@ -332,7 +321,7 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
-  // ใช้ _allPosts ที่ดึงมาจาก Firestore ในการกรอง
+  // ใช้ _allPosts ที่ดึงมาจาก Supabase ในการกรอง
   List<Post> get filteredPosts {
     final filteredByProvinceAndCategory = _allPosts.where((post) {
       // ใช้ _drawerSelectedProvince และ _drawerSelectedCategory ในการกรอง
@@ -433,8 +422,10 @@ class _FeedPageState extends State<FeedPage> {
                 leading: const Icon(Icons.storefront_outlined),
                 title: const Text('จัดการร้านค้าของฉัน'),
                 onTap: () {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้าจัดการร้านค้า')));
+                  }
                   if (mounted) Navigator.pop(context); 
                 },
               )
@@ -443,8 +434,10 @@ class _FeedPageState extends State<FeedPage> {
                 leading: const Icon(Icons.favorite_outline),
                 title: const Text('รายการโปรด'),
                 onTap: () { 
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้ารายการโปรด')));
+                  }
                   if (mounted) Navigator.pop(context); 
                 },
               ),
@@ -499,13 +492,25 @@ class _FeedPageState extends State<FeedPage> {
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('ออกจากระบบ'),
-              onTap: () { 
+              onTap: () async { // Make onTap async
                 if (mounted) Navigator.pop(context); 
-                if (mounted) Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SellerLoginScreen()), 
-                  (route) => false,
-                );
+                try {
+                  await Supabase.instance.client.auth.signOut(); // Sign out from Supabase
+                  if (mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SellerLoginScreen()), 
+                      (route) => false,
+                    );
+                  }
+                } catch (e) {
+                  print('Error signing out: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('เกิดข้อผิดพลาดในการออกจากระบบ: $e')),
+                    );
+                  }
+                }
               },
             ),
           ],
@@ -625,11 +630,11 @@ class _FeedPageState extends State<FeedPage> {
                         itemCount: filteredPosts.length,
                         itemBuilder: (context, index) {
                           final post = filteredPosts[index];
-                          // ส่งฟังก์ชัน _deletePost และ currentUser.uid ไปยัง PostCard
+                          // ส่งฟังก์ชัน _deletePost และ currentUser.id ไปยัง PostCard
                           return PostCard(
                             post: post,
                             onDelete: _deletePost,
-                            currentUserId: FirebaseAuth.instance.currentUser?.uid,
+                            currentUserId: Supabase.instance.client.auth.currentUser?.id,
                           );
                         },
                       ))
@@ -850,7 +855,7 @@ class _PostCardState extends State<PostCard> {
             child: Row(
               children: [
                 ActionButton(text: 'สั่งเลย', onTap: () {
-                  // print('สั่งเลย button pressed for ${post.shopName}'); // ลบ print()
+                  // Handle "Order Now" action
                 }),
                 const SizedBox(width: 10),
                 ActionButton(text: 'ดูหน้าร้าน', onTap: () {
@@ -863,7 +868,6 @@ class _PostCardState extends State<PostCard> {
                       ),
                     ),
                   );
-                  // print('ดูหน้าร้าน button pressed for ${post.shopName}'); // ลบ print()
                 }),
               ],
             ),

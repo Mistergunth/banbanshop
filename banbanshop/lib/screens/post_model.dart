@@ -1,11 +1,11 @@
 // lib/screens/post_model.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore Timestamp
+// ไม่ต้อง import cloud_firestore อีกต่อไป
 
 class Post {
   final String id;
   final String shopName;
-  final DateTime createdAt; // เปลี่ยนชื่อและประเภทเป็น DateTime
+  final DateTime createdAt; // ประเภทเป็น DateTime โดยตรง
   final String category;
   final String title;
   final String imageUrl;
@@ -17,7 +17,7 @@ class Post {
   Post({
     required this.id,
     required this.shopName,
-    required this.createdAt, // เปลี่ยนเป็น createdAt
+    required this.createdAt, // ใช้ createdAt ที่เป็น DateTime
     required this.category,
     required this.title,
     required this.imageUrl,
@@ -27,14 +27,26 @@ class Post {
     required this.ownerUid, 
   });
 
-  // Factory constructor สำหรับสร้าง Post จาก Map (เช่น จาก Firestore)
+  // Factory constructor สำหรับสร้าง Post จาก Map (เช่น จาก Supabase)
   factory Post.fromJson(Map<String, dynamic> json) {
-    // แปลง Timestamp จาก Firestore เป็น DateTime
-    DateTime createdAt = (json['createdAt'] as Timestamp).toDate(); 
+    // Supabase มักจะส่ง DateTime มาเป็น String ในรูปแบบ ISO 8601
+    // หรืออาจจะเป็น DateTime object โดยตรงหาก Supabase client ทำการแปลงให้แล้ว
+    // ตรวจสอบประเภทของ json['createdAt'] ก่อนแปลง
+    DateTime parsedCreatedAt;
+    if (json['createdAt'] is String) {
+      parsedCreatedAt = DateTime.parse(json['createdAt']);
+    } else if (json['createdAt'] is DateTime) {
+      parsedCreatedAt = json['createdAt'];
+    } else {
+      // กรณีที่ไม่ใช่ String หรือ DateTime (เช่น null หรือประเภทอื่น)
+      // อาจจะกำหนดค่าเริ่มต้น หรือจัดการข้อผิดพลาดตามความเหมาะสม
+      parsedCreatedAt = DateTime.now(); // กำหนดเป็นเวลาปัจจุบันเป็นค่าเริ่มต้น
+    }
+
     return Post(
       id: json['id'] ?? '',
       shopName: json['shopName'] ?? '',
-      createdAt: createdAt, // ใช้ createdAt ที่แปลงแล้ว
+      createdAt: parsedCreatedAt, // ใช้ createdAt ที่แปลงแล้ว
       category: json['category'] ?? '',
       title: json['title'] ?? '',
       imageUrl: json['imageUrl'] ?? '',
@@ -45,12 +57,12 @@ class Post {
     );
   }
 
-  // Method สำหรับแปลง Post เป็น Map (สำหรับบันทึกลง Firestore)
+  // Method สำหรับแปลง Post เป็น Map (สำหรับบันทึกลง Supabase)
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id': id, // Supabase มักจะสร้าง ID ให้อัตโนมัติเมื่อ insert
       'shopName': shopName,
-      'createdAt': Timestamp.fromDate(createdAt), // แปลง DateTime เป็น Timestamp สำหรับ Firestore
+      'createdAt': createdAt.toIso8601String(), // แปลง DateTime เป็น String ในรูปแบบ ISO 8601 สำหรับ Supabase
       'category': category,
       'title': title,
       'imageUrl': imageUrl,

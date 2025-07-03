@@ -3,8 +3,7 @@
 import 'package:banbanshop/screens/profile.dart'; // ตรวจสอบให้แน่ใจว่า import ถูกต้อง
 import 'package:banbanshop/screens/auth/seller_login_screen.dart'; // ใช้ auth/seller_login_screen.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 
 class SellerRegisterScreen extends StatefulWidget {
   const SellerRegisterScreen({super.key});
@@ -85,44 +84,83 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
       });
 
       try {
-        // 1. สมัครสมาชิกด้วย Email และ Password ผ่าน Firebase Auth
-        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        // 1. สมัครสมาชิกด้วย Email และ Password ผ่าน Supabase Auth
+        final AuthResponse response = await Supabase.instance.client.auth.signUp(
           email: profile.email,
           password: profile.password,
         );
 
-        // 2. บันทึกข้อมูลโปรไฟล์ผู้ขายเพิ่มเติมลงใน Cloud Firestore
-        // ใช้ UID ของผู้ใช้จาก Firebase Auth เป็น Document ID เพื่อให้ง่ายต่อการค้นหา
-        await FirebaseFirestore.instance
-            .collection('sellers') // ชื่อ Collection สำหรับผู้ขาย
-            .doc(userCredential.user!.uid) // ใช้ UID เป็น Document ID
-            .set({
+        // ตรวจสอบว่าผู้ใช้ถูกสร้างหรือไม่
+        if (response.user == null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ไม่สามารถสมัครสมาชิกได้: ผู้ใช้ไม่ถูกสร้าง')),
+          );
+          return;
+        }
+
+        final String userId = response.user!.id;
+
+        // 2. บันทึกข้อมูลโปรไฟล์ผู้ขายเพิ่มเติมลงใน Supabase 'sellers' table
+        // ใช้ UID ของผู้ใช้จาก Supabase Auth เป็น ID ในตาราง 'sellers'
+        await Supabase.instance.client
+            .from('sellers') // ชื่อตารางสำหรับผู้ขาย
+            .insert({
+              'id': userId, // ใช้ UID เป็น ID
               'fullName': profile.fullName,
               'phoneNumber': profile.phoneNumber,
               'idCardNumber': profile.idCardNumber,
               'province': profile.province,
               'email': profile.email,
-              'uid': userCredential.user!.uid, // เก็บ UID ไว้ใน Firestore ด้วย
               // คุณสามารถเพิ่มข้อมูลอื่นๆ ที่ต้องการได้ที่นี่
             });
 
         if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')),
-        );
-        _formKey.currentState!.reset(); // รีเซ็ตฟอร์ม
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
-        );
 
-      } on FirebaseAuthException catch (e) {
+        // ตรวจสอบว่ามี session (ผู้ใช้ถูกเข้าสู่ระบบทันที) หรือไม่
+        // Supabase โดยค่าเริ่มต้นจะส่งอีเมลยืนยันและไม่เข้าสู่ระบบทันที
+        if (response.session != null) {
+          // ถ้ามี session แสดงว่าเข้าสู่ระบบสำเร็จทันที (เช่น ถ้าปิด Email Confirmation)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('สมัครสมาชิกและเข้าสู่ระบบสำเร็จ!')),
+          );
+          // นำทางไปยัง FeedPage หรือหน้าหลัก
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SellerLoginScreen(), // หรือ FeedPage ถ้าต้องการเข้าสู่ระบบทันที
+            ),
+          );
+        } else {
+          // ถ้าไม่มี session แสดงว่าต้องมีการยืนยันอีเมล
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('สมัครสมาชิกสำเร็จ! กรุณายืนยันอีเมลและเข้าสู่ระบบ'),
+              duration: Duration(seconds: 5), // แสดงข้อความนานขึ้น
+            ),
+          );
+          _formKey.currentState!.reset(); // รีเซ็ตฟอร์ม
+          // นำทางกลับไปหน้า Login เพื่อให้ผู้ใช้ไปยืนยันอีเมลแล้วค่อย Login
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
+          );
+        }
+
+      } on AuthException catch (e) {
         if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
         String message;
-        if (e.code == 'weak-password') {
-          message = 'รหัสผ่านอ่อนเกินไป';
-        } else if (e.code == 'email-already-in-use') {
-          message = 'อีเมลนี้ถูกใช้ไปแล้ว';
+        if (e.statusCode == '400') { // Bad request, often due to invalid email or password strength
+          // ตรวจสอบข้อความ error เพื่อให้ละเอียดขึ้น
+          if (e.message.contains('already exists')) {
+            message = 'อีเมลนี้ถูกใช้ไปแล้ว';
+          } else if (e.message.contains('Weak password')) {
+            message = 'รหัสผ่านอ่อนเกินไป';
+          } else if (e.message.contains('rate limit')) {
+            message = 'คุณพยายามสมัครบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่';
+          } else {
+            message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ${e.message}';
+          }
         } else {
           message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ${e.message}';
         }

@@ -3,12 +3,9 @@
 import 'package:banbanshop/screens/profile.dart';
 import 'package:banbanshop/screens/auth/seller_login_screen.dart'; 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import 'package:image_picker/image_picker.dart'; // Import Image Picker
 import 'dart:io'; // สำหรับ File
-import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
-// import 'package:image_cropper/image_cropper.dart'; // Removed image_cropper import
 
 class SellerAccountScreen extends StatefulWidget { 
   final SellerProfile? sellerProfile; 
@@ -22,15 +19,6 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
   SellerProfile? _currentSellerProfile;
   bool _isLoading = true;
 
-  // กำหนดค่า Cloudinary ของคุณที่นี่
-  // ***** สำคัญ: ต้องแทนที่ค่า YOUR_CLOUDINARY_CLOUD_NAME, YOUR_CLOUDINARY_API_KEY, YOUR_CLOUDINARY_API_SECRET ด้วยค่าจริงของคุณ *****
-  final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
-    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
-  );
-  final String uploadPreset = 'flutter_unsigned_upload'; // <-- แทนที่ด้วยชื่อ Upload Preset ที่คุณสร้าง (เช่น 'flutter_unsigned_upload')
-
   @override
   void initState() {
     super.initState();
@@ -42,19 +30,23 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
       _isLoading = true;
     });
 
-    User? currentUser = FirebaseAuth.instance.currentUser;
+    final User? currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
       try {
-        DocumentSnapshot sellerDoc = await FirebaseFirestore.instance
-            .collection('sellers')
-            .doc(currentUser.uid)
-            .get();
+        // ดึงข้อมูลโปรไฟล์ผู้ขายจาก Supabase
+        final response = await Supabase.instance.client
+            .from('sellers')
+            .select()
+            .eq('id', currentUser.id) // ใช้ id ของผู้ใช้ปัจจุบัน
+            .single(); // คาดหวังผลลัพธ์เดียว
 
         if (!mounted) return;
 
-        if (sellerDoc.exists) {
+        // ignore: unnecessary_null_comparison
+        if (response != null) {
           setState(() {
-            _currentSellerProfile = SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
+            // ignore: unnecessary_cast
+            _currentSellerProfile = SellerProfile.fromJson(response as Map<String, dynamic>);
           });
         } else {
           setState(() {
@@ -78,15 +70,15 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
     });
   }
 
-  // ฟังก์ชันเลือกและอัปโหลดรูปภาพโปรไฟล์ (ไม่มีการครอปแล้ว)
+  // ฟังก์ชันเลือกและอัปโหลดรูปภาพโปรไฟล์
   Future<void> _pickAndUploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile == null) return; // ผู้ใช้ยกเลิกการเลือกรูปภาพ
 
-    File imageFile = File(pickedFile.path); // ใช้ไฟล์ที่เลือกโดยตรง
-    User? currentUser = FirebaseAuth.instance.currentUser;
+    File imageFile = File(pickedFile.path);
+    final User? currentUser = Supabase.instance.client.auth.currentUser;
 
     if (currentUser == null) {
       if (mounted) {
@@ -102,38 +94,55 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
     });
 
     try {
-      // 1. อัปโหลดรูปภาพไปยัง Cloudinary
-      final response = await cloudinary.uploadResource(
-        CloudinaryUploadResource(
-          filePath: imageFile.path,
-          resourceType: CloudinaryResourceType.image,
-          folder: 'profile_pictures', // ชื่อโฟลเดอร์ใน Cloudinary (ถ้าต้องการ)
-          uploadPreset: uploadPreset, // ใช้ Upload Preset ที่สร้างไว้
-        ),
-      );
+      // 1. อัปโหลดรูปภาพไปยัง Supabase Storage
+      // ตั้งชื่อไฟล์ให้ไม่ซ้ำกันและอยู่ในโฟลเดอร์ของผู้ใช้
+      final String fileName = '${currentUser.id}/profile_picture_${DateTime.now().millisecondsSinceEpoch}.jpg'; 
+      final String path = fileName; // path คือ fileName ใน bucket นั้นๆ
 
-      if (response.isSuccessful) {
-        String? downloadUrl = response.secureUrl; // URL ของรูปภาพที่อัปโหลดสำเร็จ
-        if (downloadUrl != null) {
-          // 2. อัปเดต URL รูปภาพใน Firestore
-          await FirebaseFirestore.instance
-              .collection('sellers')
-              .doc(currentUser.uid)
-              .update({'profileImageUrl': downloadUrl});
+      final response = await Supabase.instance.client.storage
+          .from('profile.pictures')
+          .upload(
+            path,
+            imageFile,
+            fileOptions: FileOptions(
+              cacheControl: '3600',
+              upsert: true, // อัปเดตไฟล์เดิมถ้ามีอยู่แล้ว
+              contentType: 'image/jpeg', // ระบุประเภทของไฟล์
+              // ***** สำคัญมาก: แนบ metadata ที่มี user_id *****
+              metadata: {
+                'user_id': currentUser.id, // ส่ง User ID ของผู้ใช้ปัจจุบันไปกับ metadata
+              },
+            ),
+          );
 
-          // 3. อัปเดต UI
+      // ตรวจสอบว่า response ไม่ใช่ null และไม่มี error (Supabase upload returns a path string on success)
+      // ignore: unnecessary_null_comparison
+      if (response != null && response.isNotEmpty) {
+        // 2. รับ URL สาธารณะของรูปภาพ
+        final String publicUrl = Supabase.instance.client.storage
+            .from('profile.pictures') // ชื่อ bucket ของคุณ
+            .getPublicUrl(path); // ใช้ path ที่อัปโหลดไป
+
+        if (publicUrl.isNotEmpty) {
+          // 3. อัปเดต URL รูปภาพในตาราง sellers ของ Supabase
+          await Supabase.instance.client
+              .from('sellers')
+              .update({'profileImageUrl': publicUrl})
+              .eq('id', currentUser.id);
+
+          // 4. อัปเดต UI
           if (!mounted) return;
           setState(() {
-            _currentSellerProfile = _currentSellerProfile?.copyWith(profileImageUrl: downloadUrl) ??
-                                    SellerProfile( 
-                                      fullName: 'ชื่อ - นามสกุล',
-                                      phoneNumber: '099 999 9999',
-                                      idCardNumber: '',
-                                      province: '',
-                                      password: '',
-                                      email: currentUser.email ?? '',
-                                      profileImageUrl: downloadUrl,
-                                    );
+            _currentSellerProfile = _currentSellerProfile?.copyWith(profileImageUrl: publicUrl) ??
+                                   SellerProfile( 
+                                     fullName: 'ชื่อ - นามสกุล',
+                                     phoneNumber: '099 999 9999',
+                                     idCardNumber: '',
+                                     province: '',
+                                     password: '',
+                                     email: currentUser.email ?? '',
+                                     profileImageUrl: publicUrl,
+                                   );
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('อัปโหลดรูปโปรไฟล์สำเร็จ!')),
             );
@@ -141,16 +150,22 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('ไม่สามารถรับ URL รูปภาพจาก Cloudinary ได้')),
+              const SnackBar(content: Text('ไม่สามารถรับ URL รูปภาพจาก Supabase ได้')),
             );
           }
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ: ${response.error}')),
+            const SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ')),
           );
         }
+      }
+    } on StorageException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ (Storage): ${e.message}')),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -170,7 +185,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
       _isLoading = true;
     });
     try {
-      await FirebaseAuth.instance.signOut();
+      await Supabase.instance.client.auth.signOut(); // ออกจากระบบด้วย Supabase
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ออกจากระบบแล้ว')),
@@ -181,10 +196,11 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
         (route) => false, 
       );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการออกจากระบบ: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการออกจากระบบ: $e')),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -223,7 +239,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             child: Column(
               children: [
                 GestureDetector( 
-                  onTap: _pickAndUploadImage, // เรียกใช้ฟังก์ชันเลือกรูปโปรไฟล์ (ไม่มีการครอปแล้ว)
+                  onTap: _pickAndUploadImage, // เรียกใช้ฟังก์ชันเลือกรูปโปรไฟล์
                   child: CircleAvatar(
                     radius: 50,
                     backgroundImage: profileImage, 
@@ -249,7 +265,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                     color: Colors.grey[700],
                   ),
                 ),
-                 Text(
+                Text(
                   _currentSellerProfile?.email ?? 'email@example.com', 
                   style: TextStyle(
                     fontSize: 16,
@@ -383,25 +399,3 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
     );
   }
 }
-// Extension SellerProfileCopyWith ควรอยู่ใน profile.dart เท่านั้น
-// extension SellerProfileCopyWith on SellerProfile {
-//   SellerProfile copyWith({
-//     String? fullName,
-//     String? phoneNumber,
-//     String? idCardNumber,
-//     String? province,
-//     String? password,
-//     String? email,
-//     String? profileImageUrl,
-//   }) {
-//     return SellerProfile(
-//       fullName: fullName ?? this.fullName,
-//       phoneNumber: phoneNumber ?? this.phoneNumber,
-//       idCardNumber: idCardNumber ?? this.idCardNumber,
-//       province: province ?? this.province,
-//       password: password ?? this.password,
-//       email: email ?? this.email,
-//       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-//     );
-//   }
-// }
