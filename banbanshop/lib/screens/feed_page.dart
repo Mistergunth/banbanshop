@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_controls, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_controls
 
 import 'package:flutter/material.dart';
 import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
@@ -498,6 +498,7 @@ class _FeedPageState extends State<FeedPage> {
                   await Supabase.instance.client.auth.signOut(); // Sign out from Supabase
                   if (mounted) {
                     Navigator.pushAndRemoveUntil(
+                      // ignore: use_build_context_synchronously
                       context,
                       MaterialPageRoute(builder: (context) => const SellerLoginScreen()), 
                       (route) => false,
@@ -506,6 +507,7 @@ class _FeedPageState extends State<FeedPage> {
                 } catch (e) {
                   print('Error signing out: $e');
                   if (mounted) {
+                    // ignore: use_build_context_synchronously
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('เกิดข้อผิดพลาดในการออกจากระบบ: $e')),
                     );

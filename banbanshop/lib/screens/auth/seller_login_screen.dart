@@ -43,45 +43,96 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           password: password,
         );
 
-        // Check if user is logged in
+        // Check if user is logged in. response.user will be null if email not confirmed or wrong credentials.
         if (response.user == null) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ไม่สามารถเข้าสู่ระบบได้: ผู้ใช้ไม่ถูกต้อง')),
+            const SnackBar(content: Text('ไม่สามารถเข้าสู่ระบบได้: อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือยังไม่ได้ยืนยันอีเมล')),
           );
           return;
         }
 
+        // If we reach here, response.user is definitely not null.
         final String userId = response.user!.id;
+        SellerProfile? loggedInProfile;
 
-        // 2. Fetch seller profile data from Supabase 'sellers' table
-        // Assuming 'sellers' table has 'id' column matching auth.users 'id'
-        final List<Map<String, dynamic>> sellerData = await Supabase.instance.client
-            .from('sellers')
-            .select()
-            .eq('id', userId)
-            .limit(1) // Limit to 1 result
-            .then((data) {
-              if (data.isEmpty) {
-                throw Exception('No seller profile found for this user.');
-              }
-              return data;
-            });
-        
-        // Get the first (and only) seller profile
-        final Map<String, dynamic> sellerDoc = sellerData.first;
+        // 2. Try to fetch seller profile data from Supabase 'sellers' table first
+        try {
+          final Map<String, dynamic>? sellerData = await Supabase.instance.client
+              .from('sellers')
+              .select()
+              .eq('id', userId)
+              .single() // Use single() to get a single row or null if not found
+              .limit(1) // Limit to 1 result
+              .maybeSingle(); // Use maybeSingle() to return null if no row found
+          
+          if (sellerData != null) {
+            // Profile exists, load it
+            loggedInProfile = SellerProfile.fromJson(sellerData);
+          } else {
+            // Profile does NOT exist, this is the first successful login after registration
+            // Insert the basic seller profile data now that the user is authenticated.
+            final String userEmail = response.user!.email ?? '';
+
+            await Supabase.instance.client
+                .from('sellers')
+                .insert({
+                  'id': userId,
+                  'fullName': 'ผู้ขายใหม่', // Placeholder: User should update this later
+                  'phoneNumber': '0000000000', // Placeholder
+                  'idCardNumber': '0000000000000', // Placeholder
+                  'province': 'ทั้งหมด', 
+                  'email': userEmail,
+                  'profile_image_url': null, // Initial empty profile image
+                  'created_at': DateTime.now().toIso8601String(),
+                });
+            
+            // Refetch the newly created profile to ensure it's loaded correctly
+            // This second fetch is crucial to get the newly inserted data
+            final Map<String, dynamic>? newSellerData = await Supabase.instance.client
+                .from('sellers')
+                .select()
+                .eq('id', userId)
+                .single()
+                .limit(1)
+                .maybeSingle();
+            
+            if (newSellerData != null) {
+              loggedInProfile = SellerProfile.fromJson(newSellerData);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('โปรไฟล์ผู้ขายถูกสร้างแล้ว! กรุณาอัปเดตข้อมูลส่วนตัว')),
+              );
+            } else {
+              // This case should ideally not happen if insert was successful and RLS is correct
+              throw Exception('Failed to retrieve newly created seller profile.');
+            }
+          }
+        } on PostgrestException catch (e) {
+          // Handle specific case of duplicate key if it somehow still occurs
+          if (e.code == '23505') { // PostgreSQL unique violation error code
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('โปรไฟล์ผู้ขายสำหรับอีเมลนี้มีอยู่แล้ว')),
+            );
+          } else {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('เกิดข้อผิดพลาดในการจัดการโปรไฟล์ผู้ขาย: ${e.message}')),
+            );
+          }
+          await Supabase.instance.client.auth.signOut(); // Sign out to prevent inconsistent state
+          return;
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('เกิดข้อผิดพลาดในการจัดการโปรไฟล์ผู้ขาย: $e')),
+          );
+          await Supabase.instance.client.auth.signOut();
+          return;
+        }
 
         if (!mounted) return; // Check mounted before using BuildContext
-
-        // Convert data from Supabase to SellerProfile object
-        SellerProfile loggedInProfile = SellerProfile(
-          fullName: sellerDoc['fullName'],
-          phoneNumber: sellerDoc['phoneNumber'],
-          idCardNumber: sellerDoc['idCardNumber'],
-          province: sellerDoc['province'],
-          email: sellerDoc['email'],
-          password: '', // Password should not be stored in SellerProfile object
-        );
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
@@ -91,7 +142,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => FeedPage(
-              selectedProvince: loggedInProfile.province, 
+              selectedProvince: loggedInProfile?.province ?? 'ทั้งหมด', 
               selectedCategory: 'ทั้งหมด', 
               sellerProfile: loggedInProfile, 
             ),
@@ -102,7 +153,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         if (!mounted) return; // Check mounted before using BuildContext
         String message;
         if (e.statusCode == '400') { // Bad request, often due to invalid credentials
-          message = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+          message = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือยังไม่ได้ยืนยันอีเมล';
         } else {
           message = 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ: ${e.message}';
         }

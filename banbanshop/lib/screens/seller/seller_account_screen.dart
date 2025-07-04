@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'package:banbanshop/screens/profile.dart';
 import 'package:banbanshop/screens/auth/seller_login_screen.dart'; 
@@ -100,7 +100,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
       final String path = fileName; // path คือ fileName ใน bucket นั้นๆ
 
       final response = await Supabase.instance.client.storage
-          .from('profile.pictures')
+          .from('profile.pictures') // ชื่อ bucket ของคุณใน Supabase Storage (ใช้ profile-pictures ตามที่เราแก้ไขไป)
           .upload(
             path,
             imageFile,
@@ -367,7 +367,6 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              // ignore: deprecated_member_use
               color: Colors.grey.withOpacity(0.1), 
               spreadRadius: 1,
               blurRadius: 3,

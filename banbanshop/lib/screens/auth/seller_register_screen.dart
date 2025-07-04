@@ -84,83 +84,38 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
       });
 
       try {
-        // 1. สมัครสมาชิกด้วย Email และ Password ผ่าน Supabase Auth
-        final AuthResponse response = await Supabase.instance.client.auth.signUp(
+        // 1. สมัครสมาชิกด้วย Email และ Password ผ่าน Supabase Auth เท่านั้น
+        // ไม่ต้องใช้ตัวแปร response ถ้าไม่ได้ใช้ค่าจากมันโดยตรง
+        await Supabase.instance.client.auth.signUp(
           email: profile.email,
           password: profile.password,
         );
 
-        // ตรวจสอบว่าผู้ใช้ถูกสร้างหรือไม่
-        if (response.user == null) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ไม่สามารถสมัครสมาชิกได้: ผู้ใช้ไม่ถูกสร้าง')),
-          );
-          return;
-        }
-
-        final String userId = response.user!.id;
-
-        // 2. บันทึกข้อมูลโปรไฟล์ผู้ขายเพิ่มเติมลงใน Supabase 'sellers' table
-        // ใช้ UID ของผู้ใช้จาก Supabase Auth เป็น ID ในตาราง 'sellers'
-        await Supabase.instance.client
-            .from('sellers') // ชื่อตารางสำหรับผู้ขาย
-            .insert({
-              'id': userId, // ใช้ UID เป็น ID
-              'fullName': profile.fullName,
-              'phoneNumber': profile.phoneNumber,
-              'idCardNumber': profile.idCardNumber,
-              'province': profile.province,
-              'email': profile.email,
-              // คุณสามารถเพิ่มข้อมูลอื่นๆ ที่ต้องการได้ที่นี่
-            });
-
         if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
 
-        // ตรวจสอบว่ามี session (ผู้ใช้ถูกเข้าสู่ระบบทันที) หรือไม่
-        // Supabase โดยค่าเริ่มต้นจะส่งอีเมลยืนยันและไม่เข้าสู่ระบบทันที
-        if (response.session != null) {
-          // ถ้ามี session แสดงว่าเข้าสู่ระบบสำเร็จทันที (เช่น ถ้าปิด Email Confirmation)
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('สมัครสมาชิกและเข้าสู่ระบบสำเร็จ!')),
-          );
-          // นำทางไปยัง FeedPage หรือหน้าหลัก
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SellerLoginScreen(), // หรือ FeedPage ถ้าต้องการเข้าสู่ระบบทันที
-            ),
-          );
-        } else {
-          // ถ้าไม่มี session แสดงว่าต้องมีการยืนยันอีเมล
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('สมัครสมาชิกสำเร็จ! กรุณายืนยันอีเมลและเข้าสู่ระบบ'),
-              duration: Duration(seconds: 5), // แสดงข้อความนานขึ้น
-            ),
-          );
-          _formKey.currentState!.reset(); // รีเซ็ตฟอร์ม
-          // นำทางกลับไปหน้า Login เพื่อให้ผู้ใช้ไปยืนยันอีเมลแล้วค่อย Login
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
-          );
-        }
+        // ไม่ว่าจะมี session หรือต้องยืนยันอีเมล ให้แจ้งผู้ใช้และนำทางไปหน้า Login
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีและเข้าสู่ระบบ'),
+            duration: Duration(seconds: 5), // แสดงข้อความนานขึ้น
+          ),
+        );
+        _formKey.currentState!.reset(); // รีเซ็ตฟอร์ม
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
+        );
 
       } on AuthException catch (e) {
         if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
         String message;
-        if (e.statusCode == '400') { // Bad request, often due to invalid email or password strength
-          // ตรวจสอบข้อความ error เพื่อให้ละเอียดขึ้น
-          if (e.message.contains('already exists')) {
-            message = 'อีเมลนี้ถูกใช้ไปแล้ว';
-          } else if (e.message.contains('Weak password')) {
-            message = 'รหัสผ่านอ่อนเกินไป';
-          } else if (e.message.contains('rate limit')) {
-            message = 'คุณพยายามสมัครบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่';
-          } else {
-            message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ${e.message}';
-          }
+        // ใช้ e.message เพื่อตรวจสอบข้อความ Error ที่ละเอียดขึ้น
+        if (e.message.contains('already exists')) {
+          message = 'อีเมลนี้ถูกใช้ไปแล้ว';
+        } else if (e.message.contains('Weak password')) {
+          message = 'รหัสผ่านอ่อนเกินไป';
+        } else if (e.message.contains('rate limit')) {
+          message = 'คุณพยายามสมัครบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่';
         } else {
           message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ${e.message}';
         }
