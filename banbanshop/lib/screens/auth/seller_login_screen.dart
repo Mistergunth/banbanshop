@@ -7,7 +7,10 @@ import 'package:banbanshop/screens/profile.dart'; // Import profile class
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 
 class SellerLoginScreen extends StatefulWidget {
-  const SellerLoginScreen({super.key});
+  // เพิ่ม parameter เพื่อรับข้อมูลโปรไฟล์จากหน้าลงทะเบียน
+  final SellerProfile? initialProfile; 
+
+  const SellerLoginScreen({super.key, this.initialProfile});
 
   @override
   State<SellerLoginScreen> createState() => _SellerLoginScreenState();
@@ -19,6 +22,15 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false; // Loading status
+
+  @override
+  void initState() {
+    super.initState();
+    // ถ้ามี initialProfile ส่งมา ให้ตั้งค่าอีเมลเริ่มต้น
+    if (widget.initialProfile != null) {
+      _usernameController.text = widget.initialProfile!.email;
+    }
+  }
 
   @override
   void dispose() {
@@ -52,7 +64,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           return;
         }
 
-        // If we reach here, response.user is definitely not null.
         final String userId = response.user!.id;
         SellerProfile? loggedInProfile;
 
@@ -71,24 +82,24 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
             loggedInProfile = SellerProfile.fromJson(sellerData);
           } else {
             // Profile does NOT exist, this is the first successful login after registration
-            // Insert the basic seller profile data now that the user is authenticated.
+            // Insert the actual seller profile data from initialProfile
+            // If initialProfile is null (e.g., user navigated directly to login), use placeholders.
             final String userEmail = response.user!.email ?? '';
 
             await Supabase.instance.client
                 .from('sellers')
                 .insert({
                   'id': userId,
-                  'fullName': 'ผู้ขายใหม่', // Placeholder: User should update this later
-                  'phoneNumber': '0000000000', // Placeholder
-                  'idCardNumber': '0000000000000', // Placeholder
-                  'province': 'ทั้งหมด', 
-                  'email': userEmail,
+                  'fullName': widget.initialProfile?.fullName ?? 'ผู้ขายใหม่', // ใช้ข้อมูลจริงจาก initialProfile
+                  'phoneNumber': widget.initialProfile?.phoneNumber ?? '0000000000', // ใช้ข้อมูลจริง
+                  'idCardNumber': widget.initialProfile?.idCardNumber ?? '0000000000000', // ใช้ข้อมูลจริง
+                  'province': widget.initialProfile?.province ?? 'ทั้งหมด', // ใช้ข้อมูลจริง
+                  'email': userEmail, // ใช้อีเมลจาก Supabase Auth
                   'profile_image_url': null, // Initial empty profile image
                   'created_at': DateTime.now().toIso8601String(),
                 });
             
             // Refetch the newly created profile to ensure it's loaded correctly
-            // This second fetch is crucial to get the newly inserted data
             final Map<String, dynamic>? newSellerData = await Supabase.instance.client
                 .from('sellers')
                 .select()
@@ -101,7 +112,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
               loggedInProfile = SellerProfile.fromJson(newSellerData);
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('โปรไฟล์ผู้ขายถูกสร้างแล้ว! กรุณาอัปเดตข้อมูลส่วนตัว')),
+                const SnackBar(content: Text('โปรไฟล์ผู้ขายถูกสร้างแล้ว!')),
               );
             } else {
               // This case should ideally not happen if insert was successful and RLS is correct

@@ -15,6 +15,7 @@ class SellerRegisterScreen extends StatefulWidget {
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   
+  // เก็บข้อมูลโปรไฟล์ที่ผู้ใช้กรอก
   SellerProfile profile = SellerProfile(
     fullName: '',
     phoneNumber: '',
@@ -85,7 +86,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
 
       try {
         // 1. สมัครสมาชิกด้วย Email และ Password ผ่าน Supabase Auth เท่านั้น
-        // ไม่ต้องใช้ตัวแปร response ถ้าไม่ได้ใช้ค่าจากมันโดยตรง
         await Supabase.instance.client.auth.signUp(
           email: profile.email,
           password: profile.password,
@@ -101,9 +101,11 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
           ),
         );
         _formKey.currentState!.reset(); // รีเซ็ตฟอร์ม
+
+        // ***** สำคัญ: ส่ง profile object ไปยัง SellerLoginScreen *****
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
+          MaterialPageRoute(builder: (context) => SellerLoginScreen(initialProfile: profile)),
         );
 
       } on AuthException catch (e) {
