@@ -27,7 +27,7 @@ class SellerProfile {
       province: json['province'] ?? '',
       password: json['password'] ?? '',
       email: json['email'] ?? '',
-      profileImageUrl: json['profileImageUrl'],
+      profileImageUrl: json['profile_image_url'] ?? '',
     );
   }
 

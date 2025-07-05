@@ -123,10 +123,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     try {
       // 1. อัปโหลดรูปภาพไปยัง Supabase Storage
       final String fileName = '${currentUser.id}/${DateTime.now().millisecondsSinceEpoch}_${_image!.path.split('/').last}';
-      final String bucketName = 'post_images'; // กำหนดชื่อ bucket สำหรับรูปภาพโพสต์ (ต้องสร้างใน Supabase)
+      final String bucketName = 'posts.images'; // กำหนดชื่อ bucket สำหรับรูปภาพโพสต์ (ต้องสร้างใน Supabase)
 
       final response = await Supabase.instance.client.storage
-          .from(bucketName)
+          .from('posts.images') // ใช้ชื่อ bucket ที่สร้างไว้
           .upload(
             fileName,
             _image!,
