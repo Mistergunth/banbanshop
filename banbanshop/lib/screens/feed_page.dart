@@ -408,7 +408,7 @@ class _FeedPageState extends State<FeedPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช็อป', 
+                      widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านชอป', 
                       style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     if (widget.sellerProfile != null) 
@@ -647,7 +647,7 @@ class _FeedPageState extends State<FeedPage> {
   String _getAppBarTitle() {
     switch (_selectedIndex) {
       case 0: // หน้าแรก (ฟีดโพสต์/ร้านค้า)
-        return 'บ้านบ้านช็อป';
+        return 'บ้านบ้านช้อป';
       case 1: // ออเดอร์ / ตะกร้า
         return widget.sellerProfile != null ? 'รายการออเดอร์' : 'ตะกร้าสินค้า';
       case 2: // สร้างโพสต์
@@ -655,7 +655,7 @@ class _FeedPageState extends State<FeedPage> {
       case 3: // โปรไฟล์
         return widget.sellerProfile != null ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ';
       default:
-        return 'บ้านบ้านช็อป';
+        return 'บ้านบ้านช้อป';
     }
   }
 }

@@ -2,6 +2,7 @@
 
 import 'package:banbanshop/main.dart';
 import 'package:banbanshop/screens/models/seller_profile.dart';
+import 'package:banbanshop/screens/seller/store_create.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
@@ -268,18 +269,10 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                   text: 'สร้างร้านค้า', 
                   color: const Color(0xFFE2CCFB), 
                   onTap: () {
+                    Navigator.push(context,
+                    MaterialPageRoute(builder: (context) => const StoreCreateScreen())); // เปลี่ยนไปยังหน้าสร้างร้านค้า
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้าสร้างร้านค้า')),
-                    );
-                  },
-                ),
-                const SizedBox(height: 15),
-                _buildActionButton(
-                  text: 'เปิด/ปิดร้าน', 
-                  color: const Color(0xFFD6F6E0), 
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('เปิด/ปิดร้านค้า')),
                     );
                   },
                 ),
