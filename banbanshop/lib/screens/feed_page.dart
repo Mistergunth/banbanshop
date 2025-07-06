@@ -775,13 +775,15 @@ class _PostCardState extends State<PostCard> {
                       ),
                       Row(
                         children: [
-                          Text(
+                          Flexible(child: Text(
                             _timeAgoString, // <--- ใช้ _timeAgoString ที่คำนวณแล้ว
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 12,
                             ),
-                          ),
+                            overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           const SizedBox(width: 8),
                           // กล่องม่วงแสดง หมวดหมู่ และ จังหวัด
                           Container(

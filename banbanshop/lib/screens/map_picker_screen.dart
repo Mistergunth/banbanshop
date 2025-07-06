@@ -1,9 +1,9 @@
 // lib/screens/map_picker_screen.dart
 
-// ignore_for_file: use_build_context_synchronously, avoid_print
+// ignore_for_file: avoid_print
 
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // แก้ไข import ตรงนี้
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart'; // สำหรับตำแหน่งปัจจุบัน
 import 'package:geocoding/geocoding.dart'; // สำหรับ reverse geocoding
 
@@ -15,22 +15,24 @@ class MapPickerScreen extends StatefulWidget {
 }
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
+  // ignore: unused_field
   GoogleMapController? _mapController;
-  LatLng? _pickedLocation;
-  bool _isLoadingLocation = true;
-  String _currentAddress = 'กำลังโหลดตำแหน่ง...';
+  LatLng? _pickedLocation; // ตำแหน่งที่ผู้ใช้เลือก
+  bool _isLoadingLocation = true; // สถานะการโหลดตำแหน่งเริ่มต้น
+  String _currentAddress = 'กำลังโหลดตำแหน่ง...'; // ที่อยู่ปัจจุบันที่แสดง
 
   @override
   void initState() {
     super.initState();
-    _determinePosition();
+    _determinePosition(); // เริ่มต้นด้วยการดึงตำแหน่งปัจจุบันของผู้ใช้
   }
 
+  // ตรวจสอบสิทธิ์และดึงตำแหน่งปัจจุบัน
   Future<void> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Test if location services are enabled.
+    // ตรวจสอบว่าบริการตำแหน่งเปิดอยู่หรือไม่
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) {
@@ -41,8 +43,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       setState(() {
         _isLoadingLocation = false;
         // ตั้งค่าเริ่มต้นเป็นกรุงเทพฯ หากไม่สามารถเข้าถึงตำแหน่งได้
-        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
-        _currentAddress = 'กรุงเทพมหานคร';
+        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok, Thailand
+        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
       });
       return;
     }
@@ -59,7 +61,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
         setState(() {
           _isLoadingLocation = false;
           _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
-          _currentAddress = 'กรุงเทพมหานคร';
+          _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
         });
         return;
       }
@@ -74,20 +76,20 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       setState(() {
         _isLoadingLocation = false;
         _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
-        _currentAddress = 'กรุงเทพมหานคร';
+        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
       });
       return;
     }
 
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
+    // หากได้รับสิทธิ์แล้ว ให้ดึงตำแหน่งปัจจุบัน
     try {
       Position position = await Geolocator.getCurrentPosition(
+          // ignore: deprecated_member_use
           desiredAccuracy: LocationAccuracy.high);
       setState(() {
         _pickedLocation = LatLng(position.latitude, position.longitude);
         _isLoadingLocation = false;
-        _updateAddress(_pickedLocation!);
+        _updateAddress(_pickedLocation!); // อัปเดตที่อยู่ตามตำแหน่งที่ได้
       });
     } catch (e) {
       print('Error getting current location: $e');
@@ -104,6 +106,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     }
   }
 
+  // แปลง LatLng เป็นที่อยู่ (Reverse Geocoding)
   Future<void> _updateAddress(LatLng position) async {
     try {
       List<Placemark> placemarks =
@@ -111,6 +114,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
         setState(() {
+          // สร้างที่อยู่จากข้อมูล Placemark
           _currentAddress =
               '${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea} ${p.postalCode}';
         });
@@ -149,12 +153,12 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     ),
                     onMapCreated: (GoogleMapController controller) {
                       _mapController = controller;
-                      _updateAddress(_pickedLocation!); // อัปเดตที่อยู่เริ่มต้น
+                      _updateAddress(_pickedLocation!); // อัปเดตที่อยู่เริ่มต้นเมื่อแผนที่สร้างเสร็จ
                     },
                     onTap: (LatLng latLng) {
                       setState(() {
-                        _pickedLocation = latLng;
-                        _updateAddress(latLng);
+                        _pickedLocation = latLng; // อัปเดตตำแหน่งที่ผู้ใช้แตะ
+                        _updateAddress(latLng); // อัปเดตที่อยู่ตามตำแหน่งใหม่
                       });
                     },
                     markers: _pickedLocation == null

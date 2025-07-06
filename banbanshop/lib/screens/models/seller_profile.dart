@@ -1,5 +1,4 @@
-
-// lib/profile.dart หรือ lib/models/profile.dart
+// lib/screens/models/seller_profile.dart
 
 class SellerProfile {
   String fullName;
@@ -8,7 +7,10 @@ class SellerProfile {
   String province;
   String password;
   String email;
-  String? profileImageUrl; // Field นี้มีอยู่แล้ว
+  String? profileImageUrl;
+  bool? hasStore; // เพิ่มฟิลด์นี้
+  String? storeId; // เพิ่มฟิลด์นี้
+  String? shopName; // เพิ่มฟิลด์นี้
 
   SellerProfile({
     required this.fullName,
@@ -18,6 +20,9 @@ class SellerProfile {
     required this.password,
     required this.email,
     this.profileImageUrl,
+    this.hasStore, // ทำให้เป็น optional
+    this.storeId, // ทำให้เป็น optional
+    this.shopName, // ทำให้เป็น optional
   });
 
   factory SellerProfile.fromJson(Map<String, dynamic> json) {
@@ -29,6 +34,9 @@ class SellerProfile {
       password: json['password'] ?? '',
       email: json['email'] ?? '',
       profileImageUrl: json['profileImageUrl'],
+      hasStore: json['hasStore'] as bool?, // อ่านค่า hasStore
+      storeId: json['storeId'] as String?, // อ่านค่า storeId
+      shopName: json['shopName'] as String?, // อ่านค่า shopName
     );
   }
 
@@ -41,6 +49,9 @@ class SellerProfile {
       'password': password,
       'email': email,
       'profileImageUrl': profileImageUrl,
+      'hasStore': hasStore, // บันทึกค่า hasStore
+      'storeId': storeId, // บันทึกค่า storeId
+      'shopName': shopName, // บันทึกค่า shopName
     };
   }
 }
@@ -55,6 +66,9 @@ extension SellerProfileCopyWith on SellerProfile {
     String? password,
     String? email,
     String? profileImageUrl,
+    bool? hasStore,
+    String? storeId,
+    String? shopName,
   }) {
     return SellerProfile(
       fullName: fullName ?? this.fullName,
@@ -64,6 +78,9 @@ extension SellerProfileCopyWith on SellerProfile {
       password: password ?? this.password,
       email: email ?? this.email,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      hasStore: hasStore ?? this.hasStore,
+      storeId: storeId ?? this.storeId,
+      shopName: shopName ?? this.shopName,
     );
   }
 }

@@ -1,112 +1,48 @@
-// lib/screens/seller/store_create.dart
+// lib/screens/seller/edit_store_screen.dart
 
 // ignore_for_file: use_build_context_synchronously, avoid_print
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart'; // สำหรับ FirebaseAuth
-import 'package:cloud_firestore/cloud_firestore.dart'; // สำหรับ Firestore
-import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // สำหรับ Cloudinary
-import 'package:uuid/uuid.dart'; // สำหรับสร้าง UUID
-import 'package:banbanshop/screens/map_picker_screen.dart'; // เพิ่ม import สำหรับ MapPickerScreen
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloudinary_sdk/cloudinary_sdk.dart';
+import 'package:banbanshop/screens/seller/store_create.dart'; // สำหรับ Store Model
+import 'package:banbanshop/screens/map_picker_screen.dart'; // สำหรับ MapPickerScreen
 import 'package:geocoding/geocoding.dart'; // สำหรับ reverse geocoding
 
-// --- Store Model (สามารถย้ายไปไฟล์ models/store.dart ได้ในอนาคต) ---
-class Store {
-  final String id;
-  final String ownerUid;
-  final String name;
-  final String description;
-  final String type; // ประเภท/หมวดหมู่ร้านค้า
-  final String? imageUrl; // URL รูปภาพหน้าร้าน
-  final String locationAddress; // เปลี่ยนชื่อเป็น locationAddress เพื่อความชัดเจน
-  final double? latitude; // เพิ่ม latitude
-  final double? longitude; // เพิ่ม longitude
-  final String openingHours; // ระยะเวลาเปิด-ปิดร้าน (String ง่ายๆ ก่อน)
-  final String phoneNumber; // เพิ่ม phoneNumber
-  final DateTime createdAt;
+class EditStoreScreen extends StatefulWidget {
+  final Store store; // รับ Store object เข้ามาเพื่อแก้ไข
 
-  Store({
-    required this.id,
-    required this.ownerUid,
-    required this.name,
-    required this.description,
-    required this.type,
-    this.imageUrl,
-    required this.locationAddress,
-    this.latitude, // ทำเป็น nullable ถ้าไม่อยากบังคับให้ปักหมุดเสมอ
-    this.longitude, // ทำเป็น nullable
-    required this.openingHours,
-    required this.phoneNumber, // กำหนดให้ required
-    required this.createdAt,
-  });
-
-  // Factory constructor สำหรับสร้าง Store จาก Firestore DocumentSnapshot
-  factory Store.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return Store(
-      id: doc.id,
-      ownerUid: data['ownerUid'] as String,
-      name: data['name'] as String,
-      description: data['description'] as String,
-      type: data['type'] as String,
-      imageUrl: data['imageUrl'] as String?,
-      locationAddress: data['locationAddress'] as String,
-      latitude: data['latitude'] as double?,
-      longitude: data['longitude'] as double?,
-      openingHours: data['openingHours'] as String,
-      phoneNumber: data['phoneNumber'] as String,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-    );
-  }
-
-  // Method สำหรับแปลง Store เป็น Map สำหรับบันทึกลง Firestore
-  Map<String, dynamic> toFirestore() {
-    return {
-      'ownerUid': ownerUid,
-      'name': name,
-      'description': description,
-      'type': type,
-      'imageUrl': imageUrl,
-      'locationAddress': locationAddress,
-      'latitude': latitude,
-      'longitude': longitude,
-      'openingHours': openingHours,
-      'phoneNumber': phoneNumber,
-      'createdAt': Timestamp.now(), // ใช้ Timestamp สำหรับ Firestore
-    };
-  }
-}
-// ---------------------------------------------------------------------
-
-class StoreCreateScreen extends StatefulWidget {
-  const StoreCreateScreen({super.key});
+  const EditStoreScreen({super.key, required this.store});
 
   @override
-  State<StoreCreateScreen> createState() => _StoreCreateScreenState();
+  State<EditStoreScreen> createState() => _EditStoreScreenState();
 }
 
-class _StoreCreateScreenState extends State<StoreCreateScreen> {
+class _EditStoreScreenState extends State<EditStoreScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _locationAddressController = TextEditingController(); // เปลี่ยนชื่อ
-  final TextEditingController _openingHoursController = TextEditingController();
-  final TextEditingController _phoneNumberController = TextEditingController(); // เพิ่มเบอร์โทร
+  late TextEditingController _nameController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _locationAddressController;
+  late TextEditingController _openingHoursController;
+  late TextEditingController _phoneNumberController; // เพิ่มเบอร์โทร
+
   String? _selectedStoreType;
-  File? _shopImageFile;
+  File? _shopImageFile; // รูปภาพใหม่ที่ผู้ใช้อัปโหลด
+  String? _currentImageUrl; // URL รูปภาพเดิมจาก Firestore
   bool _isUploading = false;
 
-  double? _selectedLatitude; // เพิ่ม latitude
-  double? _selectedLongitude; // เพิ่ม longitude
+  double? _selectedLatitude;
+  double? _selectedLongitude;
 
   final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
-    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
+    cloudName: 'dbgybkvms',
+    apiKey: '157343641351425',
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU',
   );
-  final String uploadPreset = 'flutter_unsigned_upload'; // <-- ชื่อ Upload Preset ของคุณ
+  final String uploadPreset = 'flutter_unsigned_upload';
 
   final List<String> _storeTypes = [
     'อาหาร & เครื่องดื่ม',
@@ -118,12 +54,28 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // กำหนดค่าเริ่มต้นให้กับ Controller และตัวแปรจาก Store object ที่ได้รับมา
+    _nameController = TextEditingController(text: widget.store.name);
+    _descriptionController = TextEditingController(text: widget.store.description);
+    _locationAddressController = TextEditingController(text: widget.store.locationAddress);
+    _openingHoursController = TextEditingController(text: widget.store.openingHours);
+    _phoneNumberController = TextEditingController(text: widget.store.phoneNumber); // กำหนดค่าเบอร์โทร
+
+    _selectedStoreType = widget.store.type;
+    _currentImageUrl = widget.store.imageUrl; // เก็บ URL รูปภาพเดิม
+    _selectedLatitude = widget.store.latitude;
+    _selectedLongitude = widget.store.longitude;
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
     _locationAddressController.dispose();
     _openingHoursController.dispose();
-    _phoneNumberController.dispose(); // Dispose เบอร์โทร
+    _phoneNumberController.dispose();
     super.dispose();
   }
 
@@ -135,7 +87,8 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
 
     setState(() {
       if (pickedFile != null) {
-        _shopImageFile = File(pickedFile.path);
+        _shopImageFile = File(pickedFile.path); // รูปภาพใหม่ที่เลือก
+        _currentImageUrl = null; // ล้าง URL รูปภาพเดิมออก ถ้ามีการเลือกรูปใหม่
       } else {
         print('No image selected for shop.');
       }
@@ -154,7 +107,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
         _selectedLongitude = result['longitude'];
       });
 
-      // ใช้ geocoding เพื่อแปลงพิกัดเป็นที่อยู่
       try {
         List<Placemark> placemarks =
             await placemarkFromCoordinates(_selectedLatitude!, _selectedLongitude!);
@@ -170,12 +122,12 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     }
   }
 
-  Future<void> _createStore() async {
+  Future<void> _updateStore() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    if (_shopImageFile == null) {
+    if (_shopImageFile == null && _currentImageUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาเลือกรูปภาพหน้าร้าน')),
       );
@@ -193,9 +145,9 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     });
 
     final User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
+    if (currentUser == null || currentUser.uid != widget.store.ownerUid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('คุณต้องเข้าสู่ระบบเพื่อสร้างร้านค้า')),
+        const SnackBar(content: Text('คุณไม่มีสิทธิ์แก้ไขร้านค้านี้')),
       );
       setState(() {
         _isUploading = false;
@@ -203,76 +155,86 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
       return;
     }
 
-    String? shopImageUrl;
-    try {
-      // 1. อัปโหลดรูปภาพหน้าร้านไปยัง Cloudinary
-      final response = await cloudinary.uploadResource(
-        CloudinaryUploadResource(
-          filePath: _shopImageFile!.path,
-          resourceType: CloudinaryResourceType.image,
-          folder: 'shop_images', // โฟลเดอร์สำหรับรูปภาพหน้าร้าน
-          uploadPreset: uploadPreset,
-        ),
-      );
-
-      if (response.isSuccessful) {
-        shopImageUrl = response.secureUrl;
-        if (shopImageUrl == null || shopImageUrl.isEmpty) {
-          throw 'ไม่สามารถรับ URL รูปภาพจาก Cloudinary ได้';
-        }
-      } else {
-        throw 'อัปโหลดรูปภาพไม่สำเร็จ: ${response.error}';
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: $e')),
+    String? finalImageUrl = _currentImageUrl; // ใช้รูปภาพเดิมเป็นค่าเริ่มต้น
+    if (_shopImageFile != null) { // ถ้ามีการเลือกรูปภาพใหม่
+      try {
+        // อัปโหลดรูปภาพใหม่
+        final response = await cloudinary.uploadResource(
+          CloudinaryUploadResource(
+            filePath: _shopImageFile!.path,
+            resourceType: CloudinaryResourceType.image,
+            folder: 'shop_images',
+            uploadPreset: uploadPreset,
+          ),
         );
+
+        if (response.isSuccessful) {
+          finalImageUrl = response.secureUrl;
+          if (finalImageUrl == null || finalImageUrl.isEmpty) {
+            throw 'ไม่สามารถรับ URL รูปภาพใหม่จาก Cloudinary ได้';
+          }
+          // หากมีรูปภาพเก่าและมีการอัปโหลดรูปภาพใหม่สำเร็จ ให้ลบรูปภาพเก่าออกจาก Cloudinary
+          if (widget.store.imageUrl != null && widget.store.imageUrl!.isNotEmpty) {
+            try {
+              final uri = Uri.parse(widget.store.imageUrl!);
+              final pathSegments = uri.pathSegments;
+              String publicId = pathSegments.last.split('.').first;
+              if (pathSegments.length > 2) {
+                publicId = '${pathSegments[pathSegments.length - 2]}/${pathSegments.last.split('.').first}';
+              }
+              await cloudinary.deleteResource(publicId: publicId);
+            } catch (e) {
+              print('Warning: Failed to delete old image from Cloudinary: $e');
+              // ไม่ต้อง throw error ที่นี่ เพราะการลบรูปเก่าไม่ควรบล็อกการอัปเดตข้อมูลร้าน
+            }
+          }
+        } else {
+          throw 'อัปโหลดรูปภาพใหม่ไม่สำเร็จ: ${response.error}';
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: $e')),
+          );
+        }
+        setState(() {
+          _isUploading = false;
+        });
+        return;
       }
-      setState(() {
-        _isUploading = false;
-      });
-      return;
     }
 
-    // 2. บันทึกข้อมูลร้านค้าลง Firestore
+    // อัปเดตข้อมูลร้านค้าใน Firestore
     try {
-      final String storeId = const Uuid().v4(); // สร้าง ID ร้านค้า
-      final newStore = Store(
-        id: storeId,
-        ownerUid: currentUser.uid,
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim(),
-        type: _selectedStoreType!,
-        imageUrl: shopImageUrl,
-        locationAddress: _locationAddressController.text.trim(),
-        latitude: _selectedLatitude,
-        longitude: _selectedLongitude,
-        openingHours: _openingHoursController.text.trim(),
-        phoneNumber: _phoneNumberController.text.trim(), // บันทึกเบอร์โทร
-        createdAt: DateTime.now(),
-      );
+      final updatedStoreData = {
+        'name': _nameController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'type': _selectedStoreType!,
+        'imageUrl': finalImageUrl, // ใช้ URL รูปภาพใหม่หรือเดิม
+        'locationAddress': _locationAddressController.text.trim(),
+        'latitude': _selectedLatitude,
+        'longitude': _selectedLongitude,
+        'openingHours': _openingHoursController.text.trim(),
+        'phoneNumber': _phoneNumberController.text.trim(),
+      };
 
       await FirebaseFirestore.instance
-          .collection('stores') // Collection สำหรับร้านค้า
-          .doc(storeId)
-          .set(newStore.toFirestore());
+          .collection('stores')
+          .doc(widget.store.id)
+          .update(updatedStoreData);
 
-      // 3. อัปเดตข้อมูลผู้ขายใน Firestore เพื่อระบุว่ามีร้านค้าแล้ว
-      await FirebaseFirestore.instance
+      // อัปเดต shopName ใน SellerProfile ด้วย (ถ้ามีการเปลี่ยนชื่อร้าน)
+      if (_nameController.text.trim() != widget.store.name) {
+         await FirebaseFirestore.instance
           .collection('sellers')
           .doc(currentUser.uid)
-          .update({
-        'hasStore': true,
-        'storeId': storeId,
-        'shopName': _nameController.text.trim(), // เพิ่ม shopName เข้าไปใน SellerProfile
-      });
+          .update({'shopName': _nameController.text.trim()});
+      }
+
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('สร้างร้านค้าสำเร็จ!')),
-        );
-        Navigator.pop(context); // กลับไปยังหน้าก่อนหน้า (SellerAccountScreen)
+        // ส่งค่า true กลับไปบอกว่ามีการอัปเดตสำเร็จ
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -299,7 +261,7 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'สร้างร้านค้า',
+          'แก้ไขข้อมูลร้านค้า',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -394,17 +356,19 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                   ),
                   child: _shopImageFile != null
                       ? Image.file(_shopImageFile!, fit: BoxFit.cover)
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.camera_alt, size: 40, color: Colors.grey[600]),
-                            const SizedBox(height: 8),
-                            Text(
-                              'อัปโหลดรูปภาพหน้าร้าน',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
+                      : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty
+                          ? Image.network(_currentImageUrl!, fit: BoxFit.cover)
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.camera_alt, size: 40, color: Colors.grey[600]),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'อัปโหลดรูปภาพหน้าร้าน',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ],
+                            )),
                 ),
               ),
               const SizedBox(height: 16),
@@ -425,7 +389,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                   if (value == null || value.trim().isEmpty) {
                     return 'กรุณาป้อนเบอร์โทรศัพท์ร้าน';
                   }
-                  // คุณอาจเพิ่ม regex สำหรับตรวจสอบเบอร์โทรศัพท์ที่ถูกต้อง
                   return null;
                 },
               ),
@@ -434,8 +397,8 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
               // ปักหมุดตำแหน่งร้าน (ผูกกับ MapPickerScreen)
               TextFormField(
                 controller: _locationAddressController,
-                readOnly: true, // ทำให้ไม่สามารถพิมพ์ได้โดยตรง
-                onTap: _pickLocationOnMap, // เมื่อกดจะไปหน้าแผนที่
+                readOnly: true,
+                onTap: _pickLocationOnMap,
                 decoration: InputDecoration(
                   labelText: 'ปักหมุดตำแหน่งร้าน',
                   hintText: _selectedLatitude == null
@@ -475,11 +438,11 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
               ),
               const SizedBox(height: 32),
 
-              // ปุ่มสร้างร้านค้า
+              // ปุ่มบันทึกการแก้ไข
               _isUploading
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
                   : ElevatedButton(
-                      onPressed: _createStore,
+                      onPressed: _updateStore,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF9C6ADE),
                         foregroundColor: Colors.white,
@@ -490,7 +453,7 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                         elevation: 3,
                       ),
                       child: const Text(
-                        'สร้างร้านค้า',
+                        'บันทึกการแก้ไข',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
