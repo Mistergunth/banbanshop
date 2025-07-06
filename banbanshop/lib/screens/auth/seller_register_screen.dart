@@ -1,9 +1,11 @@
+
 // ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
 
 import 'package:banbanshop/screens/profile.dart'; // ตรวจสอบให้แน่ใจว่า import ถูกต้อง
 import 'package:banbanshop/screens/auth/seller_login_screen.dart'; // ใช้ auth/seller_login_screen.dart
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 
 class SellerRegisterScreen extends StatefulWidget {
   const SellerRegisterScreen({super.key});
@@ -15,7 +17,6 @@ class SellerRegisterScreen extends StatefulWidget {
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   
-  // เก็บข้อมูลโปรไฟล์ที่ผู้ใช้กรอก
   SellerProfile profile = SellerProfile(
     fullName: '',
     phoneNumber: '',
@@ -85,39 +86,44 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
       });
 
       try {
-        // 1. สมัครสมาชิกด้วย Email และ Password ผ่าน Supabase Auth เท่านั้น
-        await Supabase.instance.client.auth.signUp(
+        // 1. สมัครสมาชิกด้วย Email และ Password ผ่าน Firebase Auth
+        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: profile.email,
           password: profile.password,
         );
 
-        if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
+        // 2. บันทึกข้อมูลโปรไฟล์ผู้ขายเพิ่มเติมลงใน Cloud Firestore
+        // ใช้ UID ของผู้ใช้จาก Firebase Auth เป็น Document ID เพื่อให้ง่ายต่อการค้นหา
+        await FirebaseFirestore.instance
+            .collection('sellers') // ชื่อ Collection สำหรับผู้ขาย
+            .doc(userCredential.user!.uid) // ใช้ UID เป็น Document ID
+            .set({
+              'fullName': profile.fullName,
+              'phoneNumber': profile.phoneNumber,
+              'idCardNumber': profile.idCardNumber,
+              'province': profile.province,
+              'email': profile.email,
+              'uid': userCredential.user!.uid, // เก็บ UID ไว้ใน Firestore ด้วย
+              // คุณสามารถเพิ่มข้อมูลอื่นๆ ที่ต้องการได้ที่นี่
+            });
 
-        // ไม่ว่าจะมี session หรือต้องยืนยันอีเมล ให้แจ้งผู้ใช้และนำทางไปหน้า Login
+        if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีและเข้าสู่ระบบ'),
-            duration: Duration(seconds: 5), // แสดงข้อความนานขึ้น
-          ),
+          const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')),
         );
         _formKey.currentState!.reset(); // รีเซ็ตฟอร์ม
-
-        // ***** สำคัญ: ส่ง profile object ไปยัง SellerLoginScreen *****
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => SellerLoginScreen(initialProfile: profile)),
+          MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
         );
 
-      } on AuthException catch (e) {
+      } on FirebaseAuthException catch (e) {
         if (!mounted) return; // ตรวจสอบ mounted ก่อนใช้ BuildContext
         String message;
-        // ใช้ e.message เพื่อตรวจสอบข้อความ Error ที่ละเอียดขึ้น
-        if (e.message.contains('already exists')) {
-          message = 'อีเมลนี้ถูกใช้ไปแล้ว';
-        } else if (e.message.contains('Weak password')) {
+        if (e.code == 'weak-password') {
           message = 'รหัสผ่านอ่อนเกินไป';
-        } else if (e.message.contains('rate limit')) {
-          message = 'คุณพยายามสมัครบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่';
+        } else if (e.code == 'email-already-in-use') {
+          message = 'อีเมลนี้ถูกใช้ไปแล้ว';
         } else {
           message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ${e.message}';
         }

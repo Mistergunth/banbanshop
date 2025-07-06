@@ -1,19 +1,20 @@
-// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_controls
+// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_structures
 
 import 'package:flutter/material.dart';
 import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
 import 'package:banbanshop/screens/profile.dart'; // สำหรับ SellerProfile
 import 'package:banbanshop/screens/seller/seller_account_screen.dart';
 import 'package:banbanshop/screens/auth/seller_login_screen.dart';
-import 'package:banbanshop/screens/seller/seller_orders_screen.dart';
+import 'package:banbanshop/screens/seller/seller_orders_screen.dart'; 
 import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart'; // สำหรับหน้าตะกร้าสินค้าของผู้ซื้อ
 import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; // สำหรับหน้าจัดการร้านค้าของผู้ขาย
 import 'package:banbanshop/screens/store_screen_content.dart'; // Import ไฟล์หน้าร้านค้า
 import 'package:banbanshop/screens/create_post.dart'; // Import ไฟล์สร้างโพสต์ใหม่
 import 'package:banbanshop/screens/post_model.dart'; // Import Post model จากไฟล์แยก
-import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'dart:async'; // สำหรับ StreamSubscription และ Timer
-// import 'package:cached_network_image/cached_network_image.dart'; // <--- ลบบรรทัดนี้ออก
+import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
 
 class FeedPage extends StatefulWidget {
   final String selectedProvince;
@@ -68,10 +69,10 @@ class FilterButton extends StatelessWidget {
 
 class _FeedPageState extends State<FeedPage> {
   final TextEditingController searchController = TextEditingController();
-  String _selectedTopFilter = 'ฟีดโพสต์';
+  String _selectedTopFilter = 'ฟีดโพสต์'; 
 
   // สถานะสำหรับ Bottom Navbar
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; 
 
   // สถานะสำหรับ Drawer
   String? _drawerSelectedProvince;
@@ -111,9 +112,17 @@ class _FeedPageState extends State<FeedPage> {
     'ทั้งหมด', 'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'กีฬา & กิจกรรม', 'สิ่งของเครื่องใช้'
   ];
 
-  List<Post> _allPosts = []; // เปลี่ยนเป็น _allPosts เพื่อเก็บโพสต์ทั้งหมดที่ดึงมาจาก Supabase
+  List<Post> _allPosts = []; // เปลี่ยนเป็น _allPosts เพื่อเก็บโพสต์ทั้งหมดที่ดึงมาจาก Firestore
   bool _isLoadingPosts = true; // สถานะการโหลดโพสต์
-  StreamSubscription? _postsSubscription; // สำหรับจัดการ Stream ของ Supabase
+  StreamSubscription? _postsSubscription; // สำหรับจัดการ Stream ของ Firestore
+
+  // กำหนดค่า Cloudinary ของคุณที่นี่ (สำหรับลบรูปภาพ)
+  // ***** สำคัญ: ต้องแทนที่ค่า YOUR_CLOUDINARY_CLOUD_NAME, YOUR_CLOUDINARY_API_KEY, YOUR_CLOUDINARY_API_SECRET ด้วยค่าจริงของคุณ *****
+  final Cloudinary cloudinary = Cloudinary.full(
+    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
+    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Deletion
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Deletion
+  );
 
   @override
   void initState() {
@@ -121,13 +130,13 @@ class _FeedPageState extends State<FeedPage> {
     searchController.addListener(_onSearchChanged);
     _drawerSelectedProvince = widget.selectedProvince; // กำหนดค่าเริ่มต้นจาก prop
     _drawerSelectedCategory = widget.selectedCategory; // กำหนดค่าเริ่มต้นจาก prop
-
+    
     // หากมี sellerProfile และ province ไม่ได้ถูกตั้งค่า ให้ใช้จังหวัดของผู้ขายเป็นค่าเริ่มต้น
     if (widget.sellerProfile != null && (widget.selectedProvince == 'ทั้งหมด' || widget.selectedProvince.isEmpty)) {
       _drawerSelectedProvince = widget.sellerProfile!.province;
     }
 
-    _fetchPostsFromSupabase(); // เริ่มดึงข้อมูลโพสต์จาก Supabase
+    _fetchPostsFromFirestore(); // เริ่มดึงข้อมูลโพสต์จาก Firestore
   }
 
   @override
@@ -144,21 +153,23 @@ class _FeedPageState extends State<FeedPage> {
     });
   }
 
-  // ดึงข้อมูลโพสต์จาก Supabase แบบเรียลไทม์
-  void _fetchPostsFromSupabase() {
+  // ดึงข้อมูลโพสต์จาก Firestore แบบเรียลไทม์
+  void _fetchPostsFromFirestore() {
     setState(() {
       _isLoadingPosts = true;
     });
 
-    _postsSubscription = Supabase.instance.client
-        .from('posts')
-        .stream(primaryKey: ['id']) // ใช้ stream() สำหรับการอัปเดตแบบเรียลไทม์
-        .order('created_at', ascending: false) // เรียงลำดับตามเวลาสร้างล่าสุด
-        .listen((data) {
+    _postsSubscription = FirebaseFirestore.instance
+        .collection('posts')
+        .snapshots() // รับ Stream ของ QuerySnapshot
+        .listen((snapshot) {
       if (!mounted) return; // ตรวจสอบว่า widget ยัง mounted อยู่
 
-      // แปลงข้อมูลที่ได้จาก Supabase เป็น List ของ Post objects
-      final fetchedPosts = data.map((map) => Post.fromJson(map)).toList();
+      // แปลง QuerySnapshot เป็น List ของ Post objects
+      final fetchedPosts = snapshot.docs.map((doc) {
+        // ใช้ doc.id เป็น id ของ Post
+        return Post.fromJson({...doc.data(), 'id': doc.id});
+      }).toList();
 
       setState(() {
         _allPosts = fetchedPosts; // อัปเดตรายการโพสต์
@@ -166,7 +177,7 @@ class _FeedPageState extends State<FeedPage> {
       });
     }, onError: (error) {
       if (!mounted) return;
-      print("Error fetching posts from Supabase: $error");
+      print("Error fetching posts: $error");
       setState(() {
         _isLoadingPosts = false;
       });
@@ -205,39 +216,35 @@ class _FeedPageState extends State<FeedPage> {
       });
 
       try {
-        // 1. ลบโพสต์ออกจาก Supabase Database
-        await Supabase.instance.client
-            .from('posts')
-            .delete()
-            .eq('id', post.id); // ลบโพสต์ที่มี id ตรงกัน
+        // 1. ลบโพสต์ออกจาก Firestore
+        await FirebaseFirestore.instance.collection('posts').doc(post.id).delete();
 
-        // 2. ลบรูปภาพออกจาก Supabase Storage
-        // ตรวจสอบว่า imageUrl ไม่เป็น null ก่อนที่จะพยายามลบ
-        if (post.imageUrl != null && post.imageUrl!.isNotEmpty) {
-          // Path ใน Storage จะอยู่ในรูปแบบ user_id/filename.jpg
-          // เราต้องดึงแค่ filename.jpg ออกมาเพื่อใช้กับ .remove()
-          final Uri uri = Uri.parse(post.imageUrl!);
-          // ตัวอย่าง: 'https://<project_ref>.supabase.co/storage/v1/object/public/posts.images/user_id/filename.jpg'
-          // เราต้องการแค่ 'user_id/filename.jpg'
-          final String fullPathInBucket = uri.path.substring(uri.path.indexOf('/posts.images/') + '/posts.images/'.length);
+        // 2. ลบรูปภาพออกจาก Cloudinary
+        // ดึง public_id จาก URL ของ Cloudinary
+        final uri = Uri.parse(post.imageUrl);
+        final pathSegments = uri.pathSegments;
+        // public_id มักจะเป็นส่วนสุดท้ายของ path ก่อนนามสกุลไฟล์
+        // เช่น https://res.cloudinary.com/cloud_name/image/upload/v12345/folder/public_id.jpg
+        String publicId = pathSegments.last.split('.').first;
+        if (pathSegments.length > 2) { // ถ้ามี folder เช่น /image/upload/folder/public_id.jpg
+          publicId = '${pathSegments[pathSegments.length - 2]}/${pathSegments.last.split('.').first}';
+        }
+        
+        // ใช้ cloudinary.destroy เพื่อลบรูปภาพ
+        final deleteResponse = await cloudinary.deleteResource(publicId: publicId); 
 
-          await Supabase.instance.client.storage
-              .from('posts.images') // ชื่อ bucket ของคุณ
-              .remove([fullPathInBucket]); // ลบไฟล์จาก Storage
+        if (deleteResponse.isSuccessful) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('ลบโพสต์และรูปภาพสำเร็จ!')),
+            );
+          }
         } else {
-          print('No image URL found for post ID: ${post.id}, skipping image deletion.');
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ลบโพสต์และรูปภาพสำเร็จ!')),
-          );
-        }
-      } on StorageException catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('เกิดข้อผิดพลาดในการลบรูปภาพ (Storage): ${e.message}')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('ลบรูปภาพจาก Cloudinary ไม่สำเร็จ: ${deleteResponse.error}')),
+            );
+          }
         }
       } catch (e) {
         if (mounted) {
@@ -253,32 +260,6 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
-  // ฟังก์ชันสำหรับแก้ไขโพสต์
-  Future<void> _editPost(Post post) async {
-    final updatedPost = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CreatePostScreen(initialPost: post), // ส่งโพสต์เดิมไปให้ CreatePostScreen
-      ),
-    );
-
-    if (!mounted) return;
-
-    if (updatedPost != null && updatedPost is Post) {
-      // ไม่จำเป็นต้องอัปเดต _allPosts list ด้วยตนเอง
-      // เพราะ Supabase listener (_fetchPostsFromSupabase) จะจัดการให้เอง
-      // เมื่อโพสต์ถูกอัปเดตใน Supabase
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('แก้ไขโพสต์สำเร็จ!')),
-      );
-    } else {
-      // ถ้าผู้ใช้ยกเลิกการแก้ไข
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยกเลิกการแก้ไขโพสต์')),
-      );
-    }
-  }
-
 
   void _onItemTapped(int index) async {
     // ถ้าเลือกแท็บ "สร้างโพสต์" (Index 2)
@@ -290,23 +271,23 @@ class _FeedPageState extends State<FeedPage> {
         );
         // กลับไปหน้าเดิม (หน้าแรก)
         setState(() {
-          _selectedIndex = 0;
+          _selectedIndex = 0; 
         });
         return;
       }
 
       final newPost = await Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const CreatePostScreen()), // สร้างโพสต์ใหม่
+        MaterialPageRoute(builder: (context) => const CreatePostScreen()),
       );
 
       // ตรวจสอบว่า Widget ยังคง mounted ก่อนที่จะ setState หรือใช้ BuildContext
-      if (!mounted) return;
+      if (!mounted) return; 
 
       if (newPost != null && newPost is Post) {
         // ไม่จำเป็นต้องเพิ่มโพสต์ลงใน _allPosts list ด้วยตนเอง
-        // เพราะ Supabase listener (_fetchPostsFromSupabase) จะจัดการให้เอง
-        // เมื่อโพสต์ใหม่ถูกบันทึกลง Supabase
+        // เพราะ Firestore listener (_fetchPostsFromFirestore) จะจัดการให้เอง
+        // เมื่อโพสต์ใหม่ถูกบันทึกลง Firestore
         setState(() {
           _selectedIndex = 0; // กลับไปที่หน้าแรก (ฟีดโพสต์)
         });
@@ -316,7 +297,7 @@ class _FeedPageState extends State<FeedPage> {
       } else {
         // ถ้าผู้ใช้ยกเลิกการสร้างโพสต์ ให้กลับไปที่หน้าปัจจุบัน (หน้าแรก)
         setState(() {
-          _selectedIndex = 0;
+          _selectedIndex = 0; 
         });
       }
     } else {
@@ -334,7 +315,7 @@ class _FeedPageState extends State<FeedPage> {
       );
     } else {
       // ถ้าเป็นผู้ซื้อ ให้แสดงหน้าตะกร้าสินค้า
-      return BuyerCartScreen(
+      return BuyerCartScreen( 
       );
     }
   }
@@ -351,48 +332,25 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
-  // ใช้ _allPosts ที่ดึงมาจาก Supabase ในการกรอง
+  // ใช้ _allPosts ที่ดึงมาจาก Firestore ในการกรอง
   List<Post> get filteredPosts {
-    print('--- Filtering Posts ---');
-    print('Selected Province (Drawer): ${_drawerSelectedProvince ?? 'N/A'}');
-    print('Selected Category (Drawer): ${_drawerSelectedCategory ?? 'N/A'}');
-    print('Search Query: ${searchController.text.trim().toLowerCase()}');
-
     final filteredByProvinceAndCategory = _allPosts.where((post) {
-      final postProvince = post.province.trim().toLowerCase();
-      final postProductCategory = post.productCategory.trim().toLowerCase(); // ใช้ productCategory
-      final filterProvince = (_drawerSelectedProvince ?? 'ทั้งหมด').trim().toLowerCase();
-      final filterCategory = (_drawerSelectedCategory ?? 'ทั้งหมด').trim().toLowerCase();
-
-      // ตรวจสอบการกรองจังหวัด
-      final matchesProvince = filterProvince == 'ทั้งหมด' || postProvince == filterProvince;
-
-      // ตรวจสอบการกรองหมวดหมู่
-      final matchesCategory = filterCategory == 'ทั้งหมด' || postProductCategory == filterCategory;
-
-      print('  Post ID: ${post.id}, Post Province: "$postProvince", Post Product Category: "$postProductCategory"');
-      print('  Filter Province: "$filterProvince", Filter Category: "$filterCategory"');
-      print('  Matches Province: $matchesProvince, Matches Category: $matchesCategory');
-
+      // ใช้ _drawerSelectedProvince และ _drawerSelectedCategory ในการกรอง
+      final matchesProvince = _drawerSelectedProvince == 'ทั้งหมด' || post.province == _drawerSelectedProvince;
+      final matchesCategory = _drawerSelectedCategory == 'ทั้งหมด' || post.productCategory == _drawerSelectedCategory;
       return matchesProvince && matchesCategory;
     }).toList();
 
     if (searchController.text.isEmpty) {
-      print('--- Filtered Posts Count (no search): ${filteredByProvinceAndCategory.length} ---');
       return filteredByProvinceAndCategory;
     } else {
-      final query = searchController.text.toLowerCase().trim();
-      final searchFilteredPosts = filteredByProvinceAndCategory.where((post) {
-        final matchesSearch = post.title.toLowerCase().contains(query) ||
+      final query = searchController.text.toLowerCase();
+      return filteredByProvinceAndCategory.where((post) {
+        return post.title.toLowerCase().contains(query) ||
             post.shopName.toLowerCase().contains(query) ||
-            post.category.toLowerCase().contains(query) || // category หลัก
-            post.productCategory.toLowerCase().contains(query) || // productCategory ย่อย
-            post.province.toLowerCase().contains(query);
-        print('  Post ID: ${post.id}, Matches Search: $matchesSearch');
-        return matchesSearch;
+            post.category.toLowerCase().contains(query) ||
+            post.province.toLowerCase().contains(query); // เพิ่มการค้นหาจากจังหวัด
       }).toList();
-      print('--- Filtered Posts Count (with search): ${searchFilteredPosts.length} ---');
-      return searchFilteredPosts;
     }
   }
 
@@ -412,12 +370,12 @@ class _FeedPageState extends State<FeedPage> {
         backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
         // ปุ่ม Back (leading)
-        leading: Navigator.of(context).canPop()
+        leading: Navigator.of(context).canPop() 
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_ios, size: 20),
                 onPressed: () => Navigator.pop(context),
               )
-            : null,
+            : null, 
         // Title ของ AppBar
         title: Text(
           _getAppBarTitle(),
@@ -438,7 +396,7 @@ class _FeedPageState extends State<FeedPage> {
           ),
         ],
       ),
-      endDrawer: Drawer(
+      endDrawer: Drawer( 
         child: Column(
           children: [
             DrawerHeader(
@@ -450,10 +408,10 @@ class _FeedPageState extends State<FeedPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช้อป',
+                      widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช้อป', 
                       style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    if (widget.sellerProfile != null)
+                    if (widget.sellerProfile != null) 
                       Text(
                         '${widget.sellerProfile!.province} | ${widget.sellerProfile!.email}',
                         style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
@@ -465,36 +423,32 @@ class _FeedPageState extends State<FeedPage> {
             ListTile(
               leading: const Icon(Icons.home_outlined),
               title: const Text('หน้าแรก (ฟีดโพสต์)'),
-              onTap: () {
+              onTap: () { 
                 _onItemTapped(0); // สลับไปหน้า Feed
                 if (mounted) Navigator.pop(context); // ปิด Drawer
               },
             ),
-            if (widget.sellerProfile != null)
+            if (widget.sellerProfile != null) 
               ListTile(
                 leading: const Icon(Icons.storefront_outlined),
                 title: const Text('จัดการร้านค้าของฉัน'),
                 onTap: () {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้าจัดการร้านค้า')));
-                  }
-                  if (mounted) Navigator.pop(context);
+                  if (mounted) Navigator.pop(context); 
                 },
               )
-            else
+            else 
               ListTile(
                 leading: const Icon(Icons.favorite_outline),
                 title: const Text('รายการโปรด'),
-                onTap: () {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                onTap: () { 
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไปยังหน้ารายการโปรด')));
-                  }
-                  if (mounted) Navigator.pop(context);
+                  if (mounted) Navigator.pop(context); 
                 },
               ),
-
+            
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: DropdownButtonFormField<String>(
@@ -514,8 +468,6 @@ class _FeedPageState extends State<FeedPage> {
                 onChanged: (String? newValue) {
                   setState(() {
                     _drawerSelectedProvince = newValue;
-                    // เมื่อเปลี่ยนจังหวัด ให้เรียก _onSearchChanged เพื่อ re-filter
-                    _onSearchChanged();
                   });
                 },
               ),
@@ -539,37 +491,21 @@ class _FeedPageState extends State<FeedPage> {
                 onChanged: (String? newValue) {
                   setState(() {
                     _drawerSelectedCategory = newValue;
-                    // เมื่อเปลี่ยนหมวดหมู่ ให้เรียก _onSearchChanged เพื่อ re-filter
-                    _onSearchChanged();
                   });
                 },
               ),
             ),
-            const Divider(),
+            const Divider(), 
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('ออกจากระบบ'),
-              onTap: () async { // Make onTap async
-                if (mounted) Navigator.pop(context);
-                try {
-                  await Supabase.instance.client.auth.signOut(); // Sign out from Supabase
-                  if (mounted) {
-                    Navigator.pushAndRemoveUntil(
-                      // ignore: use_build_context_synchronously
-                      context,
-                      MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
-                      (route) => false,
-                    );
-                  }
-                } catch (e) {
-                  print('Error signing out: $e');
-                  if (mounted) {
-                    // ignore: use_build_context_synchronously
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('เกิดข้อผิดพลาดในการออกจากระบบ: $e')),
-                    );
-                  }
-                }
+              onTap: () { 
+                if (mounted) Navigator.pop(context); 
+                if (mounted) Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SellerLoginScreen()), 
+                  (route) => false,
+                );
               },
             ),
           ],
@@ -611,17 +547,17 @@ class _FeedPageState extends State<FeedPage> {
                       children: [
                         FilterButton(
                           text: 'ฟีดโพสต์',
-                          isSelected: _selectedTopFilter == 'ฟีดโพสต์',
+                          isSelected: _selectedTopFilter == 'ฟีดโพสต์', 
                           onTap: () {
                             setState(() {
-                              _selectedTopFilter = 'ฟีดโพสต์';
+                              _selectedTopFilter = 'ฟีดโพสต์'; 
                             });
                           },
                         ),
                         const SizedBox(width: 10),
                         FilterButton(
                           text: 'ร้านค้า',
-                          isSelected: _selectedTopFilter == 'ร้านค้า',
+                          isSelected: _selectedTopFilter == 'ร้านค้า', 
                           onTap: () {
                             setState(() {
                               _selectedTopFilter = 'ร้านค้า';
@@ -637,8 +573,8 @@ class _FeedPageState extends State<FeedPage> {
               child: _isLoadingPosts // แสดง CircularProgressIndicator ขณะโหลด
                   ? const Center(child: CircularProgressIndicator())
                   : IndexedStack(
-                      index: _selectedIndex,
-                      children: pages,
+                      index: _selectedIndex, 
+                      children: pages, 
                     ),
             ),
           ],
@@ -664,41 +600,39 @@ class _FeedPageState extends State<FeedPage> {
                 topRight: Radius.circular(20),
               ),
             ),
-            child: _selectedTopFilter == 'ฟีดโพสต์'
+            child: _selectedTopFilter == 'ฟีดโพสต์' 
                 ? (filteredPosts.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.shopping_bag_outlined, size: 50, color: Colors.grey),
-                                const SizedBox(height: 10),
-                                const Text(
-                                  'ไม่มีโพสต์ที่ตรงกับเงื่อนไข',
-                                  style: TextStyle(fontSize: 18, color: Colors.grey),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  // ตรวจสอบ null ก่อนใช้
-                                  '${_drawerSelectedCategory ?? 'ทั้งหมด'} ใน ${_drawerSelectedProvince ?? 'ทั้งหมด'}',
-                                  style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                                ),
-                              ],
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.shopping_bag_outlined, size: 50, color: Colors.grey),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'ไม่มีโพสต์ที่ตรงกับเงื่อนไข',
+                              style: TextStyle(fontSize: 18, color: Colors.grey),
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(15),
-                            itemCount: filteredPosts.length,
-                            itemBuilder: (context, index) {
-                              final post = filteredPosts[index];
-                              // ส่งฟังก์ชัน _deletePost และ _editPost พร้อม currentUserId ไปยัง PostCard
-                              return PostCard(
-                                post: post,
-                                onDelete: _deletePost,
-                                onEdit: _editPost, // ส่ง callback สำหรับแก้ไข
-                                currentUserId: Supabase.instance.client.auth.currentUser?.id,
-                              );
-                            },
-                          ))
+                            const SizedBox(height: 10),
+                            Text(
+                              '$_drawerSelectedCategory ใน $_drawerSelectedProvince',
+                              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(15),
+                        itemCount: filteredPosts.length,
+                        itemBuilder: (context, index) {
+                          final post = filteredPosts[index];
+                          // ส่งฟังก์ชัน _deletePost และ currentUser.uid ไปยัง PostCard
+                          return PostCard(
+                            post: post,
+                            onDelete: _deletePost,
+                            currentUserId: FirebaseAuth.instance.currentUser?.uid,
+                          );
+                        },
+                      ))
                 : StoreScreenContent( // แสดง StoreScreenContent เมื่อเลือก "ร้านค้า"
                     selectedProvince: _drawerSelectedProvince ?? 'ทั้งหมด',
                     selectedCategory: _drawerSelectedCategory ?? 'ทั้งหมด',
@@ -729,15 +663,13 @@ class _FeedPageState extends State<FeedPage> {
 // เปลี่ยน PostCard เป็น StatefulWidget เพื่อให้สามารถอัปเดตเวลาได้
 class PostCard extends StatefulWidget {
   final Post post;
-  final Function(Post) onDelete;
-  final Function(Post) onEdit; // เพิ่ม callback สำหรับแก้ไข
-  final String? currentUserId;
+  final Function(Post) onDelete; 
+  final String? currentUserId; 
 
   const PostCard({
     super.key,
     required this.post,
     required this.onDelete,
-    required this.onEdit, // ต้อง required
     this.currentUserId,
   });
 
@@ -748,12 +680,6 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> {
   late String _timeAgoString;
   Timer? _timer;
-
-  // Default avatar image if post.avatarImageUrl is null or empty
-  static const String _defaultAvatar = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
-  // Default post image if post.imageUrl is null or empty
-  static const String _defaultPostImage = 'https://placehold.co/600x400/E8F4FD/9C6ADE?text=No+Image';
-
 
   @override
   void initState() {
@@ -808,16 +734,6 @@ class _PostCardState extends State<PostCard> {
     // ตรวจสอบว่าเป็นโพสต์ของผู้ใช้ปัจจุบันหรือไม่
     final isMyPost = widget.currentUserId != null && widget.currentUserId == widget.post.ownerUid;
 
-    // กำหนด URL รูปภาพ Avatar ที่จะใช้
-    final String effectiveAvatarUrl = widget.post.avatarImageUrl != null && widget.post.avatarImageUrl!.startsWith('http')
-        ? widget.post.avatarImageUrl!
-        : _defaultAvatar; // ใช้รูป default ถ้าเป็น null หรือไม่ใช่ http
-
-    // กำหนด URL รูปภาพโพสต์ที่จะใช้
-    final String effectiveImageUrl = widget.post.imageUrl != null && widget.post.imageUrl!.startsWith('http')
-        ? widget.post.imageUrl!
-        : _defaultPostImage; // ใช้ placeholder ถ้าเป็น null หรือไม่ใช่ http
-
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -841,7 +757,9 @@ class _PostCardState extends State<PostCard> {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundImage: NetworkImage(effectiveAvatarUrl), // ใช้ effectiveAvatarUrl
+                  backgroundImage: widget.post.avatarImageUrl.startsWith('http')
+                      ? NetworkImage(widget.post.avatarImageUrl)
+                      : AssetImage(widget.post.avatarImageUrl) as ImageProvider,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -888,19 +806,9 @@ class _PostCardState extends State<PostCard> {
                 ),
                 // ปุ่มลบ (แสดงเฉพาะโพสต์ของฉัน)
                 if (isMyPost)
-                  // เพิ่มปุ่มแก้ไข
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => widget.onEdit(widget.post), // เรียกใช้ onEdit callback
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => widget.onDelete(widget.post), // เรียกใช้ onDelete callback
-                      ),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => widget.onDelete(widget.post), // เรียกใช้ callback onDelete
                   ),
               ],
             ),
@@ -928,7 +836,7 @@ class _PostCardState extends State<PostCard> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               image: DecorationImage(
-                image: NetworkImage(effectiveImageUrl), // ใช้ effectiveImageUrl
+                image: NetworkImage(widget.post.imageUrl),
                 fit: BoxFit.cover,
               ),
             ),
@@ -942,7 +850,7 @@ class _PostCardState extends State<PostCard> {
             child: Row(
               children: [
                 ActionButton(text: 'สั่งเลย', onTap: () {
-                  // Handle "Order Now" action
+                  // print('สั่งเลย button pressed for ${post.shopName}'); // ลบ print()
                 }),
                 const SizedBox(width: 10),
                 ActionButton(text: 'ดูหน้าร้าน', onTap: () {
@@ -955,6 +863,7 @@ class _PostCardState extends State<PostCard> {
                       ),
                     ),
                   );
+                  // print('ดูหน้าร้าน button pressed for ${post.shopName}'); // ลบ print()
                 }),
               ],
             ),
@@ -969,28 +878,25 @@ class ActionButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
 
-  const ActionButton({
-    super.key,
-    required this.text,
-    required this.onTap,
-  });
+  const ActionButton({super.key, required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF9C6ADE), // สีปุ่ม
-          foregroundColor: Colors.white, // สีข้อความ
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10), // ขอบมน
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8E4FF),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           text,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Color(0xFF9C6ADE),
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+          ),
         ),
       ),
     );
