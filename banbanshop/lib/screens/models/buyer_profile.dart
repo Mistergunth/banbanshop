@@ -7,7 +7,8 @@ class BuyerProfile {
   final String? fullName;
   final String email;
   final String? phoneNumber;
-  final String? shippingAddress; // เพิ่มฟิลด์สำหรับที่อยู่จัดส่ง
+  final String? shippingAddress; // ฟิลด์สำหรับที่อยู่จัดส่ง
+  final String? profileImageUrl; // <--- เพิ่มฟิลด์นี้สำหรับ URL รูปโปรไฟล์
 
   BuyerProfile({
     required this.uid,
@@ -15,6 +16,7 @@ class BuyerProfile {
     required this.email,
     this.phoneNumber,
     this.shippingAddress,
+    this.profileImageUrl, // <--- เพิ่มใน constructor
   });
 
   // Factory constructor สำหรับสร้าง BuyerProfile จาก Firestore DocumentSnapshot
@@ -23,9 +25,10 @@ class BuyerProfile {
     return BuyerProfile(
       uid: doc.id, // UID ของผู้ใช้คือ Document ID ใน Firestore
       fullName: data['fullName'] as String?,
-      email: data['email'] as String? ?? '', // ควรมี email เสมอ
+      email: data['email'] as String? ?? '',
       phoneNumber: data['phoneNumber'] as String?,
       shippingAddress: data['shippingAddress'] as String?,
+      profileImageUrl: data['profileImageUrl'] as String?, // <--- อ่านจาก Firestore
     );
   }
 
@@ -36,7 +39,26 @@ class BuyerProfile {
       'email': email,
       'phoneNumber': phoneNumber,
       'shippingAddress': shippingAddress,
-      // สามารถเพิ่ม field อื่นๆ ที่นี่ได้
+      'profileImageUrl': profileImageUrl, // <--- เขียนลง Firestore
     };
+  }
+
+  // เพิ่ม copyWith method เพื่อให้แก้ไขข้อมูลได้ง่ายขึ้น
+  BuyerProfile copyWith({
+    String? uid,
+    String? fullName,
+    String? email,
+    String? phoneNumber,
+    String? shippingAddress,
+    String? profileImageUrl,
+  }) {
+    return BuyerProfile(
+      uid: uid ?? this.uid,
+      fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      shippingAddress: shippingAddress ?? this.shippingAddress,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+    );
   }
 }

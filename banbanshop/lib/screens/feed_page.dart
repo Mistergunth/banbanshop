@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:banbanshop/widgets/bottom_navbar_widget.dart';
-import 'package:banbanshop/screens/profile.dart'; // สำหรับ SellerProfile
+import 'package:banbanshop/screens/models/seller_profile.dart'; // สำหรับ SellerProfile
 import 'package:banbanshop/screens/seller/seller_account_screen.dart';
 import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:banbanshop/screens/seller/seller_orders_screen.dart'; 
@@ -267,7 +267,7 @@ class _FeedPageState extends State<FeedPage> {
       // ตรวจสอบว่าผู้ใช้เป็นผู้ขายหรือไม่
       if (widget.sellerProfile == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('คุณต้องเข้าสู่ระบบในฐานะผู้ขายเพื่อสร้างโพสต์')),
+          const SnackBar(content: Text('เฉพาะผู้ขายเท่านั้นที่สามารถสร้างโพสต์ได้')),
         );
         // กลับไปหน้าเดิม (หน้าแรก)
         setState(() {
@@ -408,7 +408,7 @@ class _FeedPageState extends State<FeedPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช้อป', 
+                      widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช็อป', 
                       style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     if (widget.sellerProfile != null) 
@@ -647,7 +647,7 @@ class _FeedPageState extends State<FeedPage> {
   String _getAppBarTitle() {
     switch (_selectedIndex) {
       case 0: // หน้าแรก (ฟีดโพสต์/ร้านค้า)
-        return 'บ้านบ้านช้อป';
+        return 'บ้านบ้านช็อป';
       case 1: // ออเดอร์ / ตะกร้า
         return widget.sellerProfile != null ? 'รายการออเดอร์' : 'ตะกร้าสินค้า';
       case 2: // สร้างโพสต์
@@ -655,7 +655,7 @@ class _FeedPageState extends State<FeedPage> {
       case 3: // โปรไฟล์
         return widget.sellerProfile != null ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ';
       default:
-        return 'บ้านบ้านช้อป';
+        return 'บ้านบ้านช็อป';
     }
   }
 }

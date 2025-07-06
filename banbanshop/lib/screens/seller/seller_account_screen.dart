@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:banbanshop/screens/profile.dart';
-import 'package:banbanshop/screens/auth/seller_login_screen.dart'; 
+import 'package:banbanshop/main.dart';
+import 'package:banbanshop/screens/models/seller_profile.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
@@ -177,7 +177,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
       );
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const SellerLoginScreen()), 
+        MaterialPageRoute(builder: (context) => const MyApp()), 
         (route) => false, 
       );
     } catch (e) {

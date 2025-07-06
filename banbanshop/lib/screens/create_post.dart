@@ -5,7 +5,7 @@ import 'package:banbanshop/screens/post_model.dart'; // ตรวจสอบว
 import 'package:cloudinary_sdk/cloudinary_sdk.dart'; 
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth เพื่อดึง UID ของผู้ใช้
-import 'package:banbanshop/screens/profile.dart'; // Import SellerProfile
+import 'package:banbanshop/screens/models/seller_profile.dart'; // Import SellerProfile
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});

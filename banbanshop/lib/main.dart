@@ -1,22 +1,31 @@
 import 'package:banbanshop/firebase_options.dart';
-import 'package:banbanshop/screens/auth/seller_login_screen.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'screens/buyer/province_selection.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
 import 'package:google_fonts/google_fonts.dart';
 
+// Import หน้าหลัก (FeedPage) และหน้าเลือกบทบาท (RoleSelectPage)
+import 'package:banbanshop/screens/feed_page.dart';
+import 'package:banbanshop/screens/role_select.dart'; // ไฟล์ใหม่
+import 'package:banbanshop/screens/models/seller_profile.dart'; // สำหรับ SellerProfile
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
-);
-  runApp(MyApp());
+  );
+  runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -25,109 +34,87 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         fontFamily: GoogleFonts.kanit().fontFamily,
       ),
-      home: HomePage(),
+      home: AuthWrapper(), // ใช้ AuthWrapper เพื่อจัดการการนำทางเริ่มต้น
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFFF0F0F0),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(30.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'บ้านบ้านช็อป',
-                style: TextStyle(
-                  fontSize: 50,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 10),
-              Text(
-                'คุณคือใคร?',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 40),
-              SizedBox(
-                width: 150,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // ไปหน้าเลือกจังหวัดสำหรับผู้ซื้อ
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProvinceSelectionPage(),
-                      ),
-                    );
-                    
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF4285F4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    elevation: 2,
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(), // ฟังการเปลี่ยนแปลงสถานะการล็อกอิน
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          // แสดงหน้าโหลดขณะรอตรวจสอบสถานะการล็อกอิน
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        final User? user = snapshot.data;
+
+        if (user == null) {
+          // ถ้าไม่มีผู้ใช้ล็อกอินอยู่ ให้ไปหน้าเลือกบทบาท
+          return const RoleSelectPage();
+        } else {
+          // ถ้ามีผู้ใช้ล็อกอินอยู่ ให้ตรวจสอบว่าเป็นผู้ซื้อหรือผู้ขาย
+          // และนำทางไปยัง FeedPage พร้อมส่งข้อมูลโปรไฟล์ที่เกี่ยวข้อง
+          return FutureBuilder<SellerProfile?>(
+            future: _fetchSellerProfile(user.uid), // ดึงข้อมูลโปรไฟล์ผู้ขาย
+            builder: (context, sellerSnapshot) {
+              if (sellerSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
                   ),
-                  child: Text(
-                    'ผู้ซื้อ',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
-              SizedBox(
-                width: 150,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // ไปหน้าเลือกจังหวัดสำหรับผู้ขาย
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SellerLoginScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color.fromARGB(255, 47, 219, 93),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    elevation: 2,
-                  ),
-                  child: Text(
-                    'ผู้ขาย',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+                );
+              }
+
+              SellerProfile? sellerProfile = sellerSnapshot.data;
+
+              // กำหนดค่าเริ่มต้นสำหรับ selectedProvince และ selectedCategory
+              // อาจจะดึงมาจาก SharedPreferences หรือ Firebase/Supabase สำหรับผู้ซื้อในอนาคต
+              // สำหรับตอนนี้ ให้ใช้ค่าเริ่มต้น 'ทั้งหมด'
+              String initialProvince = 'ทั้งหมด';
+              String initialCategory = 'ทั้งหมด';
+
+              return FeedPage(
+                selectedProvince: initialProvince,
+                selectedCategory: initialCategory,
+                sellerProfile: sellerProfile, // ส่งข้อมูล sellerProfile ไปยัง FeedPage
+              );
+            },
+          );
+        }
+      },
     );
+  }
+
+  // ฟังก์ชันสำหรับดึงข้อมูลโปรไฟล์ผู้ขายจาก Firestore
+  // คล้ายกับที่ใช้ใน SellerAccountScreen แต่ใช้ใน main.dart เพื่อตรวจสอบบทบาท
+  Future<SellerProfile?> _fetchSellerProfile(String uid) async {
+    try {
+      // ตรวจสอบใน collection 'sellers'
+      DocumentSnapshot sellerDoc = await FirebaseFirestore.instance
+          .collection('sellers')
+          .doc(uid)
+          .get();
+
+      if (sellerDoc.exists) {
+        return SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
+      }
+      // ถ้าไม่พบใน sellers, อาจเป็นผู้ซื้อ (หรือยังไม่สร้างโปรไฟล์)
+      return null;
+    } catch (e) {
+      // ignore: avoid_print
+      print("Error fetching seller profile in AuthWrapper: $e");
+      return null;
+    }
   }
 }

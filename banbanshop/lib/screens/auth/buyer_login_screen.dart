@@ -96,6 +96,7 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15.0),
+            // ignore: deprecated_member_use
             boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), spreadRadius: 2, blurRadius: 5, offset: const Offset(0, 3))],
           ),
           child: Form(

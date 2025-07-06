@@ -2,13 +2,18 @@
 
 // ignore_for_file: avoid_print, use_build_context_synchronously
 
+import 'package:banbanshop/screens/role_select.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // สำหรับ FirebaseAuth
 import 'package:cloud_firestore/cloud_firestore.dart'; // สำหรับ Firestore
 import 'package:banbanshop/screens/models/buyer_profile.dart'; // import BuyerProfile model
 import 'package:banbanshop/screens/auth/buyer_register_screen.dart';
 import 'package:banbanshop/screens/auth/buyer_login_screen.dart';
-import 'package:banbanshop/main.dart'; // เพื่อนำทางไป HomePage หลัง Logout
+// ignore: unused_import
+import 'package:banbanshop/main.dart'; // สำหรับ HomePage
+import 'package:cloudinary_sdk/cloudinary_sdk.dart';
+import 'package:image_picker/image_picker.dart'; // เพื่อนำทางไป HomePage หลัง Logout
+import 'dart:io'; // สำหรับ File
 
 class BuyerProfileScreen extends StatefulWidget {
   const BuyerProfileScreen({super.key});
@@ -21,6 +26,15 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
   User? _currentUser;
   BuyerProfile? _buyerProfile;
   bool _isLoading = true; // สถานะการโหลดข้อมูล
+
+  // กำหนดค่า Cloudinary ของคุณที่นี่
+  // ***** สำคัญ: ต้องแทนที่ค่า YOUR_CLOUDINARY_CLOUD_NAME, YOUR_CLOUDINARY_API_KEY, YOUR_CLOUDINARY_API_SECRET ด้วยค่าจริงของคุณ *****
+  final Cloudinary cloudinary = Cloudinary.full(
+    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
+    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
+  );
+  final String uploadPreset = 'flutter_unsigned_upload'; // <-- แทนที่ด้วยชื่อ Upload Preset ที่คุณสร้าง (เช่น 'flutter_unsigned_upload')
 
   @override
   void initState() {
@@ -79,6 +93,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
           fullName: _currentUser!.displayName,
           phoneNumber: _currentUser!.phoneNumber,
           shippingAddress: null, // ค่าเริ่มต้น
+          profileImageUrl: null, // ค่าเริ่มต้น
         );
         await FirebaseFirestore.instance.collection('buyers').doc(_currentUser!.uid).set(newProfile.toFirestore());
         setState(() {
@@ -100,13 +115,97 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
     }
   }
 
+  // ฟังก์ชันเลือกและอัปโหลดรูปภาพโปรไฟล์สำหรับผู้ซื้อ
+  Future<void> _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile == null) return; // ผู้ใช้ยกเลิกการเลือกรูปภาพ
+
+    File imageFile = File(pickedFile.path);
+    User? currentUser = FirebaseAuth.instance.currentUser;
+
+    if (currentUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('กรุณาเข้าสู่ระบบก่อนอัปโหลดรูปภาพ')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true; // แสดง loading indicator
+    });
+
+    try {
+      // 1. อัปโหลดรูปภาพไปยัง Cloudinary
+      final response = await cloudinary.uploadResource(
+        CloudinaryUploadResource(
+          filePath: imageFile.path,
+          resourceType: CloudinaryResourceType.image,
+          folder: 'buyer_profile_pictures', // โฟลเดอร์สำหรับรูปโปรไฟล์ผู้ซื้อ
+          uploadPreset: uploadPreset, // ใช้ Upload Preset ที่สร้างไว้
+        ),
+      );
+
+      if (response.isSuccessful) {
+        String? downloadUrl = response.secureUrl; // URL ของรูปภาพที่อัปโหลดสำเร็จ
+        if (downloadUrl != null) {
+          // 2. อัปเดต URL รูปภาพใน Firestore
+          await FirebaseFirestore.instance
+              .collection('buyers')
+              .doc(currentUser.uid)
+              .update({'profileImageUrl': downloadUrl});
+
+          // 3. อัปเดต UI
+          if (!mounted) return;
+          setState(() {
+            _buyerProfile = _buyerProfile?.copyWith(profileImageUrl: downloadUrl) ??
+                            BuyerProfile(
+                              uid: currentUser.uid,
+                              email: currentUser.email ?? '',
+                              fullName: currentUser.displayName,
+                              phoneNumber: currentUser.phoneNumber,
+                              shippingAddress: null,
+                              profileImageUrl: downloadUrl,
+                            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('อัปโหลดรูปโปรไฟล์สำเร็จ!')),
+            );
+          });
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('ไม่สามารถรับ URL รูปภาพจาก Cloudinary ได้')),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ: ${response.error}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: $e')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false; // ซ่อน loading indicator
+      });
+    }
+  }
+
+
   // ฟังก์ชันสำหรับจัดการการออกจากระบบ
   void _logout() async {
     try {
       await FirebaseAuth.instance.signOut();
-      // ไม่ต้อง setState ตรงนี้ เพราะ authStateChanges listener จะจัดการให้
-      // และจะนำทางกลับไปหน้า HomePage โดยอัตโนมัติ
-      // (ถ้า HomePage ใน main.dart มี logic ตรวจสอบการล็อกอินอยู่แล้ว)
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -265,16 +364,27 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
 
   // ส่วนแสดง Header ของโปรไฟล์ (รูปภาพ, ชื่อ, อีเมล, เบอร์โทร)
   Widget _buildProfileHeader() {
+    // กำหนดรูปโปรไฟล์
+    ImageProvider<Object> profileImage;
+    // ตรวจสอบว่ามี _buyerProfile และ profileImageUrl ไม่เป็น null และเป็น URL ที่ถูกต้อง
+    if (_buyerProfile != null && _buyerProfile!.profileImageUrl != null && _buyerProfile!.profileImageUrl!.startsWith('http')) {
+      profileImage = NetworkImage(_buyerProfile!.profileImageUrl!);
+    } else {
+      // ใช้รูปภาพเริ่มต้นจาก assets หรือไอคอน
+      profileImage = const AssetImage('assets/images/default_avatar.png'); // สมมติว่ามีไฟล์นี้
+    }
+
     return Column(
       children: [
-        // รูปโปรไฟล์ (ใช้ไอคอนเริ่มต้น)
-        CircleAvatar(
-          radius: 50,
-          backgroundColor: Colors.grey[300],
-          child: Icon(
-            Icons.person,
-            size: 60,
-            color: Colors.grey[600],
+        GestureDetector(
+          onTap: _pickAndUploadImage, // เรียกใช้ฟังก์ชันเลือกรูปโปรไฟล์
+          child: CircleAvatar(
+            radius: 50,
+            backgroundImage: profileImage,
+            // แสดงไอคอนกล้องเมื่อไม่มีรูปโปรไฟล์ที่ถูกต้อง
+            child: (_buyerProfile?.profileImageUrl == null || !_buyerProfile!.profileImageUrl!.startsWith('http'))
+                ? const Icon(Icons.camera_alt, size: 30, color: Colors.white70)
+                : null,
           ),
         ),
         const SizedBox(height: 10),

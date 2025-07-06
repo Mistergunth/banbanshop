@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:banbanshop/screens/auth/seller_register_screen.dart'; // Import register screen
 import 'package:banbanshop/screens/feed_page.dart'; // Import FeedPage
-import 'package:banbanshop/screens/profile.dart'; // Import profile class
+import 'package:banbanshop/screens/models/seller_profile.dart'; // Import profile class
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 
@@ -81,7 +81,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           // กรณีข้อมูลโปรไฟล์ผู้ขายไม่พบใน Firestore (แต่ล็อกอิน Auth สำเร็จ)
           // อาจเกิดขึ้นหากการบันทึกข้อมูลใน Firestore ล้มเหลวตอนสมัครสมาชิก
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ไม่พบข้อมูลโปรไฟล์ผู้ขาย กรุณาติดต่อผู้ดูแลระบบ')),
+            const SnackBar(content: Text('ไม่พบข้อมูลโปรไฟล์ผู้ขาย')),
           );
           // อาจจะให้ผู้ใช้ออกจากระบบ Firebase Auth ด้วย
           await FirebaseAuth.instance.signOut();
