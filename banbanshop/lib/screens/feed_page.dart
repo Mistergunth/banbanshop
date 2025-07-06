@@ -214,14 +214,16 @@ class _FeedPageState extends State<FeedPage> {
         // 2. ลบรูปภาพออกจาก Supabase Storage
         // ตรวจสอบว่า imageUrl ไม่เป็น null ก่อนที่จะพยายามลบ
         if (post.imageUrl != null && post.imageUrl!.isNotEmpty) {
-          final Uri uri = Uri.parse(post.imageUrl!); // ใช้ ! เพื่อยืนยันว่าไม่เป็น null
-          final String storagePath = uri.path.substring(uri.path.indexOf('/public/') + '/public/'.length);
-          final String bucketName = storagePath.split('/').first; // ควรจะเป็น 'posts.images'
-          final String filePathInBucket = storagePath.substring(bucketName.length + 1); // Path หลัง bucket name
+          // Path ใน Storage จะอยู่ในรูปแบบ user_id/filename.jpg
+          // เราต้องดึงแค่ filename.jpg ออกมาเพื่อใช้กับ .remove()
+          final Uri uri = Uri.parse(post.imageUrl!);
+          // ตัวอย่าง: 'https://<project_ref>.supabase.co/storage/v1/object/public/posts.images/user_id/filename.jpg'
+          // เราต้องการแค่ 'user_id/filename.jpg'
+          final String fullPathInBucket = uri.path.substring(uri.path.indexOf('/posts.images/') + '/posts.images/'.length);
 
           await Supabase.instance.client.storage
-              .from(bucketName)
-              .remove([filePathInBucket]); // ลบไฟล์จาก Storage
+              .from('posts.images') // ชื่อ bucket ของคุณ
+              .remove([fullPathInBucket]); // ลบไฟล์จาก Storage
         } else {
           print('No image URL found for post ID: ${post.id}, skipping image deletion.');
         }
@@ -251,6 +253,32 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
+  // ฟังก์ชันสำหรับแก้ไขโพสต์
+  Future<void> _editPost(Post post) async {
+    final updatedPost = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreatePostScreen(initialPost: post), // ส่งโพสต์เดิมไปให้ CreatePostScreen
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (updatedPost != null && updatedPost is Post) {
+      // ไม่จำเป็นต้องอัปเดต _allPosts list ด้วยตนเอง
+      // เพราะ Supabase listener (_fetchPostsFromSupabase) จะจัดการให้เอง
+      // เมื่อโพสต์ถูกอัปเดตใน Supabase
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('แก้ไขโพสต์สำเร็จ!')),
+      );
+    } else {
+      // ถ้าผู้ใช้ยกเลิกการแก้ไข
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยกเลิกการแก้ไขโพสต์')),
+      );
+    }
+  }
+
 
   void _onItemTapped(int index) async {
     // ถ้าเลือกแท็บ "สร้างโพสต์" (Index 2)
@@ -269,7 +297,7 @@ class _FeedPageState extends State<FeedPage> {
 
       final newPost = await Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const CreatePostScreen()),
+        MaterialPageRoute(builder: (context) => const CreatePostScreen()), // สร้างโพสต์ใหม่
       );
 
       // ตรวจสอบว่า Widget ยังคง mounted ก่อนที่จะ setState หรือใช้ BuildContext
@@ -325,26 +353,46 @@ class _FeedPageState extends State<FeedPage> {
 
   // ใช้ _allPosts ที่ดึงมาจาก Supabase ในการกรอง
   List<Post> get filteredPosts {
+    print('--- Filtering Posts ---');
+    print('Selected Province (Drawer): ${_drawerSelectedProvince ?? 'N/A'}');
+    print('Selected Category (Drawer): ${_drawerSelectedCategory ?? 'N/A'}');
+    print('Search Query: ${searchController.text.trim().toLowerCase()}');
+
     final filteredByProvinceAndCategory = _allPosts.where((post) {
-      // ใช้ _drawerSelectedProvince และ _drawerSelectedCategory ในการกรอง
-      // เพิ่ม .trim().toLowerCase() เพื่อจัดการช่องว่างและตัวพิมพ์เล็ก-ใหญ่
-      final matchesProvince = _drawerSelectedProvince == 'ทั้งหมด' ||
-                              (_drawerSelectedProvince != null && post.province.trim().toLowerCase() == _drawerSelectedProvince!.trim().toLowerCase());
-      final matchesCategory = _drawerSelectedCategory == 'ทั้งหมด' ||
-                              (_drawerSelectedCategory != null && post.productCategory.trim().toLowerCase() == _drawerSelectedCategory!.trim().toLowerCase());
+      final postProvince = post.province.trim().toLowerCase();
+      final postProductCategory = post.productCategory.trim().toLowerCase(); // ใช้ productCategory
+      final filterProvince = (_drawerSelectedProvince ?? 'ทั้งหมด').trim().toLowerCase();
+      final filterCategory = (_drawerSelectedCategory ?? 'ทั้งหมด').trim().toLowerCase();
+
+      // ตรวจสอบการกรองจังหวัด
+      final matchesProvince = filterProvince == 'ทั้งหมด' || postProvince == filterProvince;
+
+      // ตรวจสอบการกรองหมวดหมู่
+      final matchesCategory = filterCategory == 'ทั้งหมด' || postProductCategory == filterCategory;
+
+      print('  Post ID: ${post.id}, Post Province: "$postProvince", Post Product Category: "$postProductCategory"');
+      print('  Filter Province: "$filterProvince", Filter Category: "$filterCategory"');
+      print('  Matches Province: $matchesProvince, Matches Category: $matchesCategory');
+
       return matchesProvince && matchesCategory;
     }).toList();
 
     if (searchController.text.isEmpty) {
+      print('--- Filtered Posts Count (no search): ${filteredByProvinceAndCategory.length} ---');
       return filteredByProvinceAndCategory;
     } else {
-      final query = searchController.text.toLowerCase().trim(); // เพิ่ม trim()
-      return filteredByProvinceAndCategory.where((post) {
-        return post.title.toLowerCase().contains(query) ||
+      final query = searchController.text.toLowerCase().trim();
+      final searchFilteredPosts = filteredByProvinceAndCategory.where((post) {
+        final matchesSearch = post.title.toLowerCase().contains(query) ||
             post.shopName.toLowerCase().contains(query) ||
-            post.category.toLowerCase().contains(query) ||
-            post.province.toLowerCase().contains(query); // เพิ่มการค้นหาจากจังหวัด
+            post.category.toLowerCase().contains(query) || // category หลัก
+            post.productCategory.toLowerCase().contains(query) || // productCategory ย่อย
+            post.province.toLowerCase().contains(query);
+        print('  Post ID: ${post.id}, Matches Search: $matchesSearch');
+        return matchesSearch;
       }).toList();
+      print('--- Filtered Posts Count (with search): ${searchFilteredPosts.length} ---');
+      return searchFilteredPosts;
     }
   }
 
@@ -466,6 +514,8 @@ class _FeedPageState extends State<FeedPage> {
                 onChanged: (String? newValue) {
                   setState(() {
                     _drawerSelectedProvince = newValue;
+                    // เมื่อเปลี่ยนจังหวัด ให้เรียก _onSearchChanged เพื่อ re-filter
+                    _onSearchChanged();
                   });
                 },
               ),
@@ -489,6 +539,8 @@ class _FeedPageState extends State<FeedPage> {
                 onChanged: (String? newValue) {
                   setState(() {
                     _drawerSelectedCategory = newValue;
+                    // เมื่อเปลี่ยนหมวดหมู่ ให้เรียก _onSearchChanged เพื่อ re-filter
+                    _onSearchChanged();
                   });
                 },
               ),
@@ -638,10 +690,11 @@ class _FeedPageState extends State<FeedPage> {
                             itemCount: filteredPosts.length,
                             itemBuilder: (context, index) {
                               final post = filteredPosts[index];
-                              // ส่งฟังก์ชัน _deletePost และ currentUser.id ไปยัง PostCard
+                              // ส่งฟังก์ชัน _deletePost และ _editPost พร้อม currentUserId ไปยัง PostCard
                               return PostCard(
                                 post: post,
                                 onDelete: _deletePost,
+                                onEdit: _editPost, // ส่ง callback สำหรับแก้ไข
                                 currentUserId: Supabase.instance.client.auth.currentUser?.id,
                               );
                             },
@@ -677,12 +730,14 @@ class _FeedPageState extends State<FeedPage> {
 class PostCard extends StatefulWidget {
   final Post post;
   final Function(Post) onDelete;
+  final Function(Post) onEdit; // เพิ่ม callback สำหรับแก้ไข
   final String? currentUserId;
 
   const PostCard({
     super.key,
     required this.post,
     required this.onDelete,
+    required this.onEdit, // ต้อง required
     this.currentUserId,
   });
 
@@ -833,9 +888,19 @@ class _PostCardState extends State<PostCard> {
                 ),
                 // ปุ่มลบ (แสดงเฉพาะโพสต์ของฉัน)
                 if (isMyPost)
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => widget.onDelete(widget.post), // เรียกใช้ callback onDelete
+                  // เพิ่มปุ่มแก้ไข
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () => widget.onEdit(widget.post), // เรียกใช้ onEdit callback
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => widget.onDelete(widget.post), // เรียกใช้ onDelete callback
+                      ),
+                    ],
                   ),
               ],
             ),
