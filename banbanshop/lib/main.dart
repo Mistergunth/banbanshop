@@ -1,18 +1,16 @@
+import 'package:banbanshop/firebase_options.dart';
 import 'package:banbanshop/screens/auth/seller_login_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'screens/buyer/province_selection.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 
-Future<void> main() async {
-      WidgetsFlutterBinding.ensureInitialized();
-
-      // ตั้งค่า Supabase Client
-      await Supabase.initialize(
-        url: 'https://rmchekxyeiretdkvykwk.supabase.co', // แทนที่ด้วย Project URL ของคุณ
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtY2hla3h5ZWlyZXRka3Z5a3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NjY5MTIsImV4cCI6MjA2NzE0MjkxMn0.1Z5HWyhC15R3AbUThsFqJPBoosVES58bU18gMZGhSIY', // แทนที่ด้วย Public Key ของคุณ
-      );
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+);
   runApp(MyApp());
 }
 
