@@ -11,7 +11,7 @@ class BottomNavbarWidget extends StatelessWidget {
   const BottomNavbarWidget({
     super.key,
     required this.selectedIndex,
-    required this.onItemSelected,
+    required this.onItemSelected, required bool isSeller, required bool hasStore,
   });
 
   @override

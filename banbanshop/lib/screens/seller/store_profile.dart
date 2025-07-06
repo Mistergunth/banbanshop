@@ -1,0 +1,692 @@
+// lib/screens/seller/store_profile.dart
+
+// ignore_for_file: library_private_types_in_public_api, avoid_print, use_build_context_synchronously
+
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:banbanshop/screens/models/store_model.dart'; // <--- IMPORT Store MODEL จากที่ใหม่
+import 'package:banbanshop/screens/post_model.dart'; // Import Post model
+import 'package:banbanshop/screens/create_post.dart'; // Import CreatePostScreen
+import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
+import 'dart:async'; // <--- เพิ่ม IMPORT สำหรับ Timer
+import 'package:banbanshop/screens/seller/store_create.dart';
+
+class StoreProfileScreen extends StatefulWidget {
+  final String storeId;
+  final bool isSellerView; // true ถ้าเป็นเจ้าของร้านกำลังดู, false ถ้าเป็นผู้ซื้อ/คนทั่วไป
+
+  const StoreProfileScreen({
+    super.key,
+    required this.storeId,
+    this.isSellerView = false,
+  });
+
+  @override
+  _StoreProfileScreenState createState() => _StoreProfileScreenState();
+}
+
+class _StoreProfileScreenState extends State<StoreProfileScreen> {
+  Store? _store;
+  List<Post> _storePosts = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  // กำหนดค่า Cloudinary ของคุณที่นี่ (สำหรับลบรูปภาพ)
+  final Cloudinary cloudinary = Cloudinary.full(
+    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
+    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Deletion
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Deletion
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStoreDataAndPosts();
+  }
+
+  Future<void> _fetchStoreDataAndPosts() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      if (widget.storeId.isEmpty) {
+        throw Exception('Store ID is empty.');
+      }
+
+      // Fetch store data
+      DocumentSnapshot storeDoc = await FirebaseFirestore.instance
+          .collection('stores')
+          .doc(widget.storeId)
+          .get();
+
+      if (storeDoc.exists && storeDoc.data() != null) {
+        final storeData = storeDoc.data() as Map<String, dynamic>;
+        setState(() {
+          _store = Store.fromJson({...storeData, 'id': storeDoc.id});
+        });
+
+        // Fetch posts related to this store
+        // เพิ่ม orderBy เพื่อแก้ปัญหา Index
+        QuerySnapshot postsSnapshot = await FirebaseFirestore.instance
+            .collection('posts')
+            .where('storeId', isEqualTo: widget.storeId)
+            .orderBy('created_at', descending: true) // เพิ่ม orderBy
+            .get();
+
+        final fetchedPosts = postsSnapshot.docs.map((doc) {
+          return Post.fromJson({...doc.data() as Map<String, dynamic>, 'id': doc.id});
+        }).toList();
+
+        setState(() {
+          _storePosts = fetchedPosts;
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'ไม่พบข้อมูลร้านค้าสำหรับ ID: ${widget.storeId}';
+        });
+      }
+    } on FirebaseException catch (e) {
+      print("Firebase Error fetching store data or posts: ${e.code} - ${e.message}");
+      setState(() {
+        _errorMessage = 'เกิดข้อผิดพลาดจาก Firebase: ${e.message}';
+      });
+    } catch (e) {
+      print("Error fetching store data or posts: $e");
+      setState(() {
+        _errorMessage = 'เกิดข้อผิดพลาด: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // ฟังก์ชันสำหรับลบโพสต์ในหน้าร้านค้า
+  Future<void> _deletePost(Post post) async {
+    bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('ยืนยันการลบ'),
+          content: const Text('คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('ยกเลิก'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('ลบ'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete == true) {
+      setState(() {
+        _isLoading = true; // แสดง loading indicator
+      });
+
+      try {
+        // 1. ลบโพสต์ออกจาก Firestore
+        await FirebaseFirestore.instance.collection('posts').doc(post.id).delete();
+
+        // 2. ลบรูปภาพออกจาก Cloudinary
+        if (post.imageUrl != null && post.imageUrl!.isNotEmpty) {
+          try {
+            final uri = Uri.parse(post.imageUrl!);
+            final pathSegments = uri.pathSegments;
+            String publicId = pathSegments.last.split('.').first;
+            if (pathSegments.length > 2) {
+              publicId = '${pathSegments[pathSegments.length - 2]}/${pathSegments.last.split('.').first}';
+            }
+
+            final deleteResponse = await cloudinary.deleteResource(publicId: publicId);
+
+            if (!deleteResponse.isSuccessful) {
+              print('Failed to delete image from Cloudinary: ${deleteResponse.error}');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('ลบรูปภาพจาก Cloudinary ไม่สำเร็จ: ${deleteResponse.error}')),
+                );
+              }
+            }
+          } catch (e) {
+            print('Error deleting image from Cloudinary: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('เกิดข้อผิดพลาดในการลบรูปภาพ: $e')),
+              );
+            }
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ลบโพสต์สำเร็จ!')),
+          );
+        }
+        // รีโหลดข้อมูลร้านค้าและโพสต์หลังจากลบสำเร็จ
+        _fetchStoreDataAndPosts();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('เกิดข้อผิดพลาดในการลบโพสต์: $e')),
+          );
+        }
+      } finally {
+        setState(() {
+          _isLoading = false; // ซ่อน loading indicator
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.isSellerView ? 'จัดการร้านค้าของฉัน' : _store?.name ?? 'หน้าร้านค้า'),
+        backgroundColor: const Color(0xFF9C6ADE),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          if (widget.isSellerView && _store != null)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                // TODO: Navigate to Edit Store Screen
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('ฟังก์ชันแก้ไขร้านค้ายังไม่พร้อมใช้งาน')),
+                );
+              },
+            ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red, size: 60),
+                      const SizedBox(height: 20),
+                      Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 18, color: Colors.red),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: _fetchStoreDataAndPosts,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF9C6ADE),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('ลองอีกครั้ง'),
+                      ),
+                    ],
+                  ),
+                )
+              : _store == null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.store_mall_directory_outlined, color: Colors.grey, size: 60),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'ไม่พบข้อมูลร้านค้า',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 20),
+                          if (widget.isSellerView)
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const StoreCreateScreen()),
+                                ).then((_) => _fetchStoreDataAndPosts()); // Reload after creating store
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF9C6ADE),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('สร้างร้านค้าใหม่'),
+                            ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Store Header
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 40,
+                                  backgroundColor: Colors.grey[200],
+                                  backgroundImage: _store!.imageUrl != null && _store!.imageUrl!.startsWith('http')
+                                      ? NetworkImage(_store!.imageUrl!)
+                                      : const AssetImage('assets/images/default_store.png') as ImageProvider, // Fallback
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _store!.name,
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        _store!.description,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _store!.location,
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Icon(Icons.category, size: 16, color: Colors.grey[600]),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _store!.type,
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _store!.openingHours,
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            widget.isSellerView ? 'โพสต์ของร้านค้าฉัน' : 'โพสต์ของร้าน ${_store!.name}',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 15),
+                          _storePosts.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    children: [
+                                      const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+                                      const SizedBox(height: 10),
+                                      const Text(
+                                        'ยังไม่มีโพสต์สำหรับร้านค้านี้',
+                                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                                      ),
+                                      if (widget.isSellerView) ...[
+                                        const SizedBox(height: 10),
+                                        ElevatedButton(
+                                          onPressed: () async {
+                                            if (_store != null && _store!.ownerUid == FirebaseAuth.instance.currentUser?.uid) {
+                                              await Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => CreatePostScreen(
+                                                    shopName: _store!.name,
+                                                    storeId: _store!.id,
+                                                  ),
+                                                ),
+                                              );
+                                              _fetchStoreDataAndPosts(); // Reload posts after creating a new one
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('คุณไม่มีสิทธิ์สร้างโพสต์สำหรับร้านค้านี้')),
+                                              );
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF9C6ADE),
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          child: const Text('สร้างโพสต์ใหม่'),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                )
+                              : ListView.builder(
+                                  shrinkWrap: true, // ทำให้ ListView ใช้พื้นที่เท่าที่จำเป็น
+                                  physics: const NeverScrollableScrollPhysics(), // ปิดการเลื่อนของ ListView ด้านใน
+                                  itemCount: _storePosts.length,
+                                  itemBuilder: (context, index) {
+                                    final post = _storePosts[index];
+                                    return PostCard(
+                                      post: post,
+                                      onDelete: _deletePost,
+                                      currentUserId: FirebaseAuth.instance.currentUser?.uid,
+                                    );
+                                  },
+                                ),
+                        ],
+                      ),
+                    ),
+    );
+  }
+}
+
+// PostCard Widget (คัดลอกมาจาก feed_page.dart เพื่อให้ทำงานแยกกันได้)
+// หากคุณมี PostCard ในไฟล์แยกอยู่แล้ว (เช่น widgets/post_card.dart)
+// คุณควร import มาใช้แทนการคัดลอกโค้ดซ้ำ
+// แต่เพื่อความสมบูรณ์ของไฟล์นี้ ผมจะใส่ไว้ที่นี่
+class PostCard extends StatefulWidget {
+  final Post post;
+  final Function(Post) onDelete;
+  final String? currentUserId;
+
+  const PostCard({
+    super.key,
+    required this.post,
+    required this.onDelete,
+    this.currentUserId,
+  });
+
+  @override
+  State<PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<PostCard> {
+  late String _timeAgoString;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateTimeAgo(); // คำนวณเวลาครั้งแรก
+    // ตั้งค่า Timer เพื่ออัปเดตทุกๆ 1 นาที
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      _updateTimeAgo();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // ยกเลิก Timer เมื่อ Widget ถูก dispose
+    super.dispose();
+  }
+
+  void _updateTimeAgo() {
+    if (mounted) {
+      setState(() {
+        _timeAgoString = _formatTimeAgo(widget.post.createdAt);
+      });
+    }
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inSeconds < 60) {
+      return 'เมื่อสักครู่';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} นาทีที่แล้ว';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} ชั่วโมงที่แล้ว';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} วันที่แล้ว';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).ceil();
+      return '$weeks สัปดาห์ที่แล้ว';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).ceil();
+      return '$months เดือนที่แล้ว';
+    } else {
+      final years = (difference.inDays / 365).ceil();
+      return '$years ปีที่แล้ว';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMyPost = widget.currentUserId != null && widget.currentUserId == widget.post.ownerUid;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(15),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: widget.post.avatarImageUrl != null && widget.post.avatarImageUrl!.startsWith('http')
+                      ? NetworkImage(widget.post.avatarImageUrl!)
+                      : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.post.shopName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _timeAgoString,
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF9C6ADE),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${widget.post.category} | ${widget.post.province}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (isMyPost)
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => widget.onDelete(widget.post),
+                  ),
+              ],
+            ),
+          ),
+
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            child: Text(
+              widget.post.title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Image
+          if (widget.post.imageUrl != null && widget.post.imageUrl!.isNotEmpty)
+            Container(
+              width: double.infinity,
+              height: 200,
+              margin: const EdgeInsets.symmetric(horizontal: 15),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                image: DecorationImage(
+                  image: NetworkImage(widget.post.imageUrl!),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              height: 200,
+              margin: const EdgeInsets.symmetric(horizontal: 15),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+              ),
+            ),
+
+          const SizedBox(height: 15),
+
+          // Action Buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            child: Row(
+              children: [
+                ActionButton(text: 'สั่งเลย', onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ฟังก์ชันสั่งเลยยังไม่พร้อมใช้งาน')),
+                  );
+                }),
+                const SizedBox(width: 10),
+                ActionButton(text: 'ดูหน้าร้าน', onTap: () {
+                  if (widget.post.storeId.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => StoreProfileScreen(
+                          storeId: widget.post.storeId,
+                          isSellerView: false,
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('ไม่พบ ID ร้านค้าสำหรับโพสต์นี้')),
+                    );
+                  }
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ActionButton extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const ActionButton({
+    super.key,
+    required this.text,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF9C6ADE),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}

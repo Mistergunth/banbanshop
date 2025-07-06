@@ -1,24 +1,33 @@
+// lib/screens/create_post.dart
+
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; 
-import 'dart:io'; 
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'package:banbanshop/screens/post_model.dart'; // ตรวจสอบว่า Post model อยู่ที่นี่
-import 'package:cloudinary_sdk/cloudinary_sdk.dart'; 
+import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth เพื่อดึง UID ของผู้ใช้
 import 'package:banbanshop/screens/models/seller_profile.dart'; // Import SellerProfile
 
 class CreatePostScreen extends StatefulWidget {
-  const CreatePostScreen({super.key});
+  final String shopName; // เพิ่ม shopName
+  final String storeId; // เพิ่ม storeId
+
+  const CreatePostScreen({
+    super.key,
+    required this.shopName, // กำหนดให้ required
+    required this.storeId, // กำหนดให้ required
+  });
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
 }
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
-  File? _image; 
+  File? _image;
   final TextEditingController _captionController = TextEditingController();
-  String? _selectedProvince; 
-  String? _selectedCategory; 
+  String? _selectedProvince;
+  String? _selectedCategory;
   bool _isUploading = false; // สถานะการอัปโหลด
 
   // กำหนดค่า Cloudinary ของคุณที่นี่
@@ -57,25 +66,25 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   ];
 
   final List<String> _categories = [
-    'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'กีฬา & กิจกรรม', 'สิ่งของเครื่องใช้'
+    'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'กีฬา & กิจกรรม', 'สิ่งของเครื่องใช้', 'บริการ', 'อื่นๆ'
   ];
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-    if (!mounted) return; 
+    if (!mounted) return;
 
     setState(() {
       if (pickedFile != null) {
-        _image = File(pickedFile.path); 
+        _image = File(pickedFile.path);
       } else {
-        // print('No image selected.'); 
+        // print('No image selected.');
       }
     });
   }
 
-  void _postContent() async { 
+  void _postContent() async {
     if (_image == null || _captionController.text.isEmpty || _selectedProvince == null || _selectedCategory == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -95,7 +104,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (currentUser == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('กรุณาเข้าสู่ระบบเพื่อสร้างโพสต์')),
+          const SnackBar(content: Text('คุณต้องเข้าสู่ระบบเพื่อสร้างโพสต์')),
         );
       }
       setState(() {
@@ -104,11 +113,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
-    // ดึงข้อมูลโปรไฟล์ผู้ขายจาก Firestore
-    String shopName = 'ไม่ระบุชื่อร้าน';
+    // ดึงข้อมูลโปรไฟล์ผู้ขายจาก Firestore เพื่อดึง avatarImageUrl
     String avatarImageUrl = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; // รูป Avatar เริ่มต้น
-    String ownerUid = currentUser.uid; // UID ของผู้โพสต์
-
     try {
       DocumentSnapshot sellerDoc = await FirebaseFirestore.instance
           .collection('sellers')
@@ -117,7 +123,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       if (sellerDoc.exists) {
         SellerProfile sellerProfile = SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
-        shopName = sellerProfile.fullName; // ใช้ชื่อเต็มเป็นชื่อร้าน
         avatarImageUrl = sellerProfile.profileImageUrl ?? avatarImageUrl; // ใช้รูปโปรไฟล์ของผู้ขาย
       }
     } catch (e) {
@@ -148,7 +153,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         setState(() {
           _isUploading = false;
         });
-        return; 
+        return;
       }
     } catch (e) {
       if (mounted) {
@@ -159,25 +164,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       setState(() {
         _isUploading = false;
       });
-      return; 
+      return;
     }
 
     // 2. สร้าง Post object ใหม่
     final newPost = Post(
       id: '', // ID จะถูกสร้างโดย Firestore อัตโนมัติ
-      shopName: shopName, 
-      createdAt: DateTime.now(), // สามารถอัปเดตเป็นเวลาจริงได้ในภายหลัง
+      shopName: widget.shopName, // ใช้ shopName ที่ได้รับมา
+      createdAt: DateTime.now(),
       category: _selectedCategory!,
       title: _captionController.text,
       imageUrl: uploadedImageUrl!, // ใช้ URL ที่ได้จาก Cloudinary
-      avatarImageUrl: avatarImageUrl, 
+      avatarImageUrl: avatarImageUrl,
       province: _selectedProvince!,
       productCategory: _selectedCategory!,
-      ownerUid: ownerUid, // <--- ตรงนี้คือส่วนที่เพิ่ม ownerUid เข้าไป
+      ownerUid: currentUser.uid,
+      storeId: widget.storeId, // ใช้ storeId ที่ได้รับมา
     );
 
     // 3. บันทึกข้อมูลโพสต์ลงใน Cloud Firestore
     try {
+      // ใช้ add() เพื่อให้ Firestore สร้าง Document ID ให้อัตโนมัติ
       await FirebaseFirestore.instance.collection('posts').add(newPost.toJson());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -215,7 +222,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16.0, 80.0, 16.0, 16.0), 
+            padding: const EdgeInsets.fromLTRB(16.0, 80.0, 16.0, 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -230,7 +237,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       border: Border.all(color: Colors.grey[400]!),
                     ),
                     child: _image != null
-                        ? Image.file( 
+                        ? Image.file(
                             _image!,
                             fit: BoxFit.cover,
                           )

@@ -2,13 +2,14 @@
 
 // ignore_for_file: use_build_context_synchronously, avoid_print
 
+import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
-import 'package:banbanshop/screens/seller/store_create.dart'; // สำหรับ Store Model
+// สำหรับ Store Model
 import 'package:banbanshop/screens/map_picker_screen.dart'; // สำหรับ MapPickerScreen
 import 'package:geocoding/geocoding.dart'; // สำหรับ reverse geocoding
 
