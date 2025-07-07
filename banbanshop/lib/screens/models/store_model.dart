@@ -9,9 +9,13 @@ class Store {
   final String description;
   final String type; // ประเภท/หมวดหมู่ร้านค้า
   final String? imageUrl; // URL รูปภาพหน้าร้าน
-  final String location; // ตำแหน่งร้านค้า (อาจเป็น String ง่ายๆ ก่อน)
-  final String openingHours; // ระยะเวลาเปิด-ปิดร้าน (String ง่ายๆ ก่อน)
+  final String location; // ตำแหน่งร้านค้า (ที่อยู่)
+  final double? latitude; // เพิ่ม: Latitude ของร้านค้า (nullable)
+  final double? longitude; // เพิ่ม: Longitude ของร้านค้า (nullable)
+  final String openingHours; // ระยะเวลาเปิด-ปิดร้าน
+  final String phoneNumber; // เพิ่ม: เบอร์โทรศัพท์ร้านค้า
   final DateTime createdAt;
+  
 
   Store({
     required this.id,
@@ -21,7 +25,10 @@ class Store {
     required this.type,
     this.imageUrl,
     required this.location,
+    this.latitude, // เพิ่มใน constructor
+    this.longitude, // เพิ่มใน constructor
     required this.openingHours,
+    required this.phoneNumber, // เพิ่มใน constructor
     required this.createdAt,
   });
 
@@ -44,18 +51,13 @@ class Store {
       type: json['type'] as String? ?? '', // ป้องกัน null
       imageUrl: json['imageUrl'] as String?,
       location: json['location'] as String? ?? '', // ป้องกัน null
+      latitude: (json['latitude'] as num?)?.toDouble(), // อ่านค่า latitude และแปลงเป็น double
+      longitude: (json['longitude'] as num?)?.toDouble(), // อ่านค่า longitude และแปลงเป็น double
       openingHours: json['openingHours'] as String? ?? '', // ป้องกัน null
+      phoneNumber: json['phoneNumber'] as String? ?? '', // อ่านค่า phoneNumber และป้องกัน null
       createdAt: parsedCreatedAt,
     );
   }
-
-  get locationAddress => null;
-
-  get phoneNumber => null;
-
-  double? get latitude => null;
-
-  double? get longitude => null;
 
   // Method สำหรับแปลง Store เป็น Map (สำหรับบันทึกลง Firestore)
   Map<String, dynamic> toJson() {
@@ -67,8 +69,11 @@ class Store {
       'type': type,
       'imageUrl': imageUrl,
       'location': location,
+      'latitude': latitude, // เขียนค่า latitude
+      'longitude': longitude, // เขียนค่า longitude
       'openingHours': openingHours,
-      'createdAt': createdAt.toIso8601String(), // บันทึกเป็น ISO 8601 String
+      'phoneNumber': phoneNumber, // เขียนค่า phoneNumber
+      'createdAt': Timestamp.fromDate(createdAt), // บันทึกเป็น Timestamp สำหรับ Firestore
     };
   }
 }

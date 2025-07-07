@@ -60,7 +60,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     // กำหนดค่าเริ่มต้นให้กับ Controller และตัวแปรจาก Store object ที่ได้รับมา
     _nameController = TextEditingController(text: widget.store.name);
     _descriptionController = TextEditingController(text: widget.store.description);
-    _locationAddressController = TextEditingController(text: widget.store.locationAddress);
+    _locationAddressController = TextEditingController(text: widget.store.location);
     _openingHoursController = TextEditingController(text: widget.store.openingHours);
     _phoneNumberController = TextEditingController(text: widget.store.phoneNumber); // กำหนดค่าเบอร์โทร
 

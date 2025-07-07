@@ -12,8 +12,8 @@ class Post {
   final String? avatarImageUrl; // ทำให้เป็น nullable
   final String province;
   final String productCategory;
-  final String ownerUid; // <--- ทำให้เป็น non-nullable และต้องเป็น UUID ที่ถูกต้อง
-  final String storeId; // <--- เพิ่มฟิลด์นี้เข้ามาและทำให้เป็น non-nullable
+  final String ownerUid; // <--- ทำให้เป็น non-nullable
+  final String storeId; // <--- ทำให้เป็น non-nullable
 
   Post({
     required this.id, // ID อาจจะถูกสร้างโดย Firestore สำหรับโพสต์ใหม่
@@ -25,7 +25,7 @@ class Post {
     this.avatarImageUrl, // ไม่ต้อง required แล้ว
     required this.province,
     required this.productCategory,
-    required this.ownerUid, // <--- ต้อง required และต้องเป็น UUID ที่ถูกต้อง
+    required this.ownerUid, // <--- ต้อง required
     required this.storeId, // <--- ต้อง required
   });
 
@@ -33,7 +33,7 @@ class Post {
   factory Post.fromJson(Map<String, dynamic> json) {
     // Firestore มักจะส่ง DateTime มาเป็น Timestamp หรือ String ในรูปแบบ ISO 8601
     DateTime parsedCreatedAt;
-    if (json['created_at'] is String) {
+    if (json['created_at'] is String) { // อ่านจาก 'created_at' (snake_case)
       parsedCreatedAt = DateTime.parse(json['created_at']);
     } else if (json['created_at'] is Timestamp) {
       parsedCreatedAt = (json['created_at'] as Timestamp).toDate();
@@ -41,11 +41,26 @@ class Post {
       parsedCreatedAt = DateTime.now(); // Fallback in case of unexpected type
     }
 
-    // ตรวจสอบ owner_uid ให้แน่ใจว่าเป็น String
-    String parsedOwnerUid = json['owner_uid'] as String? ?? '';
+    // อ่าน ownerUid จาก 'ownerUid' (camelCase) หรือ 'owner_uid' (snake_case)
+    // เพื่อให้เข้ากันได้กับข้อมูลเก่าและใหม่
+    String parsedOwnerUid = '';
+    if (json.containsKey('ownerUid') && json['ownerUid'] is String) {
+      parsedOwnerUid = json['ownerUid'];
+    } else if (json.containsKey('owner_uid') && json['owner_uid'] is String) {
+      parsedOwnerUid = json['owner_uid'];
+    } else {
+      print('Warning: ownerUid/owner_uid is missing or not a String: ${json['ownerUid']} / ${json['owner_uid']}');
+    }
 
-    // ตรวจสอบ storeId ให้แน่ใจว่าเป็น String (อ่านจาก 'storeId' ที่เป็น camelCase)
-    String parsedStoreId = json['storeId'] as String? ?? '';
+    // อ่าน storeId จาก 'storeId' (camelCase) หรือ 'store_id' (snake_case)
+    String parsedStoreId = '';
+    if (json.containsKey('storeId') && json['storeId'] is String) {
+      parsedStoreId = json['storeId'];
+    } else if (json.containsKey('store_id') && json['store_id'] is String) {
+      parsedStoreId = json['store_id'];
+    } else {
+      print('Warning: storeId/store_id is missing or not a String: ${json['storeId']} / ${json['store_id']}');
+    }
 
 
     return Post(
@@ -58,8 +73,8 @@ class Post {
       avatarImageUrl: json['avatar_image_url'] as String?, // อ่านจาก 'avatar_image_url' (snake_case)
       province: json['province'] as String? ?? '',
       productCategory: json['product_category'] as String? ?? '', // อ่านจาก 'product_category'
-      ownerUid: parsedOwnerUid, // อ่านจาก 'owner_uid' (snake_case)
-      storeId: parsedStoreId, // อ่านจาก 'storeId' (camelCase)
+      ownerUid: parsedOwnerUid, // ใช้ค่าที่อ่านมา
+      storeId: parsedStoreId, // ใช้ค่าที่อ่านมา
     );
   }
 
@@ -67,15 +82,15 @@ class Post {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> jsonMap = {
       'shop_name': shopName,
-      'created_at': createdAt.toIso8601String(), // เขียนเป็น 'created_at' (ISO 8601 String)
+      'created_at': createdAt.toIso8601String(), // เขียนเป็น 'created_at' (snake_case)
       'category': category,
       'title': title,
       'image_url': imageUrl, // เขียนเป็น 'image_url' (snake_case)
       'avatar_image_url': avatarImageUrl, // เขียนเป็น 'avatar_image_url' (snake_case)
       'province': province,
       'product_category': productCategory,
-      'owner_uid': ownerUid, // เขียนเป็น 'owner_uid' (snake_case)
-      'storeId': storeId, // เขียนเป็น 'storeId' (camelCase)
+      'ownerUid': ownerUid, // <--- เขียนเป็น 'ownerUid' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
+      'storeId': storeId, // <--- เขียนเป็น 'storeId' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
     };
 
     // สำหรับการ insert ใหม่, Firestore ควรจะสร้าง 'id' ให้อัตโนมัติ
@@ -84,7 +99,6 @@ class Post {
       jsonMap['id'] = id;
     }
 
-    // ไม่จำเป็นต้อง throw ArgumentError ที่นี่ เพราะควรจะตรวจสอบตั้งแต่ตอนสร้าง Post object
     return jsonMap;
   }
 }

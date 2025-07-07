@@ -115,7 +115,7 @@ class _FeedPageState extends State<FeedPage> {
 
   // รายชื่อหมวดหมู่ (สำหรับ Drawer) - ใช้งานใน DropdownButtonFormField
   final List<String> _categories = [
-    'ทั้งหมด', 'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'กีฬา & กิจกรรม', 'สิ่งของเครื่องใช้', 'บริการ', 'อื่นๆ'
+    'ทั้งหมด', 'OTOP', 'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'สิ่งของเครื่องใช้',
   ];
 
   List<Post> _allPosts = []; // เปลี่ยนเป็น _allPosts เพื่อเก็บโพสต์ทั้งหมดที่ดึงมาจาก Firestore

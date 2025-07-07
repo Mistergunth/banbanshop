@@ -10,6 +10,9 @@ import 'package:cloud_firestore/cloud_firestore.dart'; // สำหรับ Fir
 import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // สำหรับ Cloudinary
 import 'package:uuid/uuid.dart'; // สำหรับสร้าง UUID
 import 'package:banbanshop/screens/models/store_model.dart'; // <--- IMPORT Store MODEL จากที่ใหม่
+import 'package:banbanshop/screens/map_picker_screen.dart'; // ตรวจสอบว่าไฟล์นี้มีอยู่จริงและคืนค่า LatLng + Address
+import 'package:google_maps_flutter/google_maps_flutter.dart'; // สำหรับ LatLng object
+
 
 class StoreCreateScreen extends StatefulWidget {
   const StoreCreateScreen({super.key});
@@ -24,17 +27,19 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _openingHoursController = TextEditingController();
+  final TextEditingController _phoneNumberController = TextEditingController(); // เพิ่ม: Controller สำหรับเบอร์โทรศัพท์
   String? _selectedStoreType; // ประเภท/หมวดหมู่ร้านค้า
   File? _image;
   bool _isUploading = false;
 
+  LatLng? _selectedLatLng; // เพิ่ม: สำหรับเก็บ Latitude และ Longitude ที่เลือกจากแผนที่
+  String? _selectedAddress; // เพิ่ม: สำหรับเก็บที่อยู่ที่ได้จากการปักหมุด
+
   final List<String> _storeTypes = [
+    'OTOP',
     'เสื้อผ้า',
     'อาหาร & เครื่องดื่ม',
-    'กีฬา & กิจกรรม',
     'สิ่งของเครื่องใช้',
-    'บริการ',
-    'อื่นๆ'
   ];
 
   final Cloudinary cloudinary = Cloudinary.full(
@@ -54,8 +59,39 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     }
   }
 
+  // เมธอดสำหรับเลือกที่อยู่จากแผนที่
+  Future<void> _selectLocationFromMap() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapPickerScreen(), // นำทางไปยัง MapPickerScreen
+      ),
+    );
+
+    if (result != null && result is Map<String, dynamic>) {
+      final LatLng latLng = result['latLng'];
+      final String address = result['address'];
+
+      setState(() {
+        _selectedLatLng = latLng;
+        _selectedAddress = address;
+        _locationController.text = address; // แสดงที่อยู่ใน TextFormField
+      });
+    }
+  }
+
   Future<void> _createStore() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    // ตรวจสอบว่ามีการเลือกที่อยู่จากแผนที่แล้ว
+    if (_selectedLatLng == null || _selectedAddress == null || _selectedAddress!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('กรุณาปักหมุดที่ตั้งร้านค้าบนแผนที่')),
+        );
+      }
       return;
     }
 
@@ -92,8 +128,11 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
         description: _descriptionController.text.trim(),
         type: _selectedStoreType!,
         imageUrl: imageUrl,
-        location: _locationController.text.trim(),
+        location: _selectedAddress!, // ใช้ที่อยู่ที่ได้จากการปักหมุด
+        latitude: _selectedLatLng!.latitude, // บันทึก latitude
+        longitude: _selectedLatLng!.longitude, // บันทึก longitude
         openingHours: _openingHoursController.text.trim(),
+        phoneNumber: _phoneNumberController.text.trim(), // เพิ่ม: เบอร์โทรศัพท์ร้านค้า
         createdAt: DateTime.now(),
       );
 
@@ -104,7 +143,11 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
       await FirebaseFirestore.instance.collection('sellers').doc(currentUser.uid).update({
         'hasStore': true,
         'storeId': storeId,
-        'shopName': _nameController.text.trim(), // บันทึกชื่อร้านในโปรไฟล์ผู้ขายด้วย
+        'shopName': _nameController.text.trim(),
+        'shopAvatarImageUrl': imageUrl,
+        'shopPhoneNumber': _phoneNumberController.text.trim(), // เพิ่ม: บันทึกเบอร์โทรศัพท์ร้านค้าในโปรไฟล์ผู้ขาย
+        'shopLatitude': _selectedLatLng!.latitude, // บันทึก latitude ของร้านในโปรไฟล์ผู้ขาย
+        'shopLongitude': _selectedLatLng!.longitude, // บันทึก longitude ของร้านในโปรไฟล์ผู้ขาย
       });
 
       if (mounted) {
@@ -133,6 +176,7 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     _descriptionController.dispose();
     _locationController.dispose();
     _openingHoursController.dispose();
+    _phoneNumberController.dispose(); // เพิ่ม: Dispose controller เบอร์โทรศัพท์
     super.dispose();
   }
 
@@ -256,19 +300,23 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ที่ตั้งร้านค้า
+              // ที่ตั้งร้านค้า (แก้ไขให้เป็น ReadOnly และมีปุ่มเลือกจากแผนที่)
               TextFormField(
                 controller: _locationController,
+                readOnly: true, // ทำให้เป็น ReadOnly
                 decoration: InputDecoration(
-                  labelText: 'ที่ตั้งร้านค้า (เช่น จังหวัด, เขต)',
+                  labelText: 'ที่ตั้งร้านค้า (เลือกจากแผนที่)',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
-                  suffixIcon: const Icon(Icons.location_on),
+                  suffixIcon: IconButton( // เพิ่มปุ่มสำหรับเปิดแผนที่
+                    icon: const Icon(Icons.map),
+                    onPressed: _selectLocationFromMap,
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'กรุณาป้อนที่ตั้งร้านค้า';
+                    return 'กรุณาปักหมุดที่ตั้งร้านค้าบนแผนที่';
                   }
                   return null;
                 },
@@ -289,6 +337,27 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                   if (value == null || value.trim().isEmpty) {
                     return 'กรุณาป้อนระยะเวลาเปิด-ปิดร้าน';
                   }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20), // เพิ่มระยะห่าง
+
+              // เบอร์โทรศัพท์ร้านค้า
+              TextFormField(
+                controller: _phoneNumberController,
+                decoration: InputDecoration(
+                  labelText: 'เบอร์โทรศัพท์ร้านค้า',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  suffixIcon: const Icon(Icons.phone),
+                ),
+                keyboardType: TextInputType.phone, // กำหนด keyboard เป็นเบอร์โทรศัพท์
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'กรุณาป้อนเบอร์โทรศัพท์ร้านค้า';
+                  }
+                  // คุณสามารถเพิ่ม validation รูปแบบเบอร์โทรศัพท์ได้ที่นี่
                   return null;
                 },
               ),

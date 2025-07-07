@@ -7,6 +7,7 @@ import 'package:banbanshop/screens/post_model.dart'; // ตรวจสอบว
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth เพื่อดึง UID ของผู้ใช้
+// ignore: unused_import
 import 'package:banbanshop/screens/models/seller_profile.dart'; // Import SellerProfile
 
 class CreatePostScreen extends StatefulWidget {
@@ -66,7 +67,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   ];
 
   final List<String> _categories = [
-    'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'กีฬา & กิจกรรม', 'สิ่งของเครื่องใช้', 'บริการ', 'อื่นๆ'
+    'OTOP', 'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'สิ่งของเครื่องใช้',
   ];
 
   Future<void> _pickImage() async {
@@ -121,13 +122,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           .doc(currentUser.uid)
           .get();
 
-      if (sellerDoc.exists) {
-        SellerProfile sellerProfile = SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
-        avatarImageUrl = sellerProfile.profileImageUrl ?? avatarImageUrl; // ใช้รูปโปรไฟล์ของผู้ขาย
+      if (sellerDoc.exists&& sellerDoc.data() != null) {
+        //SellerProfile sellerProfile = SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
+        //avatarImageUrl = sellerProfile.profileImageUrl ?? avatarImageUrl; // ใช้รูปโปรไฟล์ของผู้ขาย
+        final Map<String, dynamic> sellerData = sellerDoc.data() as Map<String, dynamic>;
+        avatarImageUrl = sellerData['shopAvatarImageUrl'] ?? avatarImageUrl;
       }
     } catch (e) {
       // ignore: avoid_print
-      print('Error fetching seller profile for post: $e');
+      print('Error fetching seller shop avatar for post: $e');
       // ไม่ต้องแสดง SnackBar เพราะเป็นแค่ข้อมูลเสริม
     }
 

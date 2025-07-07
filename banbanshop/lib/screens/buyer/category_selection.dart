@@ -17,16 +17,16 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
   TextEditingController searchController = TextEditingController();
   List<CategoryItem> categories = [
     CategoryItem(
+      title: 'OTOP',
+      icon: Icons.local_mall_outlined,
+    ),
+    CategoryItem(
       title: 'เสื้อผ้า',
       icon: Icons.checkroom_outlined,
     ),
     CategoryItem(
       title: 'อาหาร & เครื่องดื่ม',
       icon: Icons.restaurant_outlined,
-    ),
-    CategoryItem(
-      title: 'กีฬา & กิจกรรม',
-      icon: Icons.sports_soccer_outlined,
     ),
     CategoryItem(
       title: 'สิ่งของเครื่องใช้',
