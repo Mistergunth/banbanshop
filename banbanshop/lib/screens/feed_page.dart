@@ -1,5 +1,4 @@
-// lib/screens/feed_page.dart (ฉบับสมบูรณ์ล่าสุด)
-
+// lib/screens/feed_page.dart
 // ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_structures, unused_field, unnecessary_non_null_assertion, unused_import
 
 import 'package:banbanshop/screens/seller/store_create.dart';
@@ -41,7 +40,6 @@ class FeedPage extends StatefulWidget {
   _FeedPageState createState() => _FeedPageState();
 }
 
-// ย้าย FilterButton ออกมาอยู่นอก _FeedPageState
 class FilterButton extends StatelessWidget {
   final String text;
   final bool isSelected;
@@ -400,30 +398,31 @@ class _FeedPageState extends State<FeedPage> {
                 if (mounted) Navigator.pop(context);
               },
             ),
-            if (widget.sellerProfile != null)
+
+            // --- ส่วนที่แก้ไข ---
+            // แสดงปุ่ม "จัดการร้านค้า" ต่อเมื่อมีข้อมูลร้านค้าแล้วเท่านั้น
+            if (widget.storeProfile != null)
               ListTile(
                 leading: const Icon(Icons.settings_outlined),
                 title: const Text('จัดการร้านค้าของฉัน'),
                 onTap: () {
-                  if (widget.storeProfile != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => StoreProfileScreen(
-                          storeId: widget.storeProfile!.id,
-                          isSellerView: true,
-                        ),
+                  // ปิด Drawer ก่อน
+                  Navigator.pop(context);
+                  // จากนั้นค่อยเปิดหน้าใหม่
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => StoreProfileScreen(
+                        storeId: widget.storeProfile!.id,
+                        isSellerView: true,
                       ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('คุณยังไม่มีร้านค้า กรุณาสร้างร้านค้าก่อน')),
-                    );
-                  }
-                  if (mounted) Navigator.pop(context);
+                    ),
+                  );
                 },
-              )
-            else
+              ),
+            // --- จบส่วนที่แก้ไข ---
+
+            if (widget.sellerProfile == null) // แสดงเมนูนี้เฉพาะผู้ซื้อ หรือ Guest
               ListTile(
                 leading: const Icon(Icons.favorite_outline),
                 title: const Text('รายการโปรด'),
@@ -434,6 +433,7 @@ class _FeedPageState extends State<FeedPage> {
                   if (mounted) Navigator.pop(context);
                 },
               ),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: DropdownButtonFormField<String>(

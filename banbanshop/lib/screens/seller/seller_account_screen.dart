@@ -1,6 +1,6 @@
 // lib/screens/seller/seller_account_screen.dart (ฉบับแก้ไข)
 
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+// ignore_for_file: use_build_context_synchronously
 
 import 'package:banbanshop/screens/models/seller_profile.dart';
 import 'package:banbanshop/screens/seller/store_create.dart';
@@ -11,15 +11,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
+import 'package:banbanshop/screens/reviews/store_reviews_screen.dart'; // <-- เพิ่ม Import ที่จำเป็น
 
 class SellerAccountScreen extends StatefulWidget {
   final SellerProfile? sellerProfile;
-  final VoidCallback? onRefresh; // <-- 1. ทำให้เป็น Optional (nullable)
+  final VoidCallback? onRefresh;
 
   const SellerAccountScreen({
     super.key,
     this.sellerProfile,
-    this.onRefresh, // <-- 2. เอา required ออก
+    this.onRefresh,
   });
 
   @override
@@ -73,7 +74,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('อัปเดตโปรไฟล์สำเร็จ!')),
           );
-          widget.onRefresh?.call(); // <-- 3. เรียกใช้ฟังก์ชัน onRefresh ถ้ามี
+          widget.onRefresh?.call();
         }
       } else {
         throw Exception(response.error ?? 'Unknown Cloudinary error');
@@ -90,22 +91,18 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
 
   void _logoutSeller() async {
     await FirebaseAuth.instance.signOut();
-    // ไม่ต้องทำอะไรต่อ AuthWrapper จะจัดการเอง
+    // AuthWrapper will handle navigation
   }
 
   void _navigateAndRefreshOnStoreCreation() async {
-    // แก้ไข: ลบตัวแปร result ที่ไม่ได้ใช้งานออก
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => StoreCreateScreen(
-          // ส่งฟังก์ชัน onRefresh ต่อไป
           onRefresh: widget.onRefresh,
         ),
       ),
     );
-
-    // ไม่จำเป็นต้องทำอะไรที่นี่แล้ว เพราะ StoreCreateScreen จะเป็นคนเรียก onRefresh เอง
   }
 
   @override
@@ -169,21 +166,59 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
               children: [
+                // --- ส่วนที่แก้ไข: จัดกลุ่มปุ่มสำหรับผู้ขายที่มีร้านค้า ---
                 if (seller.hasStore == true && seller.storeId != null)
-                  _buildActionButton(
-                    text: 'หน้าโปรไฟล์ร้านค้า',
-                    color: const Color(0xFFE2CCFB),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => StoreProfileScreen(
-                            storeId: seller.storeId!,
-                            isSellerView: true,
-                          ),
-                        ),
-                      );
-                    },
+                  Column(
+                    children: [
+                      _buildActionButton(
+                        text: 'หน้าโปรไฟล์ร้านค้า',
+                        color: const Color(0xFFE2CCFB),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => StoreProfileScreen(
+                                storeId: seller.storeId!,
+                                isSellerView: true,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 15),
+                      _buildActionButton(
+                        text: 'ดูออเดอร์',
+                        color: const Color(0xFFE2CCFB),
+                        onTap: () {
+                          // Navigate to orders screen
+                        },
+                      ),
+                      const SizedBox(height: 15),
+                      _buildActionButton(
+                        text: 'จัดการสินค้า',
+                        color: const Color(0xFFE2CCFB),
+                        onTap: () {
+                          // Navigate to product management screen
+                        },
+                      ),
+                      const SizedBox(height: 15),
+                      _buildActionButton(
+                        text: 'เรตติ้งและรีวิว',
+                        color: const Color(0xFFE2CCFB),
+                        onTap: () {
+                          // แก้ไข: นำทางไปยังหน้า Reviews
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => StoreReviewsScreen(
+                                storeId: seller.storeId!,
+                                storeName: seller.shopName ?? 'ร้านค้าของคุณ',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   )
                 else
                   _buildActionButton(
@@ -191,22 +226,8 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                     color: const Color(0xFFE2CCFB),
                     onTap: _navigateAndRefreshOnStoreCreation,
                   ),
-                const SizedBox(height: 15),
-                _buildActionButton(
-                  text: 'ดูออเดอร์',
-                  color: const Color(0xFFE2CCFB),
-                  onTap: () {
-                    // Navigate to orders screen
-                  },
-                ),
-                const SizedBox(height: 15),
-                _buildActionButton(
-                  text: 'จัดการสินค้า',
-                  color: const Color(0xFFE2CCFB),
-                  onTap: () {
-                    // Navigate to product management screen
-                  },
-                ),
+                // --- จบส่วนที่แก้ไข ---
+
                 const SizedBox(height: 30),
                 _buildLogoutButton(context),
               ],
@@ -255,7 +276,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.black.withOpacity(0.05),
               spreadRadius: 1,
               blurRadius: 3,
               offset: const Offset(0, 2),
