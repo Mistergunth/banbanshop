@@ -5,12 +5,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:banbanshop/screens/models/store_model.dart'; // <--- IMPORT Store MODEL จากที่ใหม่
+// import 'package:banbanshop/screens/models/store_model.dart'; // <--- ลบการ import นี้ออก
+import 'package:banbanshop/screens/seller/store_create.dart'; // <--- ใช้ Store model จากไฟล์นี้แทน
 import 'package:banbanshop/screens/post_model.dart'; // Import Post model
 import 'package:banbanshop/screens/create_post.dart'; // Import CreatePostScreen
 import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
 import 'dart:async'; // <--- เพิ่ม IMPORT สำหรับ Timer
-import 'package:banbanshop/screens/seller/store_create.dart';
+
 
 class StoreProfileScreen extends StatefulWidget {
   final String storeId;
@@ -63,13 +64,12 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
           .get();
 
       if (storeDoc.exists && storeDoc.data() != null) {
-        final storeData = storeDoc.data() as Map<String, dynamic>;
+        // ใช้ Store.fromFirestore() ตามที่คุณกำหนดใน store_create.dart
         setState(() {
-          _store = Store.fromJson({...storeData, 'id': storeDoc.id});
+          _store = Store.fromFirestore(storeDoc);
         });
 
         // Fetch posts related to this store
-        // เพิ่ม orderBy เพื่อแก้ปัญหา Index
         QuerySnapshot postsSnapshot = await FirebaseFirestore.instance
             .collection('posts')
             .where('storeId', isEqualTo: widget.storeId)
@@ -317,8 +317,9 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                         children: [
                                           Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
+                                          // ใช้ _store!.locationAddress แทน _store!.location
                                           Text(
-                                            _store!.location,
+                                            _store!.locationAddress,
                                             style: TextStyle(color: Colors.grey[600]),
                                           ),
                                           const SizedBox(width: 12),
@@ -337,6 +338,17 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                           const SizedBox(width: 4),
                                           Text(
                                             _store!.openingHours,
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4), // เพิ่มระยะห่าง
+                                      Row( // เพิ่มเบอร์โทรศัพท์
+                                        children: [
+                                          Icon(Icons.phone, size: 16, color: Colors.grey[600]),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _store!.phoneNumber,
                                             style: TextStyle(color: Colors.grey[600]),
                                           ),
                                         ],
