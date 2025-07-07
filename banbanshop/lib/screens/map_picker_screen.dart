@@ -167,6 +167,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     // หากได้รับสิทธิ์แล้ว ให้ดึงตำแหน่งปัจจุบัน
     try {
       Position position = await Geolocator.getCurrentPosition(
+          // ignore: deprecated_member_use
           desiredAccuracy: LocationAccuracy.high);
       setState(() {
         _pickedLocation = LatLng(position.latitude, position.longitude);

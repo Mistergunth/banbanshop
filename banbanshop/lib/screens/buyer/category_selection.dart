@@ -1,11 +1,12 @@
-// ignore_for_file: deprecated_member_use
+// lib/screens/buyer/category_selection.dart (ฉบับแก้ไขล่าสุด)
+
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:banbanshop/screens/feed_page.dart'; // import path ใหม่
+import 'package:banbanshop/screens/feed_page.dart';
 
 class CategorySelectionPage extends StatefulWidget {
   final String? selectedProvince;
-  
   const CategorySelectionPage({super.key, this.selectedProvince});
 
   @override
@@ -16,22 +17,10 @@ class CategorySelectionPage extends StatefulWidget {
 class _CategorySelectionPageState extends State<CategorySelectionPage> {
   TextEditingController searchController = TextEditingController();
   List<CategoryItem> categories = [
-    CategoryItem(
-      title: 'OTOP',
-      icon: Icons.local_mall_outlined,
-    ),
-    CategoryItem(
-      title: 'เสื้อผ้า',
-      icon: Icons.checkroom_outlined,
-    ),
-    CategoryItem(
-      title: 'อาหาร & เครื่องดื่ม',
-      icon: Icons.restaurant_outlined,
-    ),
-    CategoryItem(
-      title: 'สิ่งของเครื่องใช้',
-      icon: Icons.house_outlined,
-    ),
+    CategoryItem(title: 'OTOP', icon: Icons.local_mall_outlined),
+    CategoryItem(title: 'เสื้อผ้า', icon: Icons.checkroom_outlined),
+    CategoryItem(title: 'อาหาร & เครื่องดื่ม', icon: Icons.restaurant_outlined),
+    CategoryItem(title: 'สิ่งของเครื่องใช้', icon: Icons.house_outlined),
   ];
 
   List<CategoryItem> filteredCategories = [];
@@ -80,17 +69,8 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 10),
             const Text(
-              'โปรดเลือก',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const Text(
-              'หมวดหมู่ที่ท่านสนใจ',
+              'โปรดเลือก\nหมวดหมู่ที่ท่านสนใจ',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
@@ -98,7 +78,6 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
               ),
             ),
             const SizedBox(height: 25),
-            // ช่องค้นหา
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -115,25 +94,15 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                 controller: searchController,
                 decoration: InputDecoration(
                   hintText: 'ค้นหา',
-                  hintStyle: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 16,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Colors.grey[500],
-                  ),
+                  hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 15,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                 ),
                 onChanged: filterCategories,
               ),
             ),
             const SizedBox(height: 30),
-            // หมวดหมู่สินค้า
             Expanded(
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -147,13 +116,15 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                   final category = filteredCategories[index];
                   return GestureDetector(
                     onTap: () {
+                      // แก้ไข: นำทางไปยัง FeedPage โดยตรง
+                      // เนื่องจาก onRefresh เป็น optional แล้ว เราจึงไม่จำเป็นต้องส่งไปสำหรับ guest
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => FeedPage(
-                          selectedCategory: category.title,
-                          selectedProvince: widget.selectedProvince ?? '',
-                          sellerProfile: null, // ผู้ซื้อจะส่งค่า null สำหรับ sellerProfile
+                            selectedCategory: category.title,
+                            selectedProvince: widget.selectedProvince ?? 'ทั้งหมด',
+                            // sellerProfile และ onRefresh จะเป็น null สำหรับ guest
                           ),
                         ),
                       );

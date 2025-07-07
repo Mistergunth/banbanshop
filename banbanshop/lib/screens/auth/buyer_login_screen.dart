@@ -1,9 +1,11 @@
+// lib/screens/auth/buyer_login_screen.dart (ฉบับแก้ไขล่าสุด)
+
 // ignore_for_file: use_build_context_synchronously
 
+import 'package:banbanshop/main.dart'; // <-- Import MyApp
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/auth/buyer_register_screen.dart';
-import 'package:banbanshop/screens/feed_page.dart'; // Import FeedPage เพื่อนำทางไป
 
 class BuyerLoginScreen extends StatefulWidget {
   const BuyerLoginScreen({super.key});
@@ -27,50 +29,44 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
   }
 
   void _loginBuyer() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() => _isLoading = true);
 
-      try {
-        // 1. เข้าสู่ระบบด้วย Firebase Auth
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+    try {
+      // 1. ทำการล็อคอินด้วย Firebase Auth
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-        // 2. แสดง SnackBar แจ้งเตือนว่าเข้าสู่ระบบสำเร็จ
+      // 2. เมื่อล็อคอินสำเร็จ ให้ "รีสตาร์ท" แอปเพื่อให้ AuthWrapper ทำงาน
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
         );
-
-        // 3. นำทางไปยังหน้า FeedPage และล้าง Navigation Stack ทั้งหมด
-        // เพื่อไม่ให้ผู้ใช้กดปุ่มย้อนกลับมาหน้า Login ได้อีก
-        if (mounted) { // ตรวจสอบว่า Widget ยัง mounted ก่อนใช้ BuildContext
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const FeedPage(
-                selectedProvince: 'ทั้งหมด', // กำหนดค่าเริ่มต้นสำหรับผู้ซื้อ
-                selectedCategory: 'ทั้งหมด', // กำหนดค่าเริ่มต้นสำหรับผู้ซื้อ
-                sellerProfile: null, // ผู้ซื้อไม่มี sellerProfile
-              ),
-            ),
-            (route) => false, // ล้างทุก Route ใน Stack
-          );
-        }
-
-      } on FirebaseAuthException catch (e) {
-        String message = 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
-        if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
-          message = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
-        } else if (e.code == 'invalid-email') {
-          message = 'รูปแบบอีเมลไม่ถูกต้อง';
-        }
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
+        // การนำทางกลับไปที่ MyApp จะบังคับให้ AuthWrapper ทำงานใหม่
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MyApp()),
+          (route) => false,
         );
-      } finally {
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
+      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        message = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+      } else if (e.code == 'invalid-email') {
+        message = 'รูปแบบอีเมลไม่ถูกต้อง';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
+      );
+    } finally {
+      if(mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -106,9 +102,13 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
               children: [
                 const Text('ผู้ซื้อ - เข้าสู่ระบบ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
-                _buildInputField(label: 'อีเมล', controller: _emailController, keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'กรุณากรอกอีเมล' : null),
+                _buildInputField(label: 'อีเมล', controller: _emailController, keyboardType: TextInputType.emailAddress, validator: (v) {
+                   if (v == null || v.isEmpty) return 'กรุณากรอกอีเมล';
+                   if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) return 'รูปแบบอีเมลไม่ถูกต้อง';
+                   return null;
+                }),
                 const SizedBox(height: 15),
-                _buildPasswordField(label: 'รหัสผ่าน', controller: _passwordController, isVisible: _isPasswordVisible, onToggleVisibility: () => setState(() => _isPasswordVisible = !_isPasswordVisible), validator: (v) => v!.isEmpty ? 'กรุณากรอกรหัสผ่าน' : null),
+                _buildPasswordField(label: 'รหัสผ่าน', controller: _passwordController, isVisible: _isPasswordVisible, onToggleVisibility: () => setState(() => _isPasswordVisible = !_isPasswordVisible), validator: (v) => (v == null || v.isEmpty) ? 'กรุณากรอกรหัสผ่าน' : null),
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
@@ -143,7 +143,6 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
     );
   }
 
-  // Helper Widgets (เหมือนกับหน้า Register)
   Widget _buildInputField({required String label, required TextEditingController controller, TextInputType keyboardType = TextInputType.text, String? Function(String?)? validator}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
