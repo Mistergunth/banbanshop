@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // เพิ่ม Import
-import 'package:banbanshop/screens/reviews/add_reviews_screen.dart'; // เพิ่ม Import
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:banbanshop/screens/reviews/add_reviews_screen.dart';
 
-// Model สำหรับ Review (ควรสร้างเป็นไฟล์แยกในอนาคต)
+// Model สำหรับ Review
 class Review {
   final String id;
   final String buyerName;
@@ -41,11 +41,13 @@ class Review {
 class StoreReviewsScreen extends StatefulWidget {
   final String storeId;
   final String storeName;
+  final bool isSellerView; // <-- 1. เพิ่มพารามิเตอร์ใหม่
 
   const StoreReviewsScreen({
     super.key,
     required this.storeId,
     required this.storeName,
+    this.isSellerView = false, // <-- 2. กำหนดค่าเริ่มต้น
   });
 
   @override
@@ -53,7 +55,6 @@ class StoreReviewsScreen extends StatefulWidget {
 }
 
 class _StoreReviewsScreenState extends State<StoreReviewsScreen> {
-  // ฟังก์ชันสำหรับนำทางไปหน้าเขียนรีวิว
   void _navigateToAddReview() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -76,6 +77,8 @@ class _StoreReviewsScreenState extends State<StoreReviewsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('รีวิวร้าน ${widget.storeName}'),
@@ -125,13 +128,15 @@ class _StoreReviewsScreenState extends State<StoreReviewsScreen> {
           );
         },
       ),
-      // แก้ไข: ทำให้ปุ่ม "เขียนรีวิว" ทำงานได้
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _navigateToAddReview, // เรียกใช้ฟังก์ชันที่สร้างขึ้น
-        label: const Text('เขียนรีวิว'),
-        icon: const Icon(Icons.edit),
-        backgroundColor: const Color(0xFF9C6ADE),
-      ),
+      // --- 3. เพิ่มเงื่อนไขในการแสดงผลปุ่ม ---
+      floatingActionButton: (widget.isSellerView || user == null)
+          ? null // ถ้าเป็นผู้ขาย หรือยังไม่ได้ล็อคอิน -> ไม่ต้องแสดงปุ่ม
+          : FloatingActionButton.extended(
+              onPressed: _navigateToAddReview,
+              label: const Text('เขียนรีวิว'),
+              icon: const Icon(Icons.edit),
+              backgroundColor: const Color(0xFF9C6ADE),
+            ),
     );
   }
 

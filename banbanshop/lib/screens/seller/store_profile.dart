@@ -11,7 +11,7 @@ import 'package:banbanshop/screens/post_model.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:banbanshop/screens/reviews/store_reviews_screen.dart'; // <-- 1. เพิ่ม Import ที่จำเป็น
+import 'package:banbanshop/screens/reviews/store_reviews_screen.dart';
 
 class StoreProfileScreen extends StatefulWidget {
   final String storeId;
@@ -104,8 +104,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       } else {
         await favoriteRef.set({
           'storeId': widget.storeId,
-          'storeName': _store?.name, // เก็บชื่อร้านค้าเพื่อการแสดงผลที่ง่ายขึ้น
-          'storeImageUrl': _store?.imageUrl, // เก็บ URL รูปภาพ
+          'storeName': _store?.name,
+          'storeImageUrl': _store?.imageUrl,
           'addedAt': Timestamp.now(),
         });
         if (mounted) {
@@ -367,13 +367,14 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                   icon: const Icon(Icons.rate_review_outlined),
                                   label: const Text('เรตติ้งและรีวิว'),
                                   onPressed: () {
-                                    // 2. แก้ไข: นำทางไปยังหน้า Reviews
+                                    // แก้ไข: ส่งค่า isSellerView ไปด้วย
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => StoreReviewsScreen(
                                           storeId: widget.storeId,
                                           storeName: _store?.name ?? 'ร้านค้า',
+                                          isSellerView: widget.isSellerView, // <-- ส่งค่านี้ไปด้วย
                                         ),
                                       ),
                                     );

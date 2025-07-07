@@ -1,9 +1,9 @@
-// lib/screens/reviews/add_review_screen.dart
+// lib/screens/reviews/add_review_screen.dart (ฉบับแก้ไข)
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:banbanshop/screens/models/buyer_profile.dart'; // Import BuyerProfile
+import 'package:banbanshop/screens/models/buyer_profile.dart';
 
 class AddReviewScreen extends StatefulWidget {
   final String storeId;
@@ -49,7 +49,6 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. ดึงข้อมูลโปรไฟล์ผู้ซื้อเพื่อเอาชื่อและรูปภาพ
       final buyerDoc = await FirebaseFirestore.instance
           .collection('buyers')
           .doc(user.uid)
@@ -61,7 +60,6 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
       
       final buyerProfile = BuyerProfile.fromFirestore(buyerDoc);
 
-      // 2. สร้างข้อมูลรีวิว
       final reviewData = {
         'buyerId': user.uid,
         'buyerName': buyerProfile.fullName ?? 'ผู้ใช้',
@@ -69,40 +67,21 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
         'rating': _rating,
         'comment': _commentController.text.trim(),
         'createdAt': Timestamp.now(),
-        'storeId': widget.storeId, // เก็บ storeId ไว้ด้วยเพื่อการ query ในอนาคต
+        'storeId': widget.storeId,
       };
 
-      // 3. บันทึกรีวิวลงใน sub-collection ของร้านค้า
+      // --- ส่วนที่แก้ไข ---
+      // ทำการบันทึกรีวิวลงใน sub-collection ของร้านค้าเท่านั้น
       await FirebaseFirestore.instance
           .collection('stores')
           .doc(widget.storeId)
           .collection('reviews')
           .add(reviewData);
       
-      // (Optional but recommended) อัปเดตข้อมูลสรุปในเอกสารของร้านค้า
-      // ส่วนนี้สามารถทำผ่าน Cloud Function เพื่อความแม่นยำและประสิทธิภาพที่ดีกว่า
-      // แต่เราจะทำแบบง่ายๆ ที่ client-side ก่อน
-      final storeRef = FirebaseFirestore.instance.collection('stores').doc(widget.storeId);
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final storeSnapshot = await transaction.get(storeRef);
-        if (!storeSnapshot.exists) {
-          throw Exception("Store does not exist!");
-        }
-        
-        // ดึงข้อมูลเก่ามาคำนวณใหม่
-        final int oldReviewCount = storeSnapshot.data()?['reviewCount'] ?? 0;
-        final double oldRatingTotal = (storeSnapshot.data()?['averageRating'] ?? 0.0) * oldReviewCount;
-        
-        final int newReviewCount = oldReviewCount + 1;
-        final double newRatingTotal = oldRatingTotal + _rating;
-        final double newAverageRating = newRatingTotal / newReviewCount;
-
-        transaction.update(storeRef, {
-          'reviewCount': newReviewCount,
-          'averageRating': newAverageRating,
-        });
-      });
-
+      // เราได้นำส่วนที่พยายามอัปเดตเอกสารร้านค้า (runTransaction) ออกไปแล้ว
+      // เพื่อแก้ปัญหา permission-denied
+      // การคำนวณคะแนนเฉลี่ยควรทำผ่าน Cloud Function ในอนาคต
+      // --- จบส่วนที่แก้ไข ---
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

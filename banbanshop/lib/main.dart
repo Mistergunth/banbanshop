@@ -1,4 +1,4 @@
-// lib/main.dart (ฉบับแก้ไข)
+// lib/main.dart (ฉบับแก้ไขล่าสุด)
 
 import 'package:banbanshop/firebase_options.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +6,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+// --- 1. เพิ่ม Import ที่จำเป็น ---
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
+// ---------------------------------
 
 import 'package:banbanshop/screens/feed_page.dart';
 import 'package:banbanshop/screens/role_select.dart';
@@ -17,6 +22,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // --- 2. ตั้งค่าข้อมูลภาษาเริ่มต้น ---
+  await initializeDateFormatting('th', null);
+  // ---------------------------------
   runApp(const MyApp());
 }
 
@@ -31,19 +39,33 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         fontFamily: GoogleFonts.kanit().fontFamily,
       ),
+      // --- 3. เพิ่มการตั้งค่าภาษาให้กับ MaterialApp ---
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en', ''), // English
+        Locale('th', ''), // Thai
+      ],
+      locale: const Locale('th'), // กำหนดให้ภาษาไทยเป็นภาษาเริ่มต้น
+      // ---------------------------------------------
       home: const AuthWrapper(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
+// Class สำหรับเก็บข้อมูลที่ดึงมาทั้งหมด
 class UserData {
   final SellerProfile? sellerProfile;
   final Store? storeProfile;
+
   UserData({this.sellerProfile, this.storeProfile});
 }
 
-// 1. เปลี่ยน AuthWrapper เป็น StatefulWidget
+// เปลี่ยน AuthWrapper เป็น StatefulWidget
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
@@ -52,13 +74,10 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  // 2. สร้าง Key เพื่อใช้บังคับให้ FutureBuilder ทำงานใหม่
   Key _futureBuilderKey = UniqueKey();
 
-  // 3. สร้างฟังก์ชันสำหรับรีเฟรช
   void _refreshData() {
     setState(() {
-      // เมื่อ Key เปลี่ยน FutureBuilder จะถูกสร้างใหม่และเรียก future อีกครั้ง
       _futureBuilderKey = UniqueKey();
     });
   }
@@ -88,7 +107,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
       return UserData(sellerProfile: sellerProfile, storeProfile: null);
     } catch (e) {
-      // ignore: avoid_print
       print("Error fetching user data in AuthWrapper: $e");
       return null;
     }
@@ -109,7 +127,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const RoleSelectPage();
         } else {
           return FutureBuilder<UserData?>(
-            key: _futureBuilderKey, // 4. ผูก Key เข้ากับ FutureBuilder
+            key: _futureBuilderKey,
             future: _fetchUserData(user.uid),
             builder: (context, userSnapshot) {
               if (userSnapshot.connectionState == ConnectionState.waiting) {
@@ -125,7 +143,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 selectedCategory: 'ทั้งหมด',
                 sellerProfile: sellerProfile,
                 storeProfile: storeProfile,
-                onRefresh: _refreshData, // 5. ส่งฟังก์ชัน refresh ลงไป
+                onRefresh: _refreshData,
               );
             },
           );

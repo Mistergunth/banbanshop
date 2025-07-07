@@ -213,6 +213,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                               builder: (context) => StoreReviewsScreen(
                                 storeId: seller.storeId!,
                                 storeName: seller.shopName ?? 'ร้านค้าของคุณ',
+                                isSellerView: true, // ผู้ขายกำลังดู
                               ),
                             ),
                           );
