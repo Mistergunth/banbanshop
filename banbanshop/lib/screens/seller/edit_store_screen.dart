@@ -11,6 +11,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 // สำหรับ Store Model
 import 'package:banbanshop/screens/map_picker_screen.dart'; // สำหรับ MapPickerScreen
+import 'package:google_maps_flutter/google_maps_flutter.dart'; // เพิ่ม import สำหรับ LatLng
+// ignore: unused_import
 import 'package:geocoding/geocoding.dart'; // สำหรับ reverse geocoding
 
 class EditStoreScreen extends StatefulWidget {
@@ -60,7 +62,8 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     // กำหนดค่าเริ่มต้นให้กับ Controller และตัวแปรจาก Store object ที่ได้รับมา
     _nameController = TextEditingController(text: widget.store.name);
     _descriptionController = TextEditingController(text: widget.store.description);
-    _locationAddressController = TextEditingController(text: widget.store.location);
+    // แก้ไขตรงนี้: ใช้ widget.store.locationAddress แทน widget.store.location
+    _locationAddressController = TextEditingController(text: widget.store.locationAddress);
     _openingHoursController = TextEditingController(text: widget.store.openingHours);
     _phoneNumberController = TextEditingController(text: widget.store.phoneNumber); // กำหนดค่าเบอร์โทร
 
@@ -99,27 +102,21 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   Future<void> _pickLocationOnMap() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const MapPickerScreen(initialLatLng: null,)),
+      MaterialPageRoute(
+        builder: (context) => MapPickerScreen(
+          initialLatLng: (_selectedLatitude != null && _selectedLongitude != null)
+              ? LatLng(_selectedLatitude!, _selectedLongitude!)
+              : null,
+        ),
+      ),
     );
 
-    if (result != null && result is Map<String, double>) {
+    if (result != null && result is Map<String, dynamic>) { // แก้ไขให้รับ Map<String, dynamic>
       setState(() {
         _selectedLatitude = result['latitude'];
         _selectedLongitude = result['longitude'];
+        _locationAddressController.text = result['address']; // รับค่า address กลับมา
       });
-
-      try {
-        List<Placemark> placemarks =
-            await placemarkFromCoordinates(_selectedLatitude!, _selectedLongitude!);
-        if (placemarks.isNotEmpty) {
-          final p = placemarks.first;
-          _locationAddressController.text =
-              '${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea} ${p.postalCode}';
-        }
-      } catch (e) {
-        print('Error getting address from coordinates: $e');
-        _locationAddressController.text = 'ละติจูด: ${_selectedLatitude!.toStringAsFixed(4)}, ลองจิจูด: ${_selectedLongitude!.toStringAsFixed(4)}';
-      }
     }
   }
 
@@ -224,13 +221,17 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
           .doc(widget.store.id)
           .update(updatedStoreData);
 
-      // อัปเดต shopName ใน SellerProfile ด้วย (ถ้ามีการเปลี่ยนชื่อร้าน)
-      if (_nameController.text.trim() != widget.store.name) {
-         await FirebaseFirestore.instance
+      // อัปเดต shopName, shopAvatarImageUrl, shopPhoneNumber, shopLatitude, shopLongitude ใน SellerProfile ด้วย
+      await FirebaseFirestore.instance
           .collection('sellers')
           .doc(currentUser.uid)
-          .update({'shopName': _nameController.text.trim()});
-      }
+          .update({
+            'shopName': _nameController.text.trim(),
+            'shopAvatarImageUrl': finalImageUrl,
+            'shopPhoneNumber': _phoneNumberController.text.trim(),
+            'shopLatitude': _selectedLatitude,
+            'shopLongitude': _selectedLongitude,
+          });
 
 
       if (mounted) {
@@ -384,7 +385,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
-                  suffixIcon: Icon(Icons.phone),
+                  suffixIcon: const Icon(Icons.phone),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -408,7 +409,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
-                  suffixIcon: Icon(Icons.map),
+                  suffixIcon: const Icon(Icons.map),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty || _selectedLatitude == null) {
@@ -428,7 +429,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
-                  suffixIcon: Icon(Icons.access_time),
+                  suffixIcon: const Icon(Icons.access_time),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {

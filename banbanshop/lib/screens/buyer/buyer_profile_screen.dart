@@ -1,6 +1,6 @@
 // lib/screens/buyer/buyer_profile_screen.dart
 
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: avoid_print, use_build_context_synchronously, unused_import
 
 import 'package:banbanshop/screens/role_select.dart';
 import 'package:flutter/material.dart';
@@ -9,14 +9,15 @@ import 'package:cloud_firestore/cloud_firestore.dart'; // สำหรับ Fir
 import 'package:banbanshop/screens/models/buyer_profile.dart'; // import BuyerProfile model
 import 'package:banbanshop/screens/auth/buyer_register_screen.dart';
 import 'package:banbanshop/screens/auth/buyer_login_screen.dart';
-// ignore: unused_import
-import 'package:banbanshop/main.dart'; // สำหรับ HomePage
+// import 'package:banbanshop/main.dart'; // สำหรับ HomePage (ถูกเปลี่ยนเป็น RoleSelectPage)
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:image_picker/image_picker.dart'; // เพื่อนำทางไป HomePage หลัง Logout
 import 'dart:io'; // สำหรับ File
 
 class BuyerProfileScreen extends StatefulWidget {
-  const BuyerProfileScreen({super.key});
+  // แก้ไขตรงนี้: เปลี่ยนจาก required String userEmail เป็น String? email
+  final String? email; // ทำให้เป็น nullable เพื่อรองรับกรณีที่ไม่มี email
+  const BuyerProfileScreen({super.key, this.email}); // รับพารามิเตอร์ email
 
   @override
   State<BuyerProfileScreen> createState() => _BuyerProfileScreenState();
@@ -28,7 +29,6 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
   bool _isLoading = true; // สถานะการโหลดข้อมูล
 
   // กำหนดค่า Cloudinary ของคุณที่นี่
-  // ***** สำคัญ: ต้องแทนที่ค่า YOUR_CLOUDINARY_CLOUD_NAME, YOUR_CLOUDINARY_API_KEY, YOUR_CLOUDINARY_API_SECRET ด้วยค่าจริงของคุณ *****
   final Cloudinary cloudinary = Cloudinary.full(
     cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
     apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
@@ -89,7 +89,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
         // สร้างโปรไฟล์เริ่มต้นจากข้อมูล FirebaseAuth และบันทึกลง Firestore
         final newProfile = BuyerProfile(
           uid: _currentUser!.uid,
-          email: _currentUser!.email ?? '',
+          email: _currentUser!.email ?? widget.email ?? '', // ใช้อีเมลจาก widget.email หาก currentUser.email เป็น null
           fullName: _currentUser!.displayName,
           phoneNumber: _currentUser!.phoneNumber,
           shippingAddress: null, // ค่าเริ่มต้น
@@ -164,7 +164,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
             _buyerProfile = _buyerProfile?.copyWith(profileImageUrl: downloadUrl) ??
                             BuyerProfile(
                               uid: currentUser.uid,
-                              email: currentUser.email ?? '',
+                              email: currentUser.email ?? widget.email ?? '', // ใช้อีเมลจาก widget.email หาก currentUser.email เป็น null
                               fullName: currentUser.displayName,
                               phoneNumber: currentUser.phoneNumber,
                               shippingAddress: null,
@@ -209,7 +209,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const HomePage()), // กลับไปหน้าแรกของแอป (HomePage ใน main.dart)
+          MaterialPageRoute(builder: (context) => const RoleSelectPage()), // กลับไปหน้าเลือกบทบาท
           (route) => false,
         );
       }
@@ -225,14 +225,36 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('โปรไฟล์ผู้ซื้อ')),
-        body: const Center(child: CircularProgressIndicator()),
+        appBar: AppBar(
+          title: const Text(
+            'โปรไฟล์ผู้ซื้อ',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: const Color(0xFFE8F4FD),
+          elevation: 0,
+          centerTitle: true,
+        ),
+        body: const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE))),
       );
     }
 
     // ถ้าล็อกอินแล้ว (_currentUser ไม่เป็น null) และโหลดข้อมูลโปรไฟล์เสร็จแล้ว
     if (_currentUser != null) {
       return Scaffold(
+        backgroundColor: const Color(0xFFE8F4FD), // สีพื้นหลัง
+        appBar: AppBar(
+          title: const Text(
+            'โปรไฟล์ผู้ซื้อ',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: const Color(0xFFE8F4FD),
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -245,9 +267,8 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                 icon: Icons.location_on,
                 text: 'ที่อยู่จัดส่ง',
                 onTap: () {
-
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ไปยังหน้าจัดการที่อยู่จัดส่ง')),
+                    const SnackBar(content: Text('ฟังก์ชันจัดการที่อยู่จัดส่งยังไม่พร้อมใช้งาน')),
                   );
                 },
               ),
@@ -256,7 +277,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                 text: 'รายการโปรด',
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ไปยังหน้าแสดงรายการโปรด')),
+                    const SnackBar(content: Text('ฟังก์ชันรายการโปรดยังไม่พร้อมใช้งาน')),
                   );
                 },
               ),
@@ -265,8 +286,9 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                 text: 'แก้ไขโปรไฟล์',
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ไปยังหน้าแก้ไขโปรไฟล์ผู้ซื้อ')),
+                    const SnackBar(content: Text('ฟังก์ชันแก้ไขโปรไฟล์ยังไม่พร้อมใช้งาน')),
                   );
+                  // TODO: นำทางไปยังหน้าแก้ไขโปรไฟล์ (BuyerProfileEditScreen)
                 },
               ),
               _buildProfileOptionButton(
@@ -283,6 +305,19 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
       // ถ้ายังไม่ได้ล็อกอิน ให้แสดง UI เดิมของคุณ
       return Scaffold(
         backgroundColor: Colors.grey[50], // สีพื้นหลังอ่อนๆ
+        appBar: AppBar(
+          title: const Text(
+            'โปรไฟล์ผู้ซื้อ',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.grey[50],
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -325,6 +360,8 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                     print('Navigate to Login Screen');
                   },
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF9C6ADE), // สีปุ่ม
+                    foregroundColor: Colors.white, // สีข้อความ
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -345,13 +382,14 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                   },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Color(0xFF9C6ADE)), // สีขอบ
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: const Text(
                     'สมัครสมาชิก',
-                    style: TextStyle(fontSize: 16),
+                    style: TextStyle(fontSize: 16, color: Color(0xFF9C6ADE)), // สีข้อความ
                   ),
                 ),
               ],
@@ -389,11 +427,11 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
         ),
         const SizedBox(height: 10),
         Text(
-          _buyerProfile?.fullName ?? _currentUser?.displayName ?? _currentUser?.email ?? 'ผู้ซื้อ',
+          _buyerProfile?.fullName ?? _currentUser?.displayName ?? 'ผู้ซื้อ',
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         Text(
-          _buyerProfile?.email ?? _currentUser?.email ?? '',
+          _buyerProfile?.email ?? _currentUser?.email ?? widget.email ?? '', // ใช้อีเมลจาก widget.email หากไม่มีใน Firestore หรือ currentUser
           style: const TextStyle(fontSize: 16, color: Colors.grey),
         ),
         if (_buyerProfile?.phoneNumber != null && _buyerProfile!.phoneNumber!.isNotEmpty)

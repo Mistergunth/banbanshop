@@ -2,19 +2,21 @@
 
 // ignore_for_file: library_private_types_in_public_api, avoid_print, use_build_context_synchronously
 
+import 'package:banbanshop/screens/seller/store_create.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:banbanshop/screens/seller/store_create.dart'; // <--- ใช้ Store model จากไฟล์นี้แทน
+import 'package:banbanshop/screens/models/store_model.dart'; // <--- Use Store model from this file instead
 import 'package:banbanshop/screens/post_model.dart'; // Import Post model
 import 'package:banbanshop/screens/create_post.dart'; // Import CreatePostScreen
+import 'package:banbanshop/screens/seller/edit_store_screen.dart'; // Import EditStoreScreen
 import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
-import 'dart:async'; // <--- เพิ่ม IMPORT สำหรับ Timer
+import 'dart:async'; // <--- Add IMPORT for Timer
 
 
 class StoreProfileScreen extends StatefulWidget {
   final String storeId;
-  final bool isSellerView; // true ถ้าเป็นเจ้าของร้านกำลังดู, false ถ้าเป็นผู้ซื้อ/คนทั่วไป
+  final bool isSellerView; // true if owner is viewing, false if buyer/general public
 
   const StoreProfileScreen({
     super.key,
@@ -32,11 +34,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  // กำหนดค่า Cloudinary ของคุณที่นี่ (สำหรับลบรูปภาพ)
+  // Define your Cloudinary credentials here (for image deletion)
   final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
-    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Deletion
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Deletion
+    cloudName: 'dbgybkvms', // <-- Replace with your Cloud Name
+    apiKey: '157343641351425', // <-- Required for Signed Deletion
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- Required for Signed Deletion
   );
 
   @override
@@ -63,7 +65,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
           .get();
 
       if (storeDoc.exists && storeDoc.data() != null) {
-        // ใช้ Store.fromFirestore() ตามที่คุณกำหนดใน store_create.dart
+        // Use Store.fromFirestore() as defined in store_create.dart
         setState(() {
           _store = Store.fromFirestore(storeDoc);
         });
@@ -72,7 +74,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         QuerySnapshot postsSnapshot = await FirebaseFirestore.instance
             .collection('posts')
             .where('storeId', isEqualTo: widget.storeId)
-            .orderBy('created_at', descending: true) // เพิ่ม orderBy
+            .orderBy('created_at', descending: true) // Add orderBy
             .get();
 
         final fetchedPosts = postsSnapshot.docs.map((doc) {
@@ -104,7 +106,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     }
   }
 
-  // ฟังก์ชันสำหรับลบโพสต์ในหน้าร้านค้า
+  // Function to delete a post in the store page
   Future<void> _deletePost(Post post) async {
     bool? confirmDelete = await showDialog<bool>(
       context: context,
@@ -128,14 +130,14 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
     if (confirmDelete == true) {
       setState(() {
-        _isLoading = true; // แสดง loading indicator
+        _isLoading = true; // Show loading indicator
       });
 
       try {
-        // 1. ลบโพสต์ออกจาก Firestore
+        // 1. Delete post from Firestore
         await FirebaseFirestore.instance.collection('posts').doc(post.id).delete();
 
-        // 2. ลบรูปภาพออกจาก Cloudinary
+        // 2. Delete image from Cloudinary
         if (post.imageUrl != null && post.imageUrl!.isNotEmpty) {
           try {
             final uri = Uri.parse(post.imageUrl!);
@@ -170,7 +172,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
             const SnackBar(content: Text('ลบโพสต์สำเร็จ!')),
           );
         }
-        // รีโหลดข้อมูลร้านค้าและโพสต์หลังจากลบสำเร็จ
+        // Reload store data and posts after successful deletion
         _fetchStoreDataAndPosts();
       } catch (e) {
         if (mounted) {
@@ -180,7 +182,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         }
       } finally {
         setState(() {
-          _isLoading = false; // ซ่อน loading indicator
+          _isLoading = false; // Hide loading indicator
         });
       }
     }
@@ -199,10 +201,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () {
-                // TODO: Navigate to Edit Store Screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('ฟังก์ชันแก้ไขร้านค้ายังไม่พร้อมใช้งาน')),
-                );
+                // Navigate to Edit Store Screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditStoreScreen(store: _store!),
+                  ),
+                ).then((_) => _fetchStoreDataAndPosts()); // Reload after editing store
               },
             ),
         ],
@@ -312,28 +317,33 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                         ),
                                       ),
                                       const SizedBox(height: 8),
-                                      // แก้ไข: ห่อ Text ด้วย Flexible เพื่อป้องกัน Overflow
+                                      // แก้ไข: แยกแต่ละข้อมูลลงใน Row ของตัวเอง
                                       Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start, // Align to top for multi-line text
                                         children: [
                                           Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
-                                          Flexible( // ใช้ Flexible
+                                          Flexible(
                                             child: Text(
                                               _store!.locationAddress,
                                               style: TextStyle(color: Colors.grey[600]),
-                                              overflow: TextOverflow.ellipsis, // เพิ่ม ellipsis
-                                              maxLines: 1, // จำกัด 1 บรรทัด
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 5, // Allow more lines for address
                                             ),
                                           ),
-                                          const SizedBox(width: 12),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4), // Add spacing between rows
+                                      Row(
+                                        children: [
                                           Icon(Icons.category, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
-                                          Flexible( // ใช้ Flexible
+                                          Flexible(
                                             child: Text(
                                               _store!.type,
                                               style: TextStyle(color: Colors.grey[600]),
-                                              overflow: TextOverflow.ellipsis, // เพิ่ม ellipsis
-                                              maxLines: 1, // จำกัด 1 บรรทัด
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
                                             ),
                                           ),
                                         ],
@@ -343,27 +353,27 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                         children: [
                                           Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
-                                          Flexible( // ใช้ Flexible
+                                          Flexible(
                                             child: Text(
                                               _store!.openingHours,
                                               style: TextStyle(color: Colors.grey[600]),
-                                              overflow: TextOverflow.ellipsis, // เพิ่ม ellipsis
-                                              maxLines: 1, // จำกัด 1 บรรทัด
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 4), // เพิ่มระยะห่าง
-                                      Row( // เพิ่มเบอร์โทรศัพท์
+                                      const SizedBox(height: 4),
+                                      Row(
                                         children: [
                                           Icon(Icons.phone, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
-                                          Flexible( // ใช้ Flexible
+                                          Flexible(
                                             child: Text(
                                               _store!.phoneNumber,
                                               style: TextStyle(color: Colors.grey[600]),
-                                              overflow: TextOverflow.ellipsis, // เพิ่ม ellipsis
-                                              maxLines: 1, // จำกัด 1 บรรทัด
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
                                             ),
                                           ),
                                         ],
@@ -425,8 +435,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                   ),
                                 )
                               : ListView.builder(
-                                  shrinkWrap: true, // ทำให้ ListView ใช้พื้นที่เท่าที่จำเป็น
-                                  physics: const NeverScrollableScrollPhysics(), // ปิดการเลื่อนของ ListView ด้านใน
+                                  shrinkWrap: true, // Make ListView take only necessary space
+                                  physics: const NeverScrollableScrollPhysics(), // Disable inner ListView scrolling
                                   itemCount: _storePosts.length,
                                   itemBuilder: (context, index) {
                                     final post = _storePosts[index];
@@ -444,10 +454,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   }
 }
 
-// PostCard Widget (คัดลอกมาจาก feed_page.dart เพื่อให้ทำงานแยกกันได้)
-// หากคุณมี PostCard ในไฟล์แยกอยู่แล้ว (เช่น widgets/post_card.dart)
-// คุณควร import มาใช้แทนการคัดลอกโค้ดซ้ำ
-// แต่เพื่อความสมบูรณ์ของไฟล์นี้ ผมจะใส่ไว้ที่นี่
+// PostCard Widget (Copied from feed_page.dart to make it work independently)
+// If you already have PostCard in a separate file (e.g., widgets/post_card.dart)
+// you should import it instead of copying the code
+// But for the completeness of this file, I will put it here
 class PostCard extends StatefulWidget {
   final Post post;
   final Function(Post) onDelete;
@@ -471,8 +481,8 @@ class _PostCardState extends State<PostCard> {
   @override
   void initState() {
     super.initState();
-    _updateTimeAgo(); // คำนวณเวลาครั้งแรก
-    // ตั้งค่า Timer เพื่ออัปเดตทุกๆ 1 นาที
+    _updateTimeAgo(); // Calculate time for the first time
+    // Set Timer to update every 1 minute
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       _updateTimeAgo();
     });
@@ -480,7 +490,7 @@ class _PostCardState extends State<PostCard> {
 
   @override
   void dispose() {
-    _timer?.cancel(); // ยกเลิก Timer เมื่อ Widget ถูก dispose
+    _timer?.cancel(); // Cancel Timer when Widget is disposed
     super.dispose();
   }
 

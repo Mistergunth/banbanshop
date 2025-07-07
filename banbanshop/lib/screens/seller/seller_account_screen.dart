@@ -1,19 +1,21 @@
+// lib/screens/seller/seller_account_screen.dart
+
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:banbanshop/main.dart';
 import 'package:banbanshop/screens/models/seller_profile.dart';
 import 'package:banbanshop/screens/seller/store_create.dart';
+import 'package:banbanshop/screens/seller/store_profile.dart'; // Import StoreProfileScreen
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 import 'package:image_picker/image_picker.dart'; // Import Image Picker
-import 'dart:io'; // สำหรับ File
+import 'dart:io'; // For File
 import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // Import Cloudinary SDK
-// import 'package:image_cropper/image_cropper.dart'; // Removed image_cropper import
 
-class SellerAccountScreen extends StatefulWidget { 
-  final SellerProfile? sellerProfile; 
-  const SellerAccountScreen({super.key, this.sellerProfile}); 
+class SellerAccountScreen extends StatefulWidget {
+  final SellerProfile? sellerProfile;
+  const SellerAccountScreen({super.key, this.sellerProfile});
 
   @override
   State<SellerAccountScreen> createState() => _SellerAccountScreenState();
@@ -23,14 +25,14 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
   SellerProfile? _currentSellerProfile;
   bool _isLoading = true;
 
-  // กำหนดค่า Cloudinary ของคุณที่นี่
-  // ***** สำคัญ: ต้องแทนที่ค่า YOUR_CLOUDINARY_CLOUD_NAME, YOUR_CLOUDINARY_API_KEY, YOUR_CLOUDINARY_API_SECRET ด้วยค่าจริงของคุณ *****
+  // Define your Cloudinary credentials here
+  // ***** IMPORTANT: Replace YOUR_CLOUDINARY_CLOUD_NAME, YOUR_CLOUDINARY_API_KEY, YOUR_CLOUDINARY_API_SECRET with your actual values *****
   final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
-    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
+    cloudName: 'dbgybkvms', // <-- Replace with your Cloud Name
+    apiKey: '157343641351425', // <-- Required for Signed Uploads/Deletion
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- Required for Signed Uploads/Deletion
   );
-  final String uploadPreset = 'flutter_unsigned_upload'; // <-- แทนที่ด้วยชื่อ Upload Preset ที่คุณสร้าง (เช่น 'flutter_unsigned_upload')
+  final String uploadPreset = 'flutter_unsigned_upload'; // <-- Replace with your Upload Preset name (e.g., 'flutter_unsigned_upload')
 
   @override
   void initState() {
@@ -58,9 +60,27 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             _currentSellerProfile = SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
           });
         } else {
-          setState(() {
-            _currentSellerProfile = null; 
-          });
+          // If seller profile doesn't exist, create a basic one.
+          // This ensures _currentSellerProfile is not null,
+          // allowing the UI to render and prompt for store creation.
+          _currentSellerProfile = SellerProfile(
+            fullName: 'ชื่อ - นามสกุล',
+            phoneNumber: '099 999 9999',
+            idCardNumber: '',
+            province: '',
+            password: '',
+            email: currentUser.email ?? '',
+            profileImageUrl: null,
+            hasStore: false, // Default to no store
+            storeId: null, // Default to no store ID
+            shopName: null,
+            shopAvatarImageUrl: null,
+            shopPhoneNumber: null,
+            shopLatitude: null,
+            shopLongitude: null,
+          );
+          // Optionally, save this new profile to Firestore here if you want it persistent immediately
+          // await FirebaseFirestore.instance.collection('sellers').doc(currentUser.uid).set(_currentSellerProfile!.toJson());
         }
       } catch (e) {
         if (mounted) {
@@ -79,14 +99,14 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
     });
   }
 
-  // ฟังก์ชันเลือกและอัปโหลดรูปภาพโปรไฟล์ (ไม่มีการครอปแล้ว)
+  // Function to pick and upload profile image (no cropping)
   Future<void> _pickAndUploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-    if (pickedFile == null) return; // ผู้ใช้ยกเลิกการเลือกรูปภาพ
+    if (pickedFile == null) return; // User cancelled image selection
 
-    File imageFile = File(pickedFile.path); // ใช้ไฟล์ที่เลือกโดยตรง
+    File imageFile = File(pickedFile.path); // Use the selected file directly
     User? currentUser = FirebaseAuth.instance.currentUser;
 
     if (currentUser == null) {
@@ -99,42 +119,49 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
     }
 
     setState(() {
-      _isLoading = true; // แสดง loading indicator
+      _isLoading = true; // Show loading indicator
     });
 
     try {
-      // 1. อัปโหลดรูปภาพไปยัง Cloudinary
+      // 1. Upload image to Cloudinary
       final response = await cloudinary.uploadResource(
         CloudinaryUploadResource(
           filePath: imageFile.path,
           resourceType: CloudinaryResourceType.image,
-          folder: 'profile_pictures', // ชื่อโฟลเดอร์ใน Cloudinary (ถ้าต้องการ)
-          uploadPreset: uploadPreset, // ใช้ Upload Preset ที่สร้างไว้
+          folder: 'profile_pictures', // Folder name in Cloudinary (if desired)
+          uploadPreset: uploadPreset, // Use the created Upload Preset
         ),
       );
 
       if (response.isSuccessful) {
-        String? downloadUrl = response.secureUrl; // URL ของรูปภาพที่อัปโหลดสำเร็จ
+        String? downloadUrl = response.secureUrl; // URL of the successfully uploaded image
         if (downloadUrl != null) {
-          // 2. อัปเดต URL รูปภาพใน Firestore
+          // 2. Update image URL in Firestore
           await FirebaseFirestore.instance
               .collection('sellers')
               .doc(currentUser.uid)
               .update({'profileImageUrl': downloadUrl});
 
-          // 3. อัปเดต UI
+          // 3. Update UI
           if (!mounted) return;
           setState(() {
             _currentSellerProfile = _currentSellerProfile?.copyWith(profileImageUrl: downloadUrl) ??
-                                    SellerProfile( 
-                                      fullName: 'ชื่อ - นามสกุล',
-                                      phoneNumber: '099 999 9999',
-                                      idCardNumber: '',
-                                      province: '',
-                                      password: '',
-                                      email: currentUser.email ?? '',
-                                      profileImageUrl: downloadUrl,
-                                    );
+                SellerProfile( // Fallback if _currentSellerProfile was null initially
+                  fullName: 'ชื่อ - นามสกุล',
+                  phoneNumber: '099 999 9999',
+                  idCardNumber: '',
+                  province: '',
+                  password: '',
+                  email: currentUser.email ?? '',
+                  profileImageUrl: downloadUrl,
+                  hasStore: false, // Ensure default values are set
+                  storeId: null,
+                  shopName: null,
+                  shopAvatarImageUrl: null,
+                  shopPhoneNumber: null,
+                  shopLatitude: null,
+                  shopLongitude: null,
+                );
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('อัปโหลดรูปโปรไฟล์สำเร็จ!')),
             );
@@ -161,7 +188,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
       }
     } finally {
       setState(() {
-        _isLoading = false; // ซ่อน loading indicator
+        _isLoading = false; // Hide loading indicator
       });
     }
   }
@@ -178,8 +205,8 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
       );
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const MyApp()), 
-        (route) => false, 
+        MaterialPageRoute(builder: (context) => const MyApp()),
+        (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
@@ -199,13 +226,12 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // กำหนดรูปโปรไฟล์
+    // Determine profile image
     ImageProvider<Object> profileImage;
-    // ตรวจสอบว่ามี _currentSellerProfile และ profileImageUrl ไม่เป็น null และเป็น URL ที่ถูกต้อง
     if (_currentSellerProfile != null && _currentSellerProfile!.profileImageUrl != null && _currentSellerProfile!.profileImageUrl!.startsWith('http')) {
       profileImage = NetworkImage(_currentSellerProfile!.profileImageUrl!);
     } else {
-      profileImage = const AssetImage('assets/images/gunth.jpg'); // รูปภาพเริ่มต้นของคุณ
+      profileImage = const AssetImage('assets/images/gunth.jpg'); // Your default image
     }
 
     return SingleChildScrollView(
@@ -215,7 +241,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 20),
             decoration: const BoxDecoration(
-              color: Color(0xFFE8F0F7), 
+              color: Color(0xFFE8F0F7),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(25),
                 bottomRight: Radius.circular(25),
@@ -223,20 +249,20 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             ),
             child: Column(
               children: [
-                GestureDetector( 
-                  onTap: _pickAndUploadImage, // เรียกใช้ฟังก์ชันเลือกรูปโปรไฟล์ (ไม่มีการครอปแล้ว)
+                GestureDetector(
+                  onTap: _pickAndUploadImage, // Call profile image selection function
                   child: CircleAvatar(
                     radius: 50,
-                    backgroundImage: profileImage, 
-                    // แสดงไอคอนกล้องเมื่อไม่มีรูปโปรไฟล์ที่ถูกต้อง
+                    backgroundImage: profileImage,
+                    // Show camera icon when no valid profile image
                     child: (_currentSellerProfile?.profileImageUrl == null || !_currentSellerProfile!.profileImageUrl!.startsWith('http'))
-                        ? const Icon(Icons.camera_alt, size: 30, color: Colors.white70) 
+                        ? const Icon(Icons.camera_alt, size: 30, color: Colors.white70)
                         : null,
                   ),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  _currentSellerProfile?.fullName ?? 'ชื่อ - นามสกุล', 
+                  _currentSellerProfile?.fullName ?? 'ชื่อ - นามสกุล',
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -244,14 +270,14 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                   ),
                 ),
                 Text(
-                  _currentSellerProfile?.phoneNumber ?? '099 999 9999', 
+                  _currentSellerProfile?.phoneNumber ?? '099 999 9999',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey[700],
                   ),
                 ),
-                 Text(
-                  _currentSellerProfile?.email ?? 'email@example.com', 
+                Text(
+                  _currentSellerProfile?.email ?? 'email@example.com',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey[700],
@@ -265,20 +291,37 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
               children: [
-                _buildActionButton(
-                  text: 'สร้างร้านค้า', 
-                  color: const Color(0xFFE2CCFB), 
-                  onTap: () {
-                    Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => const StoreCreateScreen())); // เปลี่ยนไปยังหน้าสร้างร้านค้า
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('ไปยังหน้าสร้างร้านค้า')),
-                    );
-                  },
-                ),
+                // Conditionally render "สร้างร้านค้า" or "หน้าโปรไฟล์ร้านค้า"
+                if (_currentSellerProfile?.hasStore == true && _currentSellerProfile?.storeId != null)
+                  _buildActionButton(
+                    text: 'หน้าโปรไฟล์ร้านค้า',
+                    color: const Color(0xFFE2CCFB),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => StoreProfileScreen(
+                            storeId: _currentSellerProfile!.storeId!,
+                            isSellerView: true, // This is the seller's view of their own store
+                          ),
+                        ),
+                      ).then((_) => _loadSellerProfile()); // Reload profile after returning from store profile
+                    },
+                  )
+                else
+                  _buildActionButton(
+                    text: 'สร้างร้านค้า',
+                    color: const Color(0xFFE2CCFB),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const StoreCreateScreen()),
+                      ).then((_) => _loadSellerProfile()); // Reload profile after creating store
+                    },
+                  ),
                 const SizedBox(height: 15),
                 _buildActionButton(
-                  text: 'ดูออเดอร์', 
+                  text: 'ดูออเดอร์',
                   color: const Color(0xFFE2CCFB),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -288,7 +331,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                 ),
                 const SizedBox(height: 15),
                 _buildActionButton(
-                  text: 'จัดการสินค้า', 
+                  text: 'จัดการสินค้า',
                   color: const Color(0xFFE2CCFB),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -297,7 +340,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                   },
                 ),
                 const SizedBox(height: 30),
-                _buildLogoutButton(context), 
+                _buildLogoutButton(context),
               ],
             ),
           ),
@@ -333,9 +376,9 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context) { 
+  Widget _buildLogoutButton(BuildContext context) {
     return GestureDetector(
-      onTap: _logoutSeller, 
+      onTap: _logoutSeller,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
@@ -345,14 +388,14 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
           boxShadow: [
             BoxShadow(
               // ignore: deprecated_member_use
-              color: Colors.grey.withOpacity(0.1), 
+              color: Colors.grey.withOpacity(0.1),
               spreadRadius: 1,
               blurRadius: 3,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: const Row( 
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
@@ -376,25 +419,3 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
     );
   }
 }
-// Extension SellerProfileCopyWith ควรอยู่ใน profile.dart เท่านั้น
-// extension SellerProfileCopyWith on SellerProfile {
-//   SellerProfile copyWith({
-//     String? fullName,
-//     String? phoneNumber,
-//     String? idCardNumber,
-//     String? province,
-//     String? password,
-//     String? email,
-//     String? profileImageUrl,
-//   }) {
-//     return SellerProfile(
-//       fullName: fullName ?? this.fullName,
-//       phoneNumber: phoneNumber ?? this.phoneNumber,
-//       idCardNumber: idCardNumber ?? this.idCardNumber,
-//       province: province ?? this.province,
-//       password: password ?? this.password,
-//       email: email ?? this.email,
-//       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-//     );
-//   }
-// }

@@ -1,5 +1,7 @@
 // lib/screens/post_model.dart
 
+// ignore_for_file: avoid_print
+
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore สำหรับ Timestamp
 
 class Post {

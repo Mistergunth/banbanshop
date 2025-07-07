@@ -9,7 +9,7 @@ import 'package:banbanshop/screens/seller/seller_account_screen.dart';
 import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:banbanshop/screens/seller/seller_orders_screen.dart';
 import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart'; // สำหรับหน้าตะกร้าสินค้าของผู้ซื้อ
-import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; // สำหรับหน้าจัดการร้านค้าของผู้ขาย
+import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart'; // สำหรับหน้าจัดการร้านค้าของผู้ซื้อ
 import 'package:banbanshop/screens/store_screen_content.dart'; // Import ไฟล์หน้าร้านค้า (สำหรับแสดงรายการร้าน)
 import 'package:banbanshop/screens/create_post.dart'; // Import ไฟล์สร้างโพสต์ใหม่
 import 'package:banbanshop/screens/post_model.dart'; // Import Post model จากไฟล์แยก
@@ -23,15 +23,16 @@ import 'package:banbanshop/screens/seller/store_create.dart'; // เพิ่ม
 
 
 class FeedPage extends StatefulWidget {
-  final String selectedProvince;
-  final String selectedCategory; // ใช้สำหรับ filter feed
-  final SellerProfile? sellerProfile; // รับ SellerProfile เข้ามา
+  // ทำให้ selectedProvince และ selectedCategory เป็น nullable
+  final String? selectedProvince;
+  final String? selectedCategory; // ใช้สำหรับ filter feed
+  final SellerProfile? sellerProfile; // รับ SellerProfile เข้ามา (แต่จะใช้สถานะภายในเป็นหลัก)
 
   const FeedPage({
     super.key,
-    required this.selectedProvince,
-    required this.selectedCategory,
-    this.sellerProfile, // เพิ่มเข้ามา
+    this.selectedProvince,
+    this.selectedCategory,
+    this.sellerProfile,
   });
 
   @override
@@ -81,8 +82,8 @@ class _FeedPageState extends State<FeedPage> {
   int _selectedIndex = 0;
 
   // สถานะสำหรับ Drawer
-  String? _drawerSelectedProvince;
-  String? _drawerSelectedCategory;
+  late String _drawerSelectedProvince;
+  late String _drawerSelectedCategory;
 
   // รายชื่อจังหวัด (สำหรับ Drawer) - ใช้งานใน DropdownButtonFormField
   final List<String> _provinces = [
@@ -122,10 +123,18 @@ class _FeedPageState extends State<FeedPage> {
   bool _isLoadingPosts = true; // สถานะการโหลดโพสต์
   StreamSubscription? _postsSubscription; // สำหรับจัดการ Stream ของ Firestore
 
-  // เพิ่มตัวแปรสำหรับสถานะร้านค้าของผู้ขาย - ใช้งานใน _navigateToCreatePost และ _loadSellerStoreStatus
-  bool _sellerHasStore = false;
+  // เพิ่มตัวแปรสำหรับสถานะร้านค้าของผู้ขาย - ใช้งานใน _navigateToCreatePost และ _loadSellerAndStoreStatus
+  bool _isSeller = false; // สถานะว่าเป็นผู้ขายหรือไม่
+  bool _sellerHasStore = false; // สถานะว่าผู้ขายมีร้านค้าแล้วหรือไม่
   String? _sellerStoreId;
   String? _sellerShopName; // เก็บชื่อร้านของผู้ขายที่ล็อกอินอยู่
+  String? _sellerFullName; // เก็บชื่อเต็มของผู้ขายที่ล็อกอินอยู่
+  String? _sellerEmail; // เก็บ email ของผู้ขายที่ล็อกอินอยู่
+  String? _sellerProvince; // เก็บจังหวัดของผู้ขายที่ล็อกอินอยู่
+  String? _sellerPhoneNumber; // เพิ่ม: เก็บเบอร์โทรศัพท์ของผู้ขาย
+  String? _sellerIdCardNumber; // เพิ่ม: เก็บเลขบัตรประชาชนของผู้ขาย
+  String? _sellerPassword; // เพิ่ม: เก็บ password ของผู้ขาย (ควรระมัดระวังในการจัดการข้อมูลนี้)
+
 
   // กำหนดค่า Cloudinary ของคุณที่นี่ (สำหรับลบรูปภาพ)
   final Cloudinary cloudinary = Cloudinary.full(
@@ -138,28 +147,24 @@ class _FeedPageState extends State<FeedPage> {
   void initState() {
     super.initState();
     searchController.addListener(_onSearchChanged);
-    _drawerSelectedProvince = widget.selectedProvince; // กำหนดค่าเริ่มต้นจาก prop
-    _drawerSelectedCategory = widget.selectedCategory; // กำหนดค่าเริ่มต้นจาก prop
+    // กำหนดค่าเริ่มต้นให้กับ _drawerSelectedProvince และ _drawerSelectedCategory
+    _drawerSelectedProvince = widget.selectedProvince ?? 'ทั้งหมด';
+    _drawerSelectedCategory = widget.selectedCategory ?? 'ทั้งหมด';
 
-    // หากมี sellerProfile และ province ไม่ได้ถูกตั้งค่า ให้ใช้จังหวัดของผู้ขายเป็นค่าเริ่มต้น
-    if (widget.sellerProfile != null && (widget.selectedProvince == 'ทั้งหมด' || widget.selectedProvince.isEmpty)) {
-      _drawerSelectedProvince = widget.sellerProfile!.province;
-    }
-
-    _loadSellerStoreStatus(); // โหลดสถานะร้านค้าผู้ขายเมื่อ init
+    _loadSellerAndStoreStatus(); // โหลดสถานะผู้ใช้และร้านค้าเมื่อ init
     _fetchPostsFromFirestore(); // เริ่มดึงข้อมูลโพสต์จาก Firestore
   }
 
   @override
   void didUpdateWidget(covariant FeedPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // ถ้า sellerProfile เปลี่ยนแปลง ให้โหลดสถานะร้านค้าใหม่
-    if (widget.sellerProfile != oldWidget.sellerProfile) {
-      _loadSellerStoreStatus();
-    }
-    // ถ้า filter เปลี่ยนแปลง ให้รีโหลดโพสต์ (โดยการเรียก _fetchPostsFromFirestore ใหม่)
-    if (widget.selectedProvince != oldWidget.selectedProvince ||
+    // หากมีการเปลี่ยนแปลงใน widget.sellerProfile หรือ filter ให้รีโหลดสถานะและโพสต์
+    if (widget.sellerProfile != oldWidget.sellerProfile ||
+        widget.selectedProvince != oldWidget.selectedProvince ||
         widget.selectedCategory != oldWidget.selectedCategory) {
+      _loadSellerAndStoreStatus();
+      _drawerSelectedProvince = widget.selectedProvince ?? 'ทั้งหมด';
+      _drawerSelectedCategory = widget.selectedCategory ?? 'ทั้งหมด';
       _fetchPostsFromFirestore();
     }
   }
@@ -178,7 +183,8 @@ class _FeedPageState extends State<FeedPage> {
     });
   }
 
-  Future<void> _loadSellerStoreStatus() async {
+  // แก้ไข: เปลี่ยนชื่อเป็น _loadSellerAndStoreStatus เพื่อให้ครอบคลุมทั้งผู้ใช้และร้านค้า
+  Future<void> _loadSellerAndStoreStatus() async {
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser != null) {
       try {
@@ -190,30 +196,65 @@ class _FeedPageState extends State<FeedPage> {
         if (sellerDoc.exists) {
           final data = sellerDoc.data() as Map<String, dynamic>;
           setState(() {
+            _isSeller = true; // ผู้ใช้เป็นผู้ขาย
             _sellerHasStore = data['hasStore'] ?? false;
             _sellerStoreId = data['storeId'];
             _sellerShopName = data['shopName'];
+            _sellerFullName = data['fullName'] ?? ''; // ดึงชื่อเต็ม
+            _sellerEmail = data['email'] ?? ''; // ดึงอีเมล
+            _sellerProvince = data['province'] ?? ''; // ดึงจังหวัด
+            _sellerPhoneNumber = data['phoneNumber'] ?? ''; // ดึงเบอร์โทร
+            _sellerIdCardNumber = data['idCardNumber'] ?? ''; // ดึงเลขบัตรประชาชน
+            _sellerPassword = data['password'] ?? ''; // ดึง password
+
+            // หากจังหวัดที่เลือกใน Drawer เป็น 'ทั้งหมด' หรือว่าง ให้ใช้จังหวัดของผู้ขายเป็นค่าเริ่มต้น
+            if (_drawerSelectedProvince == 'ทั้งหมด' || _drawerSelectedProvince.isEmpty) {
+              _drawerSelectedProvince = _sellerProvince ?? 'ทั้งหมด';
+            }
           });
         } else {
+          // ถ้าไม่มีข้อมูลใน collection 'sellers' แสดงว่าเป็นผู้ซื้อ
           setState(() {
+            _isSeller = false;
             _sellerHasStore = false;
             _sellerStoreId = null;
             _sellerShopName = null;
+            _sellerFullName = null;
+            _sellerEmail = currentUser.email; // ใช้ email ของ Firebase Auth
+            _sellerProvince = null;
+            _sellerPhoneNumber = null;
+            _sellerIdCardNumber = null;
+            _sellerPassword = null;
           });
         }
       } catch (e) {
-        print('Error loading seller store status: $e');
+        print('Error loading seller/store status: $e');
         setState(() {
+          _isSeller = false; // เกิดข้อผิดพลาด ให้ถือว่าเป็นผู้ซื้อ
           _sellerHasStore = false;
           _sellerStoreId = null;
           _sellerShopName = null;
+          _sellerFullName = null;
+          _sellerEmail = currentUser.email; // ใช้ email ของ Firebase Auth
+          _sellerProvince = null;
+          _sellerPhoneNumber = null;
+          _sellerIdCardNumber = null;
+          _sellerPassword = null;
         });
       }
     } else {
+      // ผู้ใช้ไม่ได้ล็อกอิน
       setState(() {
+        _isSeller = false;
         _sellerHasStore = false;
         _sellerStoreId = null;
         _sellerShopName = null;
+        _sellerFullName = null;
+        _sellerEmail = null; // ไม่มี email ถ้าไม่ได้ล็อกอิน
+        _sellerProvince = null;
+        _sellerPhoneNumber = null;
+        _sellerIdCardNumber = null;
+        _sellerPassword = null;
       });
     }
   }
@@ -230,10 +271,10 @@ class _FeedPageState extends State<FeedPage> {
         FirebaseFirestore.instance.collection('posts');
 
     // ใช้ _drawerSelectedProvince และ _drawerSelectedCategory ในการกรอง
-    if (_drawerSelectedProvince != 'ทั้งหมด' && _drawerSelectedProvince != null) {
+    if (_drawerSelectedProvince != 'ทั้งหมด' && _drawerSelectedProvince.isNotEmpty) {
       query = query.where('province', isEqualTo: _drawerSelectedProvince);
     }
-    if (_drawerSelectedCategory != 'ทั้งหมด' && _drawerSelectedCategory != null) {
+    if (_drawerSelectedCategory != 'ทั้งหมด' && _drawerSelectedCategory.isNotEmpty) {
       query = query.where('product_category', isEqualTo: _drawerSelectedCategory);
     }
 
@@ -357,13 +398,13 @@ class _FeedPageState extends State<FeedPage> {
       return;
     }
 
-    // ตรวจสอบว่าผู้ขายมีร้านค้าแล้วหรือไม่
-    if (widget.sellerProfile == null || !(widget.sellerProfile!.hasStore ?? false) || widget.sellerProfile!.storeId == null || widget.sellerProfile!.shopName == null) {
+    // ตรวจสอบว่าผู้ขายมีร้านค้าแล้วหรือไม่ โดยใช้ _sellerHasStore
+    if (!_sellerHasStore || _sellerStoreId == null || _sellerShopName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาสร้างร้านค้าก่อนทำการโพสต์')),
       );
       Navigator.push(context, MaterialPageRoute(builder: (context) => const StoreCreateScreen()))
-          .then((_) => _loadSellerStoreStatus()); // รีโหลดสถานะเมื่อกลับมา
+          .then((_) => _loadSellerAndStoreStatus()); // รีโหลดสถานะเมื่อกลับมา
       return;
     }
 
@@ -371,8 +412,8 @@ class _FeedPageState extends State<FeedPage> {
       context,
       MaterialPageRoute(
         builder: (context) => CreatePostScreen(
-          shopName: widget.sellerProfile!.shopName!, // ส่ง shopName
-          storeId: widget.sellerProfile!.storeId!, // ส่ง storeId
+          shopName: _sellerShopName!, // ส่ง shopName จากสถานะ
+          storeId: _sellerStoreId!, // ส่ง storeId จากสถานะ
         ),
       ),
     ).then((_) {
@@ -384,15 +425,16 @@ class _FeedPageState extends State<FeedPage> {
   void _onItemTapped(int index) async {
     // Index 2 คือปุ่ม "สร้างโพสต์"
     if (index == 2) {
-      // ตรวจสอบว่าเป็นผู้ขายและมีร้านค้าแล้วหรือไม่
-      if (widget.sellerProfile != null && (widget.sellerProfile!.hasStore ?? false)) {
+      // ตรวจสอบว่าเป็นผู้ขายและมีร้านค้าแล้วหรือไม่ โดยใช้ _isSeller และ _sellerHasStore
+      if (_isSeller && _sellerHasStore) {
         _navigateToCreatePost();
       } else {
-        // ถ้าไม่ใช่ผู้ขาย หรือยังไม่มีร้านค้า ให้แสดงข้อความและไม่เปลี่ยนแท็บ
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('คุณต้องเป็นผู้ขายและมีร้านค้าก่อนจึงจะสร้างโพสต์ได้')),
         );
-        // ไม่ต้องเปลี่ยน _selectedIndex เพื่อให้แท็บยังอยู่ที่เดิม
+        setState(() {
+          _selectedIndex = 0; // กลับไปที่หน้า Feed
+        });
         return;
       }
     }
@@ -403,7 +445,7 @@ class _FeedPageState extends State<FeedPage> {
 
   // สร้าง Widget สำหรับหน้าตะกร้าสินค้า (Buyer) หรือ รายการออเดอร์ (Seller)
   Widget _buildMiddlePage() {
-    if (widget.sellerProfile != null) {
+    if (_isSeller) { // ใช้ _isSeller
       // ถ้าเป็นผู้ขาย ให้แสดงหน้ารายการออเดอร์
       return const SellerOrdersScreen();
     } else {
@@ -414,12 +456,35 @@ class _FeedPageState extends State<FeedPage> {
 
   // สร้าง Widget สำหรับหน้าโปรไฟล์ (Buyer) หรือ บัญชีผู้ขาย (Seller)
   Widget _buildProfilePage() {
-    if (widget.sellerProfile != null) {
-      // ถ้าเป็นผู้ขาย ให้แสดง SellerAccountScreen
-      return SellerAccountScreen(sellerProfile: widget.sellerProfile);
-    } else {
-      // ถ้าเป็นผู้ซื้อ ให้แสดงหน้าโปรไฟล์ผู้ซื้อ
-      return const BuyerProfileScreen();
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+
+    if (_isSeller) { // ถ้าผู้ใช้ปัจจุบันเป็นผู้ขาย
+      return SellerAccountScreen(
+        sellerProfile: SellerProfile( // สร้าง SellerProfile จากสถานะภายใน
+          fullName: _sellerFullName ?? '',
+          phoneNumber: _sellerPhoneNumber ?? '',
+          idCardNumber: _sellerIdCardNumber ?? '',
+          province: _sellerProvince ?? '',
+          password: _sellerPassword ?? '', // ควรระมัดระวังในการจัดการ password
+          email: _sellerEmail ?? '',
+          hasStore: _sellerHasStore,
+          storeId: _sellerStoreId,
+          shopName: _sellerShopName,
+          // shopAvatarImageUrl, shopPhoneNumber, shopLatitude, shopLongitude อาจจะต้องดึงเพิ่ม
+          // หรือทำให้เป็น optional ใน SellerProfile constructor ถ้าไม่จำเป็นต้องส่งเสมอ
+        ),
+      );
+    } else { // ถ้าผู้ใช้ปัจจุบันไม่ใช่ผู้ขาย (อาจจะเป็นผู้ซื้อที่ล็อกอินแล้ว หรือยังไม่ได้ล็อกอิน)
+      // ตรวจสอบว่ามีผู้ใช้ล็อกอินอยู่หรือไม่
+      if (currentUser != null) {
+        // ถ้ามีผู้ใช้ล็อกอินอยู่ (เป็นผู้ซื้อ) ให้แสดงหน้าโปรไฟล์ผู้ซื้อแบบแก้ไขได้
+        return BuyerProfileScreen(
+          email: currentUser.email, // ส่งอีเมลของผู้ใช้ที่ล็อกอินอยู่
+        );
+      } else {
+        // ถ้าไม่มีผู้ใช้ล็อกอินอยู่เลย ให้แสดงหน้าโปรไฟล์ผู้ซื้อแบบมีปุ่ม Login/Register
+        return const BuyerProfileScreen(); // ไม่ต้องส่ง email เพราะ BuyerProfileScreen จะจัดการเอง
+      }
     }
   }
 
@@ -498,13 +563,20 @@ class _FeedPageState extends State<FeedPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      // แสดงชื่อร้านก่อน ถ้าไม่มีค่อยแสดงชื่อเต็ม
-                      widget.sellerProfile?.shopName ?? widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช้อป',
+                      // แสดงชื่อร้านก่อน ถ้าเป็นผู้ขายและมีชื่อร้าน
+                      _isSeller && _sellerShopName != null && _sellerShopName!.isNotEmpty
+                          ? _sellerShopName!
+                          : _sellerFullName ?? 'ผู้ใช้บ้านบ้านช้อป', // ถ้าไม่มีชื่อร้าน/เป็นผู้ซื้อ ให้แสดงชื่อเต็ม
                       style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    if (widget.sellerProfile != null)
+                    if (_isSeller) // แสดงข้อมูลนี้เฉพาะผู้ขาย
                       Text(
-                        '${widget.sellerProfile!.province} | ${widget.sellerProfile!.email}',
+                        '${_sellerProvince ?? ''} | ${_sellerEmail ?? ''}',
+                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
+                      )
+                    else if (FirebaseAuth.instance.currentUser != null) // แสดงอีเมลผู้ซื้อที่ล็อกอินอยู่
+                      Text(
+                        FirebaseAuth.instance.currentUser!.email ?? 'ไม่ระบุอีเมล',
                         style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
                       ),
                   ],
@@ -530,23 +602,23 @@ class _FeedPageState extends State<FeedPage> {
                 if (mounted) Navigator.pop(context); // Close Drawer
               },
             ),
-            if (widget.sellerProfile != null) // แสดงเมนูนี้เฉพาะผู้ขาย
+            if (_isSeller) // แสดงเมนูนี้เฉพาะผู้ขาย
               ListTile(
                 leading: const Icon(Icons.settings_outlined),
                 title: const Text('จัดการร้านค้าของฉัน'),
                 onTap: () {
-                  if (widget.sellerProfile?.storeId != null && widget.sellerProfile!.storeId!.isNotEmpty) {
+                  if (_sellerStoreId != null && _sellerStoreId!.isNotEmpty) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => StoreProfileScreen(
-                          storeId: widget.sellerProfile!.storeId!,
+                          storeId: _sellerStoreId!,
                           isSellerView: true,
                         ),
                       ),
                     ).then((_) {
                       // เมื่อกลับมาจากการจัดการร้านค้า ให้รีโหลดสถานะผู้ขาย
-                      _loadSellerStoreStatus();
+                      _loadSellerAndStoreStatus();
                       _fetchPostsFromFirestore(); // อาจจะรีโหลดโพสต์ด้วย
                     });
                   } else {
@@ -589,7 +661,7 @@ class _FeedPageState extends State<FeedPage> {
                 }).toList(),
                 onChanged: (String? newValue) {
                   setState(() {
-                    _drawerSelectedProvince = newValue;
+                    _drawerSelectedProvince = newValue ?? 'ทั้งหมด'; // กำหนดค่าเริ่มต้นถ้าเป็น null
                     _fetchPostsFromFirestore(); // รีโหลดโพสต์เมื่อจังหวัดเปลี่ยน
                   });
                 },
@@ -613,7 +685,7 @@ class _FeedPageState extends State<FeedPage> {
                 }).toList(),
                 onChanged: (String? newValue) {
                   setState(() {
-                    _drawerSelectedCategory = newValue;
+                    _drawerSelectedCategory = newValue ?? 'ทั้งหมด'; // กำหนดค่าเริ่มต้นถ้าเป็น null
                     _fetchPostsFromFirestore(); // รีโหลดโพสต์เมื่อหมวดหมู่เปลี่ยน
                   });
                 },
@@ -627,7 +699,6 @@ class _FeedPageState extends State<FeedPage> {
                 await FirebaseAuth.instance.signOut();
                 if (mounted) {
                   Navigator.pushAndRemoveUntil(
-                    // ignore: use_build_context_synchronously
                     context,
                     MaterialPageRoute(builder: (context) => const RoleSelectPage()), // กลับไปหน้าเลือกบทบาท
                     (route) => false,
@@ -714,8 +785,8 @@ class _FeedPageState extends State<FeedPage> {
       bottomNavigationBar: BottomNavbarWidget( // ใช้ BottomNavbarWidget
         selectedIndex: _selectedIndex,
         onItemSelected: _onItemTapped, // ใช้ onItemSelected
-        isSeller: widget.sellerProfile != null, // ส่งค่า isSeller ไปยัง BottomNavbarWidget
-        hasStore: widget.sellerProfile?.hasStore ?? false, // ส่งค่า hasStore ไปยัง BottomNavbarWidget
+        isSeller: _isSeller, // ส่งค่า isSeller จากสถานะภายใน
+        hasStore: _sellerHasStore, // ส่งค่า hasStore จากสถานะภายใน
       ),
     );
   }
@@ -747,7 +818,7 @@ class _FeedPageState extends State<FeedPage> {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              '${_drawerSelectedCategory ?? 'ทั้งหมด'} ใน ${_drawerSelectedProvince ?? 'ทั้งหมด'}', // แก้ไขตรงนี้
+                              '${_drawerSelectedCategory} ใน ${_drawerSelectedProvince}',
                               style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                             ),
                           ],
@@ -767,8 +838,8 @@ class _FeedPageState extends State<FeedPage> {
                         },
                       ))
                 : StoreScreenContent( // แสดง StoreScreenContent เมื่อเลือก "ร้านค้า"
-                    selectedProvince: _drawerSelectedProvince ?? 'ทั้งหมด',
-                    selectedCategory: _drawerSelectedCategory ?? 'ทั้งหมด',
+                    selectedProvince: _drawerSelectedProvince,
+                    selectedCategory: _drawerSelectedCategory,
                   ),
           ),
         ),
@@ -782,11 +853,11 @@ class _FeedPageState extends State<FeedPage> {
       case 0: // หน้าแรก (ฟีดโพสต์/ร้านค้า)
         return 'บ้านบ้านช้อป';
       case 1: // ออเดอร์ / ตะกร้า
-        return widget.sellerProfile != null ? 'รายการออเดอร์' : 'ตะกร้าสินค้า';
-      case 2: // สร้างโพสต์ (จะถูกจัดการโดย _onItemTapped)
-        return 'สร้างโพสต์'; // ชื่อหน้าจะถูกกำหนดใน CreatePostScreen เอง
+        return _isSeller ? 'รายการออเดอร์' : 'ตะกร้าสินค้า'; // ใช้ _isSeller
+      case 2:
+        return 'บ้านบ้านช้อป'; // ชื่อหน้าจะถูกกำหนดใน CreatePostScreen เอง
       case 3: // โปรไฟล์
-        return widget.sellerProfile != null ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ';
+        return _isSeller ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ'; // ใช้ _isSeller
       default:
         return 'บ้านบ้านช้อป';
     }
