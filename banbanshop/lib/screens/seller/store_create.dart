@@ -10,7 +10,9 @@ import 'package:cloud_firestore/cloud_firestore.dart'; // สำหรับ Fir
 import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // สำหรับ Cloudinary
 import 'package:uuid/uuid.dart'; // สำหรับสร้าง UUID
 import 'package:banbanshop/screens/map_picker_screen.dart'; // เพิ่ม import สำหรับ MapPickerScreen
+// ignore: unused_import
 import 'package:geocoding/geocoding.dart'; // เพิ่ม: สำหรับ reverse geocoding
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 // ไม่จำเป็นต้อง import google_maps_flutter ในไฟล์นี้แล้ว เพราะ LatLng ถูกใช้แค่ใน MapPickerScreen
 
 // --- Store Model (รวมอยู่ในไฟล์นี้ตาม reference) ---
@@ -154,38 +156,28 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   }
 
   Future<void> _pickLocationOnMap() async {
-    // ไม่ต้องส่ง initialLatLng ไป เพราะ MapPickerScreen ของคุณไม่ได้รับ parameter นี้
+    // ส่ง initialLatLng ไปยัง MapPickerScreen หากมีตำแหน่งที่เลือกไว้แล้ว
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const MapPickerScreen(), // ไม่ส่ง initialLatLng
+        builder: (context) => MapPickerScreen(
+          initialLatLng: (_selectedLatitude != null && _selectedLongitude != null)
+              ? LatLng(_selectedLatitude!, _selectedLongitude!)
+              : null,
+        ),
       ),
     );
 
-    if (result != null && result is Map<String, double>) { // MapPickerScreen ของคุณคืนค่าเป็น Map<String, double>
+    if (result != null && result is Map<String, dynamic>) { // MapPickerScreen คืนค่าเป็น Map<String, dynamic>
       final double latitude = result['latitude']!;
       final double longitude = result['longitude']!;
+      final String address = result['address']!; // รับค่า address กลับมา
 
       setState(() {
         _selectedLatitude = latitude;
         _selectedLongitude = longitude;
+        _locationAddressController.text = address; // อัปเดต Controller ด้วยที่อยู่
       });
-
-      // ทำ Reverse Geocoding เพื่อหาที่อยู่จาก LatLng ที่ได้กลับมา
-      try {
-        List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude);
-        if (placemarks.isNotEmpty) {
-          final p = placemarks.first;
-          // สร้างที่อยู่จากข้อมูล Placemark
-          _locationAddressController.text =
-              '${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea} ${p.postalCode}';
-        } else {
-          _locationAddressController.text = 'ไม่พบที่อยู่สำหรับพิกัดนี้';
-        }
-      } catch (e) {
-        print('Error getting address from picked location: $e');
-        _locationAddressController.text = 'ไม่สามารถดึงที่อยู่ได้';
-      }
     }
   }
 
@@ -313,18 +305,18 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F4FD),
+      backgroundColor: const Color(0xFFE8F4FD), // เปลี่ยนสีพื้นหลัง AppBar และ Scaffold
       appBar: AppBar(
-        backgroundColor: const Color(0xFFE8F4FD),
+        backgroundColor: const Color(0xFF9C6ADE), // เปลี่ยนสีพื้นหลัง AppBar
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white), // เปลี่ยนสีไอคอนย้อนกลับ
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'สร้างร้านค้า',
+          'สร้างร้านค้าใหม่', // เปลี่ยนข้อความเป็น "สร้างร้านค้าใหม่"
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.white, // เปลี่ยนสีข้อความ Title
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -337,19 +329,55 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // อัปโหลดรูปภาพหน้าร้าน (ปรับปรุง UI)
+              GestureDetector(
+                onTap: _pickShopImage,
+                child: Container(
+                  height: 180, // เพิ่มความสูง
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20), // เพิ่มความโค้งมน
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: _shopImageFile != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(20), // เพิ่มความโค้งมน
+                          child: Image.file(_shopImageFile!, fit: BoxFit.cover))
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.camera_alt, size: 50, color: Colors.grey[600]), // เพิ่มขนาดไอคอน
+                            const SizedBox(height: 10),
+                            Text(
+                              'เพิ่มรูปหน้าร้าน', // เปลี่ยนข้อความ
+                              style: TextStyle(color: Colors.grey[600], fontSize: 16), // เพิ่มขนาดตัวอักษร
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 24), // เพิ่มระยะห่าง
+
               // ชื่อร้าน
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  labelText: 'ชื่อร้าน',
-                  hintText: 'ป้อนชื่อร้านของคุณ',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelText: 'ชื่อร้านค้า', // เปลี่ยน Label
+                  hintText: 'ป้อนชื่อร้านค้าของคุณ',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // เพิ่มความโค้งมน
                   filled: true,
                   fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.store, color: Color(0xFF9C6ADE)), // เพิ่มไอคอน
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'กรุณาป้อนชื่อร้าน';
+                    return 'กรุณาป้อนชื่อร้านค้า';
                   }
                   return null;
                 },
@@ -359,13 +387,14 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
               // รายละเอียดร้านค้า
               TextFormField(
                 controller: _descriptionController,
-                maxLines: 3,
+                maxLines: 4, // เพิ่มจำนวนบรรทัด
                 decoration: InputDecoration(
-                  labelText: 'รายละเอียดร้านค้า',
-                  hintText: 'อธิบายเกี่ยวกับร้านค้าของคุณ',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelText: 'คำอธิบายร้านค้า', // เปลี่ยน Label
+                  hintText: 'อธิบายเกี่ยวกับร้านค้าของคุณให้ลูกค้าทราบ',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // เพิ่มความโค้งมน
                   filled: true,
                   fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.description, color: Color(0xFF9C6ADE)), // เพิ่มไอคอน
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -380,10 +409,11 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
               DropdownButtonFormField<String>(
                 value: _selectedStoreType,
                 decoration: InputDecoration(
-                  labelText: 'ประเภทร้านค้า',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelText: 'ประเภท/หมวดหมู่ร้านค้า', // เปลี่ยน Label
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // เพิ่มความโค้งมน
                   filled: true,
                   fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.category, color: Color(0xFF9C6ADE)), // เพิ่มไอคอน
                 ),
                 items: _storeTypes.map((String type) {
                   return DropdownMenuItem<String>(
@@ -405,71 +435,21 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
               ),
               const SizedBox(height: 16),
 
-              // อัปโหลดรูปภาพหน้าร้าน
-              GestureDetector(
-                onTap: _pickShopImage,
-                child: Container(
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: _shopImageFile != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(_shopImageFile!, fit: BoxFit.cover)) // ใช้ ClipRRect
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.camera_alt, size: 40, color: Colors.grey[600]),
-                            const SizedBox(height: 8),
-                            Text(
-                              'อัปโหลดรูปภาพหน้าร้าน',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // เบอร์โทรศัพท์ร้าน
-              TextFormField(
-                controller: _phoneNumberController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: 'เบอร์โทรศัพท์ร้าน',
-                  hintText: 'ป้อนเบอร์โทรศัพท์สำหรับติดต่อร้าน',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  suffixIcon: Icon(Icons.phone),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'กรุณาป้อนเบอร์โทรศัพท์ร้าน';
-                  }
-                  // คุณอาจเพิ่ม regex สำหรับตรวจสอบเบอร์โทรศัพท์ที่ถูกต้อง
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
               // ปักหมุดตำแหน่งร้าน (ผูกกับ MapPickerScreen)
               TextFormField(
                 controller: _locationAddressController,
                 readOnly: true, // ทำให้ไม่สามารถพิมพ์ได้โดยตรง
                 onTap: _pickLocationOnMap, // เมื่อกดจะไปหน้าแผนที่
                 decoration: InputDecoration(
-                  labelText: 'ปักหมุดตำแหน่งร้าน',
+                  labelText: 'ที่ตั้งร้านค้า (เลือกจากแผนที่)', // เปลี่ยน Label
                   hintText: _selectedLatitude == null
                       ? 'แตะเพื่อเลือกตำแหน่งบนแผนที่'
                       : 'ตำแหน่งที่เลือก: ${_locationAddressController.text}',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // เพิ่มความโค้งมน
                   filled: true,
                   fillColor: Colors.white,
-                  suffixIcon: Icon(Icons.map),
+                  prefixIcon: const Icon(Icons.location_on, color: Color(0xFF9C6ADE)), // เพิ่มไอคอน
+                  suffixIcon: const Icon(Icons.map, color: Color(0xFF9C6ADE)), // เพิ่มไอคอนแผนที่
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty || _selectedLatitude == null) {
@@ -484,12 +464,12 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
               TextFormField(
                 controller: _openingHoursController,
                 decoration: InputDecoration(
-                  labelText: 'ระยะเวลา เปิด-ปิดร้าน',
+                  labelText: 'ระยะเวลาเปิด-ปิดร้าน', // เปลี่ยน Label
                   hintText: 'เช่น 09:00 - 18:00 น. ทุกวัน',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // เพิ่มความโค้งมน
                   filled: true,
                   fillColor: Colors.white,
-                  suffixIcon: Icon(Icons.access_time),
+                  prefixIcon: const Icon(Icons.access_time, color: Color(0xFF9C6ADE)), // เพิ่มไอคอน
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -498,25 +478,47 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 16),
+
+              // เบอร์โทรศัพท์ร้าน
+              TextFormField(
+                controller: _phoneNumberController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: 'เบอร์โทรศัพท์ร้าน', // เปลี่ยน Label
+                  hintText: 'ป้อนเบอร์โทรศัพท์สำหรับติดต่อร้าน',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // เพิ่มความโค้งมน
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.phone, color: Color(0xFF9C6ADE)), // เพิ่มไอคอน
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'กรุณาป้อนเบอร์โทรศัพท์ร้าน';
+                  }
+                  // คุณอาจเพิ่ม regex สำหรับตรวจสอบเบอร์โทรศัพท์ที่ถูกต้อง
+                  return null;
+                },
+              ),
               const SizedBox(height: 32),
 
               // ปุ่มสร้างร้านค้า
               _isUploading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
+                  ? const Center(child: CircularProgressIndicator(color: Colors.white)) // เปลี่ยนสี CircularProgressIndicator
                   : ElevatedButton(
                       onPressed: _createStore,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF9C6ADE),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        backgroundColor: Colors.white, // เปลี่ยนสีพื้นหลังปุ่ม
+                        foregroundColor: const Color(0xFF9C6ADE), // เปลี่ยนสีข้อความปุ่ม
+                        padding: const EdgeInsets.symmetric(vertical: 18), // เพิ่ม padding
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(25), // เพิ่มความโค้งมน
                         ),
-                        elevation: 3,
+                        elevation: 5, // เพิ่มเงา
                       ),
                       child: const Text(
                         'สร้างร้านค้า',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), // เพิ่มขนาดและทำให้ตัวหนา
                       ),
                     ),
             ],

@@ -99,7 +99,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   Future<void> _pickLocationOnMap() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const MapPickerScreen()),
+      MaterialPageRoute(builder: (context) => const MapPickerScreen(initialLatLng: null,)),
     );
 
     if (result != null && result is Map<String, double>) {

@@ -1,6 +1,6 @@
 // lib/screens/map_picker_screen.dart
 
-// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -8,15 +8,16 @@ import 'package:geolocator/geolocator.dart'; // สำหรับตำแห�
 import 'package:geocoding/geocoding.dart'; // สำหรับ reverse geocoding
 
 class MapPickerScreen extends StatefulWidget {
-  const MapPickerScreen({super.key});
+  // เพิ่ม initialLatLng parameter เพื่อให้สามารถกำหนดตำแหน่งเริ่มต้นได้
+  final LatLng? initialLatLng;
+  const MapPickerScreen({super.key, this.initialLatLng});
 
   @override
   State<MapPickerScreen> createState() => _MapPickerScreenState();
 }
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
-  // ignore: unused_field
-  GoogleMapController? _mapController;
+  GoogleMapController? _mapController; // ประกาศตัวแปร _mapController
   LatLng? _pickedLocation; // ตำแหน่งที่ผู้ใช้เลือก
   bool _isLoadingLocation = true; // สถานะการโหลดตำแหน่งเริ่มต้น
   String _currentAddress = 'กำลังโหลดตำแหน่ง...'; // ที่อยู่ปัจจุบันที่แสดง
@@ -24,67 +25,148 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   @override
   void initState() {
     super.initState();
-    _determinePosition(); // เริ่มต้นด้วยการดึงตำแหน่งปัจจุบันของผู้ใช้
+    // ถ้ามี initialLatLng มาให้ใช้ค่านั้นเป็นตำแหน่งเริ่มต้น
+    if (widget.initialLatLng != null) {
+      _pickedLocation = widget.initialLatLng;
+      _updateAddress(_pickedLocation!);
+      _isLoadingLocation = false;
+    } else {
+      _determinePosition(); // เริ่มต้นด้วยการดึงตำแหน่งปัจจุบันของผู้ใช้
+    }
   }
 
   // ตรวจสอบสิทธิ์และดึงตำแหน่งปัจจุบัน
   Future<void> _determinePosition() async {
+    setState(() {
+      _isLoadingLocation = true;
+      _currentAddress = 'กำลังโหลดตำแหน่ง...';
+    });
+
     bool serviceEnabled;
     LocationPermission permission;
 
-    // ตรวจสอบว่าบริการตำแหน่งเปิดอยู่หรือไม่
+    // 1. ตรวจสอบว่าบริการตำแหน่งเปิดอยู่หรือไม่
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location services are disabled. Please enable them.')),
+        await showDialog(
+          context: context,
+          barrierDismissible: false, // ผู้ใช้ต้องกดปุ่มใน dialog เท่านั้น
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('บริการระบุตำแหน่งถูกปิดอยู่'),
+              content: const Text('กรุณาเปิดบริการระบุตำแหน่งในตั้งค่าอุปกรณ์ของคุณเพื่อใช้งานแผนที่'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    setState(() {
+                      _isLoadingLocation = false;
+                      _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok, Thailand
+                      _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
+                    });
+                  },
+                  child: const Text('ยกเลิก'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await Geolocator.openLocationSettings(); // เปิดหน้าตั้งค่าตำแหน่ง
+                    // หลังจากกลับจากตั้งค่า ลองดึงตำแหน่งอีกครั้ง
+                    _determinePosition();
+                  },
+                  child: const Text('เปิดการตั้งค่า'),
+                ),
+              ],
+            );
+          },
         );
       }
-      setState(() {
-        _isLoadingLocation = false;
-        // ตั้งค่าเริ่มต้นเป็นกรุงเทพฯ หากไม่สามารถเข้าถึงตำแหน่งได้
-        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok, Thailand
-        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
-      });
-      return;
+      return; // ออกจากฟังก์ชันหลังจากแสดง dialog
     }
 
+    // 2. ตรวจสอบและขอสิทธิ์การเข้าถึงตำแหน่ง
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permissions are denied')),
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext dialogContext) {
+              return AlertDialog(
+                title: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธ'),
+                content: const Text('คุณปฏิเสธการให้สิทธิ์เข้าถึงตำแหน่ง กรุณาให้สิทธิ์เพื่อใช้งานแผนที่'),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      setState(() {
+                        _isLoadingLocation = false;
+                        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
+                        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
+                      });
+                    },
+                    child: const Text('ยกเลิก'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.of(dialogContext).pop();
+                      await Geolocator.openAppSettings(); // เปิดหน้าตั้งค่าแอป
+                      _determinePosition(); // ลองดึงตำแหน่งอีกครั้ง
+                    },
+                    child: const Text('เปิดการตั้งค่าแอป'),
+                  ),
+                ],
+              );
+            },
           );
         }
-        setState(() {
-          _isLoadingLocation = false;
-          _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
-          _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
-        });
-        return;
+        return; // ออกจากฟังก์ชันหลังจากแสดง dialog
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permissions are permanently denied, we cannot request permissions.')),
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธถาวร'),
+              content: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธอย่างถาวร กรุณาไปที่การตั้งค่าแอปเพื่อเปิดใช้งานด้วยตนเอง'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    setState(() {
+                      _isLoadingLocation = false;
+                      _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
+                      _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
+                    });
+                  },
+                  child: const Text('ยกเลิก'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await Geolocator.openAppSettings(); // เปิดหน้าตั้งค่าแอป
+                    _determinePosition(); // ลองดึงตำแหน่งอีกครั้ง
+                  },
+                  child: const Text('เปิดการตั้งค่าแอป'),
+                ),
+              ],
+            );
+          },
         );
       }
-      setState(() {
-        _isLoadingLocation = false;
-        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
-        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
-      });
-      return;
+      return; // ออกจากฟังก์ชันหลังจากแสดง dialog
     }
 
     // หากได้รับสิทธิ์แล้ว ให้ดึงตำแหน่งปัจจุบัน
     try {
       Position position = await Geolocator.getCurrentPosition(
-          // ignore: deprecated_member_use
           desiredAccuracy: LocationAccuracy.high);
       setState(() {
         _pickedLocation = LatLng(position.latitude, position.longitude);
@@ -117,6 +199,10 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           // สร้างที่อยู่จากข้อมูล Placemark
           _currentAddress =
               '${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea} ${p.postalCode}';
+        });
+      } else {
+        setState(() {
+          _currentAddress = 'ไม่พบที่อยู่สำหรับพิกัดนี้';
         });
       }
     } catch (e) {
@@ -152,13 +238,20 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                       zoom: 15,
                     ),
                     onMapCreated: (GoogleMapController controller) {
-                      _mapController = controller;
-                      _updateAddress(_pickedLocation!); // อัปเดตที่อยู่เริ่มต้นเมื่อแผนที่สร้างเสร็จ
+                      _mapController = controller; // กำหนดค่าให้ _mapController ที่นี่
+                      // ใช้ _mapController เพื่อเลื่อนกล้องไปยังตำแหน่งที่เลือก
+                      _mapController?.animateCamera(
+                        CameraUpdate.newLatLng(_pickedLocation!),
+                      );
                     },
                     onTap: (LatLng latLng) {
                       setState(() {
                         _pickedLocation = latLng; // อัปเดตตำแหน่งที่ผู้ใช้แตะ
                         _updateAddress(latLng); // อัปเดตที่อยู่ตามตำแหน่งใหม่
+                        // ใช้ _mapController เพื่อเลื่อนกล้องไปยังตำแหน่งที่ผู้ใช้แตะ
+                        _mapController?.animateCamera(
+                          CameraUpdate.newLatLng(latLng),
+                        );
                       });
                     },
                     markers: _pickedLocation == null
@@ -195,9 +288,11 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                       ElevatedButton(
                         onPressed: () {
                           if (_pickedLocation != null) {
+                            // คืนค่าเป็น Map<String, double> และ String address
                             Navigator.pop(context, {
                               'latitude': _pickedLocation!.latitude,
                               'longitude': _pickedLocation!.longitude,
+                              'address': _currentAddress, // เพิ่ม address กลับไปด้วย
                             });
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(

@@ -5,7 +5,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:banbanshop/screens/models/store_model.dart'; // <--- ลบการ import นี้ออก
 import 'package:banbanshop/screens/seller/store_create.dart'; // <--- ใช้ Store model จากไฟล์นี้แทน
 import 'package:banbanshop/screens/post_model.dart'; // Import Post model
 import 'package:banbanshop/screens/create_post.dart'; // Import CreatePostScreen
@@ -313,21 +312,29 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                         ),
                                       ),
                                       const SizedBox(height: 8),
+                                      // แก้ไข: ห่อ Text ด้วย Flexible เพื่อป้องกัน Overflow
                                       Row(
                                         children: [
                                           Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
-                                          // ใช้ _store!.locationAddress แทน _store!.location
-                                          Text(
-                                            _store!.locationAddress,
-                                            style: TextStyle(color: Colors.grey[600]),
+                                          Flexible( // ใช้ Flexible
+                                            child: Text(
+                                              _store!.locationAddress,
+                                              style: TextStyle(color: Colors.grey[600]),
+                                              overflow: TextOverflow.ellipsis, // เพิ่ม ellipsis
+                                              maxLines: 1, // จำกัด 1 บรรทัด
+                                            ),
                                           ),
                                           const SizedBox(width: 12),
                                           Icon(Icons.category, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            _store!.type,
-                                            style: TextStyle(color: Colors.grey[600]),
+                                          Flexible( // ใช้ Flexible
+                                            child: Text(
+                                              _store!.type,
+                                              style: TextStyle(color: Colors.grey[600]),
+                                              overflow: TextOverflow.ellipsis, // เพิ่ม ellipsis
+                                              maxLines: 1, // จำกัด 1 บรรทัด
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -336,9 +343,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                         children: [
                                           Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            _store!.openingHours,
-                                            style: TextStyle(color: Colors.grey[600]),
+                                          Flexible( // ใช้ Flexible
+                                            child: Text(
+                                              _store!.openingHours,
+                                              style: TextStyle(color: Colors.grey[600]),
+                                              overflow: TextOverflow.ellipsis, // เพิ่ม ellipsis
+                                              maxLines: 1, // จำกัด 1 บรรทัด
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -347,9 +358,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                         children: [
                                           Icon(Icons.phone, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            _store!.phoneNumber,
-                                            style: TextStyle(color: Colors.grey[600]),
+                                          Flexible( // ใช้ Flexible
+                                            child: Text(
+                                              _store!.phoneNumber,
+                                              style: TextStyle(color: Colors.grey[600]),
+                                              overflow: TextOverflow.ellipsis, // เพิ่ม ellipsis
+                                              maxLines: 1, // จำกัด 1 บรรทัด
+                                            ),
                                           ),
                                         ],
                                       ),
