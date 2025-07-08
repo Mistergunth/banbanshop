@@ -277,6 +277,32 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(_store!.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 4),
+
+                                      // --- ส่วนที่เพิ่มเข้ามา ---
+                                      if (_store!.reviewCount > 0)
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.star, color: Colors.amber, size: 20),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _store!.averageRating.toStringAsFixed(1),
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '(${_store!.reviewCount} รีวิว)',
+                                              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                            ),
+                                          ],
+                                        )
+                                      else
+                                        Text(
+                                          'ยังไม่มีรีวิว',
+                                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                        ),
+                                      // --- จบส่วนที่เพิ่มเข้ามา ---
+
                                       const SizedBox(height: 8),
                                       Text(_store!.description, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
                                       const SizedBox(height: 8),
@@ -367,14 +393,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                   icon: const Icon(Icons.rate_review_outlined),
                                   label: const Text('เรตติ้งและรีวิว'),
                                   onPressed: () {
-                                    // แก้ไข: ส่งค่า isSellerView ไปด้วย
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => StoreReviewsScreen(
                                           storeId: widget.storeId,
                                           storeName: _store?.name ?? 'ร้านค้า',
-                                          isSellerView: widget.isSellerView, // <-- ส่งค่านี้ไปด้วย
+                                          isSellerView: widget.isSellerView,
                                         ),
                                       ),
                                     );
@@ -673,6 +698,6 @@ class ActionButton extends StatelessWidget {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
-    );
+    );  
   }
 }

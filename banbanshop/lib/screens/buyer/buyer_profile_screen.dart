@@ -12,6 +12,7 @@ import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:banbanshop/screens/buyer/favorites_screen.dart';
+import 'package:banbanshop/screens/buyer/shipping_address_screen.dart'; // <-- Import ที่อยู่
 
 class BuyerProfileScreen extends StatefulWidget {
   const BuyerProfileScreen({super.key});
@@ -113,7 +114,6 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
     }
   }
 
-  // แก้ไข: ใส่โค้ดที่ทำงานได้จริงกลับเข้าไป
   Future<void> _pickAndUploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
@@ -170,14 +170,13 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
 
   void _logout() async {
     await FirebaseAuth.instance.signOut();
-    // AuthWrapper will handle navigation
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        body: const Center(child: CircularProgressIndicator()),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -196,14 +195,16 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                       icon: Icons.location_on_outlined,
                       text: 'ที่อยู่จัดส่ง',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน')),
+                        // แก้ไข: นำทางไปยังหน้า ShippingAddressScreen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ShippingAddressScreen()),
                         );
                       },
                     ),
                     _buildProfileOptionButton(
                       icon: Icons.favorite_border,
-                      text: 'ร้านค้าโปรด',
+                      text: 'รายการโปรด',
                       onTap: () {
                         Navigator.push(
                           context,

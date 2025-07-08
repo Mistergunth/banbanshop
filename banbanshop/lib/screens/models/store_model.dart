@@ -5,17 +5,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Store {
   final String id;
   final String ownerUid;
-  final String name; // ชื่อร้านค้า
-  final String description; // คำอธิบายร้าน
-  final String type; // ประเภท/หมวดหมู่ร้านค้า
-  final String? imageUrl; // URL รูปภาพหน้าร้าน
-  final String locationAddress; // ที่อยู่ร้านค้า
-  final double? latitude; // ละติจูดของร้านค้า
-  final double? longitude; // ลองจิจูดของร้านค้า
-  final String openingHours; // ระยะเวลาเปิด-ปิดร้าน
-  final String phoneNumber; // เบอร์โทรศัพท์ร้านค้า
-  final DateTime createdAt; // วันที่สร้างร้านค้า
-  final String province; // เพิ่มจังหวัดเข้ามาให้สอดคล้องกับระบบ
+  final String name;
+  final String description;
+  final String type;
+  final String? imageUrl;
+  final String locationAddress;
+  final double? latitude;
+  final double? longitude;
+  final String openingHours;
+  final String phoneNumber;
+  final DateTime createdAt;
+  final String province;
+  // --- เพิ่ม Field สำหรับเรตติ้ง ---
+  final double averageRating;
+  final int reviewCount;
+  // --------------------------------
 
   Store({
     required this.id,
@@ -31,6 +35,10 @@ class Store {
     required this.phoneNumber,
     required this.createdAt,
     required this.province,
+    // --- เพิ่มใน Constructor ---
+    this.averageRating = 0.0,
+    this.reviewCount = 0,
+    // -------------------------
   });
 
   // Factory constructor สำหรับสร้าง Store จาก Firestore DocumentSnapshot
@@ -49,11 +57,14 @@ class Store {
       longitude: (data['longitude'] as num?)?.toDouble(),
       openingHours: data['openingHours'] ?? '',
       phoneNumber: data['phoneNumber'] ?? '',
-      // ตรวจสอบและแปลง Timestamp เป็น DateTime อย่างปลอดภัย
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
-      province: data['province'] ?? '', // ดึงข้อมูลจังหวัด
+      province: data['province'] ?? '',
+      // --- ดึงข้อมูลเรตติ้งจาก Firestore ---
+      averageRating: (data['averageRating'] as num?)?.toDouble() ?? 0.0,
+      reviewCount: data['reviewCount'] ?? 0,
+      // -------------------------------------
     );
   }
 
@@ -70,8 +81,12 @@ class Store {
       'longitude': longitude,
       'openingHours': openingHours,
       'phoneNumber': phoneNumber,
-      'createdAt': Timestamp.fromDate(createdAt), // ใช้ Timestamp สำหรับ Firestore
+      'createdAt': Timestamp.fromDate(createdAt),
       'province': province,
+      // --- เพิ่มข้อมูลเรตติ้ง (เผื่อใช้ในอนาคต) ---
+      'averageRating': averageRating,
+      'reviewCount': reviewCount,
+      // ----------------------------------------
     };
   }
 }
