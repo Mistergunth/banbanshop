@@ -5,8 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Store {
   final String id;
   final String ownerUid;
-  final String name;
-  final String description;
+  final String name; // ชื่อร้านค้า
+  final String description; // คำอธิบายร้าน
   final String type; // ประเภท/หมวดหมู่ร้านค้า
   final String? imageUrl; // URL รูปภาพหน้าร้าน
   final String locationAddress; // ที่อยู่ร้านค้า
@@ -15,6 +15,7 @@ class Store {
   final String openingHours; // ระยะเวลาเปิด-ปิดร้าน
   final String phoneNumber; // เบอร์โทรศัพท์ร้านค้า
   final DateTime createdAt; // วันที่สร้างร้านค้า
+  final String province; // เพิ่มจังหวัดเข้ามาให้สอดคล้องกับระบบ
 
   Store({
     required this.id,
@@ -29,35 +30,30 @@ class Store {
     required this.openingHours,
     required this.phoneNumber,
     required this.createdAt,
+    required this.province,
   });
 
   // Factory constructor สำหรับสร้าง Store จาก Firestore DocumentSnapshot
   factory Store.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
-    // ตรวจสอบและแปลง Timestamp เป็น DateTime
-    DateTime parsedCreatedAt;
-    if (data['createdAt'] is Timestamp) {
-      parsedCreatedAt = (data['createdAt'] as Timestamp).toDate();
-    } else {
-      // Fallback หรือจัดการกรณีที่ข้อมูลไม่ใช่ Timestamp
-      parsedCreatedAt = DateTime.now();
-      print('Warning: createdAt field is not a Timestamp. Using current time.');
-    }
-
     return Store(
       id: doc.id,
-      ownerUid: data['ownerUid'] as String? ?? '',
-      name: data['name'] as String? ?? '',
-      description: data['description'] as String? ?? '',
-      type: data['type'] as String? ?? '',
-      imageUrl: data['imageUrl'] as String?,
-      locationAddress: data['locationAddress'] as String? ?? '',
+      ownerUid: data['ownerUid'] ?? '',
+      name: data['name'] ?? '',
+      description: data['description'] ?? '',
+      type: data['type'] ?? '',
+      imageUrl: data['imageUrl'],
+      locationAddress: data['locationAddress'] ?? '',
       latitude: (data['latitude'] as num?)?.toDouble(),
       longitude: (data['longitude'] as num?)?.toDouble(),
-      openingHours: data['openingHours'] as String? ?? '',
-      phoneNumber: data['phoneNumber'] as String? ?? '',
-      createdAt: parsedCreatedAt,
+      openingHours: data['openingHours'] ?? '',
+      phoneNumber: data['phoneNumber'] ?? '',
+      // ตรวจสอบและแปลง Timestamp เป็น DateTime อย่างปลอดภัย
+      createdAt: (data['createdAt'] is Timestamp)
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      province: data['province'] ?? '', // ดึงข้อมูลจังหวัด
     );
   }
 
@@ -75,6 +71,7 @@ class Store {
       'openingHours': openingHours,
       'phoneNumber': phoneNumber,
       'createdAt': Timestamp.fromDate(createdAt), // ใช้ Timestamp สำหรับ Firestore
+      'province': province,
     };
   }
 }

@@ -1,6 +1,6 @@
 // lib/screens/map_picker_screen.dart
 
-// ignore_for_file: avoid_print, use_build_context_synchronously, deprecated_member_use
+// ignore_for_file: avoid_print, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -22,10 +22,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   bool _isLoadingLocation = true; // สถานะการโหลดตำแหน่งเริ่มต้น
   String _currentAddress = 'กำลังโหลดตำแหน่ง...'; // ที่อยู่ปัจจุบันที่แสดง
 
-  // ตำแหน่งเริ่มต้นเมื่อไม่สามารถดึงตำแหน่งปัจจุบันได้ (กรุงเทพมหานคร)
-  static const LatLng _defaultLocation = LatLng(13.7563, 100.5018);
-  static const String _defaultAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
-
   @override
   void initState() {
     super.initState();
@@ -37,84 +33,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     } else {
       _determinePosition(); // เริ่มต้นด้วยการดึงตำแหน่งปัจจุบันของผู้ใช้
     }
-  }
-
-  // ฟังก์ชันแสดง Dialog เมื่อบริการระบุตำแหน่งถูกปิด
-  Future<void> _showLocationServiceDialog() async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false, // ผู้ใช้ต้องกดปุ่มใน dialog เท่านั้น
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('บริการระบุตำแหน่งถูกปิดอยู่'),
-          content: const Text('กรุณาเปิดบริการระบุตำแหน่งในตั้งค่าอุปกรณ์ของคุณเพื่อใช้งานแผนที่'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                setState(() {
-                  _isLoadingLocation = false;
-                  _pickedLocation = _defaultLocation; // Default to Bangkok
-                  _currentAddress = _defaultAddress;
-                });
-              },
-              child: const Text('ยกเลิก'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(dialogContext).pop();
-                await Geolocator.openLocationSettings(); // เปิดหน้าตั้งค่าตำแหน่ง
-                // หลังจากกลับจากตั้งค่า ลองดึงตำแหน่งอีกครั้ง
-                _determinePosition();
-              },
-              child: const Text('เปิดการตั้งค่า'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ฟังก์ชันแสดง Dialog เมื่อสิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธ
-  Future<void> _showPermissionDeniedDialog(bool permanentlyDenied) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(permanentlyDenied ? 'สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธถาวร' : 'สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธ'),
-          content: Text(permanentlyDenied
-              ? 'สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธอย่างถาวร กรุณาไปที่การตั้งค่าแอปเพื่อเปิดใช้งานด้วยตนเอง'
-              : 'คุณปฏิเสธการให้สิทธิ์เข้าถึงตำแหน่ง กรุณาให้สิทธิ์เพื่อใช้งานแผนที่'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                setState(() {
-                  _isLoadingLocation = false;
-                  _pickedLocation = _defaultLocation; // Default to Bangkok
-                  _currentAddress = _defaultAddress;
-                });
-              },
-              child: const Text('ยกเลิก'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(dialogContext).pop();
-                if (permanentlyDenied) {
-                  await Geolocator.openAppSettings(); // เปิดหน้าตั้งค่าแอป
-                } else {
-                  // Request permission again if not permanently denied
-                  await Geolocator.requestPermission();
-                }
-                _determinePosition(); // ลองดึงตำแหน่งอีกครั้ง
-              },
-              child: Text(permanentlyDenied ? 'เปิดการตั้งค่าแอป' : 'ให้สิทธิ์'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   // ตรวจสอบสิทธิ์และดึงตำแหน่งปัจจุบัน
@@ -131,7 +49,38 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) {
-        await _showLocationServiceDialog();
+        await showDialog(
+          context: context,
+          barrierDismissible: false, // ผู้ใช้ต้องกดปุ่มใน dialog เท่านั้น
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('บริการระบุตำแหน่งถูกปิดอยู่'),
+              content: const Text('กรุณาเปิดบริการระบุตำแหน่งในตั้งค่าอุปกรณ์ของคุณเพื่อใช้งานแผนที่'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    setState(() {
+                      _isLoadingLocation = false;
+                      _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok, Thailand
+                      _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
+                    });
+                  },
+                  child: const Text('ยกเลิก'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await Geolocator.openLocationSettings(); // เปิดหน้าตั้งค่าตำแหน่ง
+                    // หลังจากกลับจากตั้งค่า ลองดึงตำแหน่งอีกครั้ง
+                    _determinePosition();
+                  },
+                  child: const Text('เปิดการตั้งค่า'),
+                ),
+              ],
+            );
+          },
+        );
       }
       return; // ออกจากฟังก์ชันหลังจากแสดง dialog
     }
@@ -142,7 +91,37 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         if (mounted) {
-          await _showPermissionDeniedDialog(false); // Not permanently denied
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext dialogContext) {
+              return AlertDialog(
+                title: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธ'),
+                content: const Text('คุณปฏิเสธการให้สิทธิ์เข้าถึงตำแหน่ง กรุณาให้สิทธิ์เพื่อใช้งานแผนที่'),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      setState(() {
+                        _isLoadingLocation = false;
+                        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
+                        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
+                      });
+                    },
+                    child: const Text('ยกเลิก'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.of(dialogContext).pop();
+                      await Geolocator.openAppSettings(); // เปิดหน้าตั้งค่าแอป
+                      _determinePosition(); // ลองดึงตำแหน่งอีกครั้ง
+                    },
+                    child: const Text('เปิดการตั้งค่าแอป'),
+                  ),
+                ],
+              );
+            },
+          );
         }
         return; // ออกจากฟังก์ชันหลังจากแสดง dialog
       }
@@ -150,7 +129,37 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
     if (permission == LocationPermission.deniedForever) {
       if (mounted) {
-        await _showPermissionDeniedDialog(true); // Permanently denied
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธถาวร'),
+              content: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธอย่างถาวร กรุณาไปที่การตั้งค่าแอปเพื่อเปิดใช้งานด้วยตนเอง'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    setState(() {
+                      _isLoadingLocation = false;
+                      _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
+                      _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
+                    });
+                  },
+                  child: const Text('ยกเลิก'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await Geolocator.openAppSettings(); // เปิดหน้าตั้งค่าแอป
+                    _determinePosition(); // ลองดึงตำแหน่งอีกครั้ง
+                  },
+                  child: const Text('เปิดการตั้งค่าแอป'),
+                ),
+              ],
+            );
+          },
+        );
       }
       return; // ออกจากฟังก์ชันหลังจากแสดง dialog
     }
@@ -158,16 +167,13 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     // หากได้รับสิทธิ์แล้ว ให้ดึงตำแหน่งปัจจุบัน
     try {
       Position position = await Geolocator.getCurrentPosition(
+          // ignore: deprecated_member_use
           desiredAccuracy: LocationAccuracy.high);
       setState(() {
         _pickedLocation = LatLng(position.latitude, position.longitude);
         _isLoadingLocation = false;
         _updateAddress(_pickedLocation!); // อัปเดตที่อยู่ตามตำแหน่งที่ได้
       });
-      // ย้ายกล้องไปยังตำแหน่งปัจจุบัน
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(_pickedLocation!),
-      );
     } catch (e) {
       print('Error getting current location: $e');
       if (mounted) {
@@ -177,13 +183,9 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       }
       setState(() {
         _isLoadingLocation = false;
-        _pickedLocation = _defaultLocation; // Default to Bangkok
-        _currentAddress = _defaultAddress;
+        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
+        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
       });
-      // ย้ายกล้องไปยังตำแหน่งเริ่มต้น (กรุงเทพฯ)
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(_pickedLocation!),
-      );
     }
   }
 
@@ -198,15 +200,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           // สร้างที่อยู่จากข้อมูล Placemark
           _currentAddress =
               '${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea} ${p.postalCode}';
-          // หากข้อมูลบางส่วนเป็น null หรือว่าง ให้กรองออก
-          List<String?> addressParts = [
-            p.street,
-            p.subLocality,
-            p.locality,
-            p.administrativeArea,
-            p.postalCode
-          ].where((part) => part != null && part.isNotEmpty).toList();
-          _currentAddress = addressParts.join(', ');
         });
       } else {
         setState(() {

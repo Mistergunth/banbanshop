@@ -1,31 +1,36 @@
+// lib/main.dart (ฉบับแก้ไขล่าสุด)
+
 import 'package:banbanshop/firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// Import หน้าหลัก (FeedPage) และหน้าเลือกบทบาท (RoleSelectPage)
+// --- 1. เพิ่ม Import ที่จำเป็น ---
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
+// ---------------------------------
+
 import 'package:banbanshop/screens/feed_page.dart';
-import 'package:banbanshop/screens/role_select.dart'; // ไฟล์ใหม่
-import 'package:banbanshop/screens/models/seller_profile.dart'; // สำหรับ SellerProfile
+import 'package:banbanshop/screens/role_select.dart';
+import 'package:banbanshop/screens/models/seller_profile.dart';
+import 'package:banbanshop/screens/models/store_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // --- 2. ตั้งค่าข้อมูลภาษาเริ่มต้น ---
+  await initializeDateFormatting('th', null);
+  // ---------------------------------
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -34,87 +39,116 @@ class _MyAppState extends State<MyApp> {
         primarySwatch: Colors.blue,
         fontFamily: GoogleFonts.kanit().fontFamily,
       ),
-      home: AuthWrapper(), // ใช้ AuthWrapper เพื่อจัดการการนำทางเริ่มต้น
+      // --- 3. เพิ่มการตั้งค่าภาษาให้กับ MaterialApp ---
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en', ''), // English
+        Locale('th', ''), // Thai
+      ],
+      locale: const Locale('th'), // กำหนดให้ภาษาไทยเป็นภาษาเริ่มต้น
+      // ---------------------------------------------
+      home: const AuthWrapper(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+// Class สำหรับเก็บข้อมูลที่ดึงมาทั้งหมด
+class UserData {
+  final SellerProfile? sellerProfile;
+  final Store? storeProfile;
+
+  UserData({this.sellerProfile, this.storeProfile});
+}
+
+// เปลี่ยน AuthWrapper เป็น StatefulWidget
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  Key _futureBuilderKey = UniqueKey();
+
+  void _refreshData() {
+    setState(() {
+      _futureBuilderKey = UniqueKey();
+    });
+  }
+
+  Future<UserData?> _fetchUserData(String uid) async {
+    try {
+      DocumentSnapshot sellerDoc =
+          await FirebaseFirestore.instance.collection('sellers').doc(uid).get();
+
+      if (!sellerDoc.exists) {
+        return UserData(sellerProfile: null, storeProfile: null);
+      }
+
+      SellerProfile sellerProfile =
+          SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
+
+      if (sellerProfile.hasStore == true && sellerProfile.storeId != null) {
+        DocumentSnapshot storeDoc = await FirebaseFirestore.instance
+            .collection('stores')
+            .doc(sellerProfile.storeId)
+            .get();
+
+        if (storeDoc.exists) {
+          Store storeProfile = Store.fromFirestore(storeDoc);
+          return UserData(sellerProfile: sellerProfile, storeProfile: storeProfile);
+        }
+      }
+      return UserData(sellerProfile: sellerProfile, storeProfile: null);
+    } catch (e) {
+      print("Error fetching user data in AuthWrapper: $e");
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(), // ฟังการเปลี่ยนแปลงสถานะการล็อกอิน
+      stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // แสดงหน้าโหลดขณะรอตรวจสอบสถานะการล็อกอิน
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
         final User? user = snapshot.data;
 
         if (user == null) {
-          // ถ้าไม่มีผู้ใช้ล็อกอินอยู่ ให้ไปหน้าเลือกบทบาท
           return const RoleSelectPage();
         } else {
-          // ถ้ามีผู้ใช้ล็อกอินอยู่ ให้ตรวจสอบว่าเป็นผู้ซื้อหรือผู้ขาย
-          // และนำทางไปยัง FeedPage พร้อมส่งข้อมูลโปรไฟล์ที่เกี่ยวข้อง
-          return FutureBuilder<SellerProfile?>(
-            future: _fetchSellerProfile(user.uid), // ดึงข้อมูลโปรไฟล์ผู้ขาย
-            builder: (context, sellerSnapshot) {
-              if (sellerSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                );
+          return FutureBuilder<UserData?>(
+            key: _futureBuilderKey,
+            future: _fetchUserData(user.uid),
+            builder: (context, userSnapshot) {
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(body: Center(child: CircularProgressIndicator()));
               }
 
-              SellerProfile? sellerProfile = sellerSnapshot.data;
-
-              // กำหนดค่าเริ่มต้นสำหรับ selectedProvince และ selectedCategory
-              // อาจจะดึงมาจาก SharedPreferences หรือ Firebase/Supabase สำหรับผู้ซื้อในอนาคต
-              // สำหรับตอนนี้ ให้ใช้ค่าเริ่มต้น 'ทั้งหมด'
-              String initialProvince = 'ทั้งหมด';
-              String initialCategory = 'ทั้งหมด';
+              SellerProfile? sellerProfile = userSnapshot.data?.sellerProfile;
+              Store? storeProfile = userSnapshot.data?.storeProfile;
+              String initialProvince = sellerProfile?.province ?? 'ทั้งหมด';
 
               return FeedPage(
                 selectedProvince: initialProvince,
-                selectedCategory: initialCategory,
-                sellerProfile: sellerProfile, // ส่งข้อมูล sellerProfile ไปยัง FeedPage
+                selectedCategory: 'ทั้งหมด',
+                sellerProfile: sellerProfile,
+                storeProfile: storeProfile,
+                onRefresh: _refreshData,
               );
             },
           );
         }
       },
     );
-  }
-
-  // ฟังก์ชันสำหรับดึงข้อมูลโปรไฟล์ผู้ขายจาก Firestore
-  // คล้ายกับที่ใช้ใน SellerAccountScreen แต่ใช้ใน main.dart เพื่อตรวจสอบบทบาท
-  Future<SellerProfile?> _fetchSellerProfile(String uid) async {
-    try {
-      // ตรวจสอบใน collection 'sellers'
-      DocumentSnapshot sellerDoc = await FirebaseFirestore.instance
-          .collection('sellers')
-          .doc(uid)
-          .get();
-
-      if (sellerDoc.exists) {
-        return SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
-      }
-      // ถ้าไม่พบใน sellers, อาจเป็นผู้ซื้อ (หรือยังไม่สร้างโปรไฟล์)
-      return null;
-    } catch (e) {
-      // ignore: avoid_print
-      print("Error fetching seller profile in AuthWrapper: $e");
-      return null;
-    }
   }
 }

@@ -9,7 +9,6 @@ import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth เพื่อดึง UID ของผู้ใช้
 // ignore: unused_import
 import 'package:banbanshop/screens/models/seller_profile.dart'; // Import SellerProfile
-import 'package:banbanshop/screens/feed_page.dart'; // Import FeedPage เพื่อส่งโพสต์กลับไป
 
 class CreatePostScreen extends StatefulWidget {
   final String shopName; // เพิ่ม shopName
@@ -343,7 +342,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.black, size: 28),
               onPressed: () {
-                if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => FeedPage()), (route) => false);
+                if (mounted) Navigator.pop(context);
               },
             ),
           ),

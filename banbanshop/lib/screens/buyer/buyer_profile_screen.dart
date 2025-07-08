@@ -1,23 +1,20 @@
-// lib/screens/buyer/buyer_profile_screen.dart
+// lib/screens/buyer/buyer_profile_screen.dart (ฉบับแก้ไข)
 
-// ignore_for_file: avoid_print, use_build_context_synchronously, unused_import
+// ignore_for_file: avoid_print, use_build_context_synchronously
 
-import 'package:banbanshop/screens/role_select.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // สำหรับ FirebaseAuth
-import 'package:cloud_firestore/cloud_firestore.dart'; // สำหรับ Firestore
-import 'package:banbanshop/screens/models/buyer_profile.dart'; // import BuyerProfile model
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:banbanshop/screens/models/buyer_profile.dart';
 import 'package:banbanshop/screens/auth/buyer_register_screen.dart';
 import 'package:banbanshop/screens/auth/buyer_login_screen.dart';
-// import 'package:banbanshop/main.dart'; // สำหรับ HomePage (ถูกเปลี่ยนเป็น RoleSelectPage)
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
-import 'package:image_picker/image_picker.dart'; // เพื่อนำทางไป HomePage หลัง Logout
-import 'dart:io'; // สำหรับ File
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:banbanshop/screens/buyer/favorites_screen.dart';
 
 class BuyerProfileScreen extends StatefulWidget {
-  // แก้ไขตรงนี้: เปลี่ยนจาก required String userEmail เป็น String? email
-  final String? email; // ทำให้เป็น nullable เพื่อรองรับกรณีที่ไม่มี email
-  const BuyerProfileScreen({super.key, this.email}); // รับพารามิเตอร์ email
+  const BuyerProfileScreen({super.key});
 
   @override
   State<BuyerProfileScreen> createState() => _BuyerProfileScreenState();
@@ -26,48 +23,43 @@ class BuyerProfileScreen extends StatefulWidget {
 class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
   User? _currentUser;
   BuyerProfile? _buyerProfile;
-  bool _isLoading = true; // สถานะการโหลดข้อมูล
+  bool _isLoading = true;
 
-  // กำหนดค่า Cloudinary ของคุณที่นี่
   final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // <-- แทนที่ด้วย Cloud Name ของคุณ
-    apiKey: '157343641351425', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- ต้องมีสำหรับ Signed Uploads/Deletion
+    cloudName: 'dbgybkvms',
+    apiKey: '157343641351425',
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU',
   );
-  final String uploadPreset = 'flutter_unsigned_upload'; // <-- แทนที่ด้วยชื่อ Upload Preset ที่คุณสร้าง (เช่น 'flutter_unsigned_upload')
+  final String uploadPreset = 'flutter_unsigned_upload';
 
   @override
   void initState() {
     super.initState();
-    // Listener เพื่อฟังการเปลี่ยนแปลงสถานะการล็อกอิน
     FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (mounted) { // ตรวจสอบว่า widget ยังคงอยู่ก่อน setState
+      if (mounted) {
         setState(() {
           _currentUser = user;
-          _isLoading = true; // ตั้งค่าให้โหลดใหม่เมื่อสถานะเปลี่ยน
+          _isLoading = true;
         });
         if (_currentUser != null) {
-          _fetchBuyerProfile(); // ถ้ามีผู้ใช้ล็อกอินอยู่ ให้ดึงข้อมูลโปรไฟล์
+          _fetchBuyerProfile();
         } else {
-          // ถ้าไม่มีผู้ใช้ล็อกอินแล้ว ให้หยุดโหลด
           setState(() {
             _isLoading = false;
-            _buyerProfile = null; // เคลียร์ข้อมูลโปรไฟล์เก่า
+            _buyerProfile = null;
           });
         }
       }
     });
 
-    // ตรวจสอบสถานะเริ่มต้นเมื่อ Widget ถูกสร้างขึ้น
     _currentUser = FirebaseAuth.instance.currentUser;
     if (_currentUser != null) {
       _fetchBuyerProfile();
     } else {
-      _isLoading = false; // ถ้าไม่มีผู้ใช้ตั้งแต่แรก ไม่ต้องโหลด
+      _isLoading = false;
     }
   }
 
-  // ฟังก์ชันดึงข้อมูลโปรไฟล์ผู้ซื้อจาก Firestore
   Future<void> _fetchBuyerProfile() async {
     if (_currentUser == null) {
       setState(() => _isLoading = false);
@@ -81,243 +73,179 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
           .get();
 
       if (doc.exists) {
-        setState(() {
-          _buyerProfile = BuyerProfile.fromFirestore(doc);
-        });
+        if (mounted) {
+          setState(() {
+            _buyerProfile = BuyerProfile.fromFirestore(doc);
+          });
+        }
       } else {
-        // หากไม่มีข้อมูลใน Firestore (อาจจะเพิ่งสมัครและยังไม่ได้สร้างโปรไฟล์)
-        // สร้างโปรไฟล์เริ่มต้นจากข้อมูล FirebaseAuth และบันทึกลง Firestore
         final newProfile = BuyerProfile(
           uid: _currentUser!.uid,
-          email: _currentUser!.email ?? widget.email ?? '', // ใช้อีเมลจาก widget.email หาก currentUser.email เป็น null
+          email: _currentUser!.email ?? '',
           fullName: _currentUser!.displayName,
           phoneNumber: _currentUser!.phoneNumber,
-          shippingAddress: null, // ค่าเริ่มต้น
-          profileImageUrl: null, // ค่าเริ่มต้น
+          shippingAddress: null,
+          profileImageUrl: null,
         );
         await FirebaseFirestore.instance.collection('buyers').doc(_currentUser!.uid).set(newProfile.toFirestore());
-        setState(() {
-          _buyerProfile = newProfile;
-        });
+        if (mounted) {
+          setState(() {
+            _buyerProfile = newProfile;
+          });
+        }
       }
     } catch (e) {
       print("Error fetching buyer profile: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์: $e')),
-      );
-      setState(() {
-        _buyerProfile = null; // ในกรณีที่ error ให้เป็น null
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์: $e')),
+        );
+        setState(() {
+          _buyerProfile = null;
+        });
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // ฟังก์ชันเลือกและอัปโหลดรูปภาพโปรไฟล์สำหรับผู้ซื้อ
+  // แก้ไข: ใส่โค้ดที่ทำงานได้จริงกลับเข้าไป
   Future<void> _pickAndUploadImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
 
-    if (pickedFile == null) return; // ผู้ใช้ยกเลิกการเลือกรูปภาพ
+    if (pickedFile == null) return;
 
     File imageFile = File(pickedFile.path);
-    User? currentUser = FirebaseAuth.instance.currentUser;
+    User? currentUser = _currentUser;
 
-    if (currentUser == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('กรุณาเข้าสู่ระบบก่อนอัปโหลดรูปภาพ')),
-        );
-      }
-      return;
-    }
+    if (currentUser == null) return;
 
-    setState(() {
-      _isLoading = true; // แสดง loading indicator
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // 1. อัปโหลดรูปภาพไปยัง Cloudinary
       final response = await cloudinary.uploadResource(
         CloudinaryUploadResource(
           filePath: imageFile.path,
           resourceType: CloudinaryResourceType.image,
-          folder: 'buyer_profile_pictures', // โฟลเดอร์สำหรับรูปโปรไฟล์ผู้ซื้อ
-          uploadPreset: uploadPreset, // ใช้ Upload Preset ที่สร้างไว้
+          folder: 'buyer_profile_pictures',
+          uploadPreset: uploadPreset,
         ),
       );
 
-      if (response.isSuccessful) {
-        String? downloadUrl = response.secureUrl; // URL ของรูปภาพที่อัปโหลดสำเร็จ
-        if (downloadUrl != null) {
-          // 2. อัปเดต URL รูปภาพใน Firestore
-          await FirebaseFirestore.instance
-              .collection('buyers')
-              .doc(currentUser.uid)
-              .update({'profileImageUrl': downloadUrl});
+      if (response.isSuccessful && response.secureUrl != null) {
+        String downloadUrl = response.secureUrl!;
+        await FirebaseFirestore.instance
+            .collection('buyers')
+            .doc(currentUser.uid)
+            .update({'profileImageUrl': downloadUrl});
 
-          // 3. อัปเดต UI
-          if (!mounted) return;
-          setState(() {
-            _buyerProfile = _buyerProfile?.copyWith(profileImageUrl: downloadUrl) ??
-                            BuyerProfile(
-                              uid: currentUser.uid,
-                              email: currentUser.email ?? widget.email ?? '', // ใช้อีเมลจาก widget.email หาก currentUser.email เป็น null
-                              fullName: currentUser.displayName,
-                              phoneNumber: currentUser.phoneNumber,
-                              shippingAddress: null,
-                              profileImageUrl: downloadUrl,
-                            );
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('อัปโหลดรูปโปรไฟล์สำเร็จ!')),
-            );
-          });
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('ไม่สามารถรับ URL รูปภาพจาก Cloudinary ได้')),
-            );
-          }
-        }
-      } else {
         if (mounted) {
+          setState(() {
+            _buyerProfile = _buyerProfile?.copyWith(profileImageUrl: downloadUrl);
+          });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ: ${response.error}')),
+            const SnackBar(content: Text('อัปเดตรูปโปรไฟล์สำเร็จ!')),
           );
         }
+      } else {
+        throw Exception(response.error ?? 'Cloudinary upload failed');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: $e')),
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลด: $e')),
         );
       }
     } finally {
-      setState(() {
-        _isLoading = false; // ซ่อน loading indicator
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-
-  // ฟังก์ชันสำหรับจัดการการออกจากระบบ
   void _logout() async {
-    try {
-      await FirebaseAuth.instance.signOut();
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const RoleSelectPage()), // กลับไปหน้าเลือกบทบาท
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      print("Error signing out: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการออกจากระบบ: $e')),
-      );
-    }
+    await FirebaseAuth.instance.signOut();
+    // AuthWrapper will handle navigation
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'โปรไฟล์ผู้ซื้อ',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: const Color(0xFFE8F4FD),
-          elevation: 0,
-          centerTitle: true,
-        ),
-        body: const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE))),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    // ถ้าล็อกอินแล้ว (_currentUser ไม่เป็น null) และโหลดข้อมูลโปรไฟล์เสร็จแล้ว
-    if (_currentUser != null) {
+    if (_currentUser != null && _buyerProfile != null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFE8F4FD), // สีพื้นหลัง
-        appBar: AppBar(
-          title: const Text(
-            'โปรไฟล์ผู้ซื้อ',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: const Color(0xFFE8F4FD),
-          elevation: 0,
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // ส่วนแสดงรูปโปรไฟล์และชื่อ
               _buildProfileHeader(),
               const SizedBox(height: 20),
-              // ปุ่มต่างๆ สำหรับผู้ใช้ที่ล็อกอินแล้ว
-              _buildProfileOptionButton(
-                icon: Icons.location_on,
-                text: 'ที่อยู่จัดส่ง',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ฟังก์ชันจัดการที่อยู่จัดส่งยังไม่พร้อมใช้งาน')),
-                  );
-                },
-              ),
-              _buildProfileOptionButton(
-                icon: Icons.favorite,
-                text: 'รายการโปรด',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ฟังก์ชันรายการโปรดยังไม่พร้อมใช้งาน')),
-                  );
-                },
-              ),
-              _buildProfileOptionButton(
-                icon: Icons.edit,
-                text: 'แก้ไขโปรไฟล์',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ฟังก์ชันแก้ไขโปรไฟล์ยังไม่พร้อมใช้งาน')),
-                  );
-                  // TODO: นำทางไปยังหน้าแก้ไขโปรไฟล์ (BuyerProfileEditScreen)
-                },
-              ),
-              _buildProfileOptionButton(
-                icon: Icons.logout,
-                text: 'ออกจากระบบ',
-                onTap: _logout,
-                isLogout: true,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  children: [
+                    _buildProfileOptionButton(
+                      icon: Icons.location_on_outlined,
+                      text: 'ที่อยู่จัดส่ง',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน')),
+                        );
+                      },
+                    ),
+                    _buildProfileOptionButton(
+                      icon: Icons.favorite_border,
+                      text: 'ร้านค้าโปรด',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const FavoritesScreen()),
+                        );
+                      },
+                    ),
+                     _buildProfileOptionButton(
+                      icon: Icons.rate_review_outlined,
+                      text: 'รีวิวของฉัน',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน')),
+                        );
+                      },
+                    ),
+                    _buildProfileOptionButton(
+                      icon: Icons.edit_outlined,
+                      text: 'แก้ไขโปรไฟล์',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน')),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    _buildProfileOptionButton(
+                      icon: Icons.logout,
+                      text: 'ออกจากระบบ',
+                      onTap: _logout,
+                      isLogout: true,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
       );
     } else {
-      // ถ้ายังไม่ได้ล็อกอิน ให้แสดง UI เดิมของคุณ
       return Scaffold(
-        backgroundColor: Colors.grey[50], // สีพื้นหลังอ่อนๆ
-        appBar: AppBar(
-          title: const Text(
-            'โปรไฟล์ผู้ซื้อ',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.grey[50],
-          elevation: 0,
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
+        backgroundColor: Colors.grey[50],
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -325,72 +253,40 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ไอคอนเพื่อเพิ่มความสวยงาม
-                Icon(
-                  Icons.person_outline,
-                  size: 80,
-                  color: Colors.grey[400],
-                ),
+                Icon(Icons.person_outline, size: 80, color: Colors.grey[400]),
                 const SizedBox(height: 16),
-
-                // ข้อความเชิญชวน
                 const Text(
                   'เข้าสู่ระบบหรือสมัครสมาชิก',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'เพื่อดูประวัติการสั่งซื้อและจัดการโปรไฟล์ของคุณ',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 40),
-
-                // ปุ่มเข้าสู่ระบบ
                 ElevatedButton(
                   onPressed: () {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const BuyerLoginScreen()));
-                    print('Navigate to Login Screen');
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9C6ADE), // สีปุ่ม
-                    foregroundColor: Colors.white, // สีข้อความ
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text(
-                    'เข้าสู่ระบบ',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  child: const Text('เข้าสู่ระบบ', style: TextStyle(fontSize: 16)),
                 ),
                 const SizedBox(height: 12),
-
-                // ปุ่มสมัครสมาชิก
                 OutlinedButton(
                   onPressed: () {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const BuyerRegisterScreen()));
-                    print('Navigate to Register Screen');
                   },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Color(0xFF9C6ADE)), // สีขอบ
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text(
-                    'สมัครสมาชิก',
-                    style: TextStyle(fontSize: 16, color: Color(0xFF9C6ADE)), // สีข้อความ
-                  ),
+                  child: const Text('สมัครสมาชิก', style: TextStyle(fontSize: 16)),
                 ),
               ],
             ),
@@ -400,82 +296,87 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
     }
   }
 
-  // ส่วนแสดง Header ของโปรไฟล์ (รูปภาพ, ชื่อ, อีเมล, เบอร์โทร)
   Widget _buildProfileHeader() {
-    // กำหนดรูปโปรไฟล์
     ImageProvider<Object> profileImage;
-    // ตรวจสอบว่ามี _buyerProfile และ profileImageUrl ไม่เป็น null และเป็น URL ที่ถูกต้อง
-    if (_buyerProfile != null && _buyerProfile!.profileImageUrl != null && _buyerProfile!.profileImageUrl!.startsWith('http')) {
+    if (_buyerProfile?.profileImageUrl != null && _buyerProfile!.profileImageUrl!.startsWith('http')) {
       profileImage = NetworkImage(_buyerProfile!.profileImageUrl!);
     } else {
-      // ใช้รูปภาพเริ่มต้นจาก assets หรือไอคอน
-      profileImage = const AssetImage('assets/images/default_avatar.png'); // สมมติว่ามีไฟล์นี้
+      profileImage = const AssetImage('assets/images/default_avatar.png');
     }
 
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: _pickAndUploadImage, // เรียกใช้ฟังก์ชันเลือกรูปโปรไฟล์
-          child: CircleAvatar(
-            radius: 50,
-            backgroundImage: profileImage,
-            // แสดงไอคอนกล้องเมื่อไม่มีรูปโปรไฟล์ที่ถูกต้อง
-            child: (_buyerProfile?.profileImageUrl == null || !_buyerProfile!.profileImageUrl!.startsWith('http'))
-                ? const Icon(Icons.camera_alt, size: 30, color: Colors.white70)
-                : null,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 40, bottom: 20),
+      decoration: const BoxDecoration(
+        color: Color(0xFFE8F0F7),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: _pickAndUploadImage,
+            child: CircleAvatar(
+              radius: 50,
+              backgroundImage: profileImage,
+              child: (_buyerProfile?.profileImageUrl == null || !_buyerProfile!.profileImageUrl!.startsWith('http'))
+                  ? const Icon(Icons.camera_alt, size: 30, color: Colors.white70)
+                  : null,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          _buyerProfile?.fullName ?? _currentUser?.displayName ?? 'ผู้ซื้อ',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        Text(
-          _buyerProfile?.email ?? _currentUser?.email ?? widget.email ?? '', // ใช้อีเมลจาก widget.email หากไม่มีใน Firestore หรือ currentUser
-          style: const TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-        if (_buyerProfile?.phoneNumber != null && _buyerProfile!.phoneNumber!.isNotEmpty)
+          const SizedBox(height: 10),
           Text(
-            _buyerProfile!.phoneNumber!,
+            _buyerProfile?.fullName ?? _currentUser?.displayName ?? _currentUser?.email ?? 'ผู้ซื้อ',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            _buyerProfile?.email ?? _currentUser?.email ?? '',
             style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
-      ],
+          if (_buyerProfile?.phoneNumber != null && _buyerProfile!.phoneNumber!.isNotEmpty)
+            Text(
+              _buyerProfile!.phoneNumber!,
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+        ],
+      ),
     );
   }
 
-  // Widget สำหรับสร้างปุ่มตัวเลือกในหน้าโปรไฟล์
   Widget _buildProfileOptionButton({
     required IconData icon,
     required String text,
     required VoidCallback onTap,
-    bool isLogout = false, // เพื่อให้ปุ่ม Logout มีสีแดง
+    bool isLogout = false,
   }) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Icon(icon, color: isLogout ? Colors.red : const Color(0xFF9B7DD9)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: isLogout ? Colors.red : Colors.black87,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.1),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(15),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Icon(icon, color: isLogout ? Colors.red : const Color(0xFF9B7DD9)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: isLogout ? Colors.red : Colors.black87,
+                    ),
                   ),
                 ),
-              ),
-              if (!isLogout) // ไม่แสดงลูกศรสำหรับปุ่ม Logout
-                const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 20),
-            ],
+                if (!isLogout)
+                  const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 20),
+              ],
+            ),
           ),
         ),
       ),

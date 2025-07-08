@@ -1,21 +1,26 @@
-// lib/screens/seller/store_create.dart
+// lib/screens/seller/store_create.dart (ฉบับแก้ไข)
 
 // ignore_for_file: use_build_context_synchronously, avoid_print, deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart'; // For FirebaseAuth
-import 'package:cloud_firestore/cloud_firestore.dart'; // For Firestore
-import 'package:cloudinary_sdk/cloudinary_sdk.dart'; // For Cloudinary
-import 'package:uuid/uuid.dart'; // For generating UUID
-import 'package:banbanshop/screens/map_picker_screen.dart'; // Add import for MapPickerScreen
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // Add import for LatLng
-import 'package:banbanshop/screens/models/store_model.dart'; // Add import Store model here
-import 'package:banbanshop/screens/feed_page.dart'; // Import FeedPage for navigation
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloudinary_sdk/cloudinary_sdk.dart';
+import 'package:uuid/uuid.dart';
+import 'package:banbanshop/screens/map_picker_screen.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:banbanshop/screens/models/store_model.dart';
+import 'package:banbanshop/screens/models/seller_profile.dart';
 
 class StoreCreateScreen extends StatefulWidget {
-  const StoreCreateScreen({super.key});
+  final VoidCallback? onRefresh; // <-- 1. เพิ่ม field สำหรับรับฟังก์ชัน
+
+  const StoreCreateScreen({
+    super.key,
+    this.onRefresh, // <-- 2. เพิ่มใน constructor
+  });
 
   @override
   State<StoreCreateScreen> createState() => _StoreCreateScreenState();
@@ -31,16 +36,18 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   String? _selectedStoreType;
   File? _shopImageFile;
   bool _isUploading = false;
+  bool _isFetchingInitialData = true;
 
   double? _selectedLatitude;
   double? _selectedLongitude;
+  SellerProfile? _currentSellerProfile;
 
   final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // <-- Replace with your Cloud Name
-    apiKey: '157343641351425', // <-- Required for Signed Uploads/Deletion
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // <-- Required for Signed Uploads/Deletion
+    cloudName: 'dbgybkvms',
+    apiKey: '157343641351425',
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU',
   );
-  final String uploadPreset = 'flutter_unsigned_upload'; // <-- Your Upload Preset Name
+  final String uploadPreset = 'flutter_unsigned_upload';
 
   final List<String> _storeTypes = [
     'อาหาร & เครื่องดื่ม',
@@ -52,6 +59,12 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _fetchSellerData();
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
@@ -61,23 +74,39 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     super.dispose();
   }
 
+  Future<void> _fetchSellerData() async {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      setState(() => _isFetchingInitialData = false);
+      return;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance.collection('sellers').doc(currentUser.uid).get();
+      if (doc.exists) {
+        setState(() {
+          _currentSellerProfile = SellerProfile.fromJson(doc.data()!);
+          _isFetchingInitialData = false;
+        });
+      } else {
+         setState(() => _isFetchingInitialData = false);
+      }
+    } catch (e) {
+      print("Error fetching seller data: $e");
+      setState(() => _isFetchingInitialData = false);
+    }
+  }
+
   Future<void> _pickShopImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (!mounted) return;
-
-    setState(() {
-      if (pickedFile != null) {
+    if (pickedFile != null) {
+      setState(() {
         _shopImageFile = File(pickedFile.path);
-      } else {
-        print('No image selected for shop.');
-      }
-    });
+      });
+    }
   }
 
   Future<void> _pickLocationOnMap() async {
-    // Pass initialLatLng to MapPickerScreen if a location is already selected
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -90,86 +119,54 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     );
 
     if (result != null && result is Map<String, dynamic>) {
-      final double latitude = result['latitude']!;
-      final double longitude = result['longitude']!;
-      final String address = result['address']!; // Get address back
-
       setState(() {
-        _selectedLatitude = latitude;
-        _selectedLongitude = longitude;
-        _locationAddressController.text = address; // Update Controller with address
+        _selectedLatitude = result['latitude']!;
+        _selectedLongitude = result['longitude']!;
+        _locationAddressController.text = result['address']!;
       });
     }
   }
 
   Future<void> _createStore() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
+    if (!_formKey.currentState!.validate()) return;
     if (_shopImageFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเลือกรูปภาพหน้าร้าน')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรุณาเลือกรูปภาพหน้าร้าน')));
       return;
     }
     if (_selectedLatitude == null || _selectedLongitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาปักหมุดตำแหน่งร้านบนแผนที่')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรุณาปักหมุดตำแหน่งร้านบนแผนที่')));
+      return;
+    }
+    if (_currentSellerProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ไม่พบข้อมูลผู้ขาย กรุณาลองใหม่อีกครั้ง')));
       return;
     }
 
-    setState(() {
-      _isUploading = true;
-    });
+    setState(() => _isUploading = true);
 
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('คุณต้องเข้าสู่ระบบเพื่อสร้างร้านค้า')),
-      );
-      setState(() {
-        _isUploading = false;
-      });
+      setState(() => _isUploading = false);
       return;
     }
 
     String? shopImageUrl;
     try {
-      // 1. Upload shop image to Cloudinary
       final response = await cloudinary.uploadResource(
         CloudinaryUploadResource(
           filePath: _shopImageFile!.path,
           resourceType: CloudinaryResourceType.image,
-          folder: 'shop_images', // Folder for shop images
+          folder: 'shop_images',
           uploadPreset: uploadPreset,
         ),
       );
 
-      if (response.isSuccessful) {
-        shopImageUrl = response.secureUrl;
-        if (shopImageUrl == null || shopImageUrl.isEmpty) {
-          throw 'Cannot get image URL from Cloudinary';
-        }
-      } else {
-        throw 'Image upload failed: ${response.error}';
+      if (!response.isSuccessful || response.secureUrl == null) {
+        throw 'อัปโหลดรูปภาพไม่สำเร็จ: ${response.error}';
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading image: $e')),
-        );
-      }
-      setState(() {
-        _isUploading = false;
-      });
-      return;
-    }
+      shopImageUrl = response.secureUrl;
 
-    // 2. Save store data to Firestore
-    try {
-      final String storeId = const Uuid().v4(); // Generate store ID
+      final String storeId = const Uuid().v4();
       final newStore = Store(
         id: storeId,
         ownerUid: currentUser.uid,
@@ -177,287 +174,246 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
         description: _descriptionController.text.trim(),
         type: _selectedStoreType!,
         imageUrl: shopImageUrl,
-        locationAddress: _locationAddressController.text.trim(), // Use locationAddress
+        locationAddress: _locationAddressController.text.trim(),
         latitude: _selectedLatitude,
         longitude: _selectedLongitude,
         openingHours: _openingHoursController.text.trim(),
-        phoneNumber: _phoneNumberController.text.trim(), // Save phone number
+        phoneNumber: _phoneNumberController.text.trim(),
         createdAt: DateTime.now(),
+        province: _currentSellerProfile!.province,
       );
 
       await FirebaseFirestore.instance
-          .collection('stores') // Collection for stores
+          .collection('stores')
           .doc(storeId)
-          .set(newStore.toFirestore()); // Use toFirestore() as per reference
+          .set(newStore.toFirestore());
 
-      // 3. Update seller data in Firestore to indicate they have a store
       await FirebaseFirestore.instance
           .collection('sellers')
           .doc(currentUser.uid)
           .update({
         'hasStore': true,
         'storeId': storeId,
-        'shopName': _nameController.text.trim(), // Add shopName to SellerProfile
-        'shopAvatarImageUrl': shopImageUrl, // Add shopAvatarImageUrl to SellerProfile
-        'shopPhoneNumber': _phoneNumberController.text.trim(), // Add: Save shop phone number in seller profile
-        'shopLatitude': _selectedLatitude, // Add: Save shop latitude in seller profile
-        'shopLongitude': _selectedLongitude, // Add: Save shop longitude in seller profile
+        'shopName': _nameController.text.trim(),
+        'shopAvatarImageUrl': shopImageUrl,
+        'shopPhoneNumber': _phoneNumberController.text.trim(),
+        'shopLatitude': _selectedLatitude,
+        'shopLongitude': _selectedLongitude,
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('สร้างร้านค้าสำเร็จ!')),
         );
-        // Navigate back to FeedPage and remove all previous routes, passing null for required parameters
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const FeedPage(selectedProvince: null, selectedCategory: null)),
-          (Route<dynamic> route) => false, // This makes sure all previous routes are removed
-        );
+        widget.onRefresh?.call(); // <-- 3. เรียกใช้ฟังก์ชัน onRefresh ถ้ามี
+        Navigator.pop(context); // กลับไปยังหน้าก่อนหน้า
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving store data: $e')),
+          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
         );
       }
     } finally {
-      setState(() {
-        _isUploading = false;
-      });
+      if(mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F4FD), // Change AppBar and Scaffold background color
+      backgroundColor: const Color(0xFFE8F4FD),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF9C6ADE), // Change AppBar background color
+        backgroundColor: const Color(0xFF9C6ADE),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white), // Change back icon color
-          onPressed: () {
-            // Navigate back to FeedPage and remove all previous routes, passing null for required parameters
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const FeedPage(selectedProvince: null, selectedCategory: null)),
-              (Route<dynamic> route) => false, // This makes sure all previous routes are removed
-            );
-          },
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'สร้างร้านค้าใหม่', // Change text to "Create New Store"
+          'สร้างร้านค้าใหม่',
           style: TextStyle(
-            color: Colors.white, // Change Title text color
-            fontWeight: FontWeight.w500,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Upload shop image (improved UI)
-              GestureDetector(
-                onTap: _pickShopImage,
-                child: Container(
-                  height: 180, // Increase height
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20), // Add border radius
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: _shopImageFile != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(20), // Add border radius
-                          child: Image.file(_shopImageFile!, fit: BoxFit.cover))
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.camera_alt, size: 50, color: Colors.grey[600]), // Increase icon size
-                            const SizedBox(height: 10),
-                            Text(
-                              'เพิ่มรูปหน้าร้าน', // Change text
-                              style: TextStyle(color: Colors.grey[600], fontSize: 16), // Increase font size
+      body: _isFetchingInitialData
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    GestureDetector(
+                      onTap: _pickShopImage,
+                      child: Container(
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
                             ),
                           ],
                         ),
-                ),
-              ),
-              const SizedBox(height: 24), // Add spacing
-
-              // Store Name
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: 'ชื่อร้านค้า', // Change Label
-                  hintText: 'ป้อนชื่อร้านค้าของคุณ',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // Add border radius
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.store, color: Color(0xFF9C6ADE)), // Add icon
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'กรุณาป้อนชื่อร้านค้า';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Store Description
-              TextFormField(
-                controller: _descriptionController,
-                maxLines: 4, // Increase number of lines
-                decoration: InputDecoration(
-                  labelText: 'คำอธิบายร้านค้า', // Change Label
-                  hintText: 'อธิบายเกี่ยวกับร้านค้าของคุณให้ลูกค้าทราบ',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // Add border radius
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.description, color: Color(0xFF9C6ADE)), // Add icon
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'กรุณาป้อนรายละเอียดร้านค้า';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Store Type (Dropdown)
-              DropdownButtonFormField<String>(
-                value: _selectedStoreType,
-                decoration: InputDecoration(
-                  labelText: 'ประเภท/หมวดหมู่ร้านค้า', // Change Label
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // Add border radius
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.category, color: Color(0xFF9C6ADE)), // Add icon
-                ),
-                items: _storeTypes.map((String type) {
-                  return DropdownMenuItem<String>(
-                    value: type,
-                    child: Text(type),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedStoreType = newValue;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'กรุณาเลือกประเภทร้านค้า';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Pin Store Location (linked to MapPickerScreen)
-              TextFormField(
-                controller: _locationAddressController,
-                readOnly: true, // Make it non-editable directly
-                onTap: _pickLocationOnMap, // Navigate to map screen on tap
-                decoration: InputDecoration(
-                  labelText: 'ที่ตั้งร้านค้า (เลือกจากแผนที่)', // Change Label
-                  hintText: _selectedLatitude == null
-                      ? 'แตะเพื่อเลือกตำแหน่งบนแผนที่'
-                      : 'ตำแหน่งที่เลือก: ${_locationAddressController.text}',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // Add border radius
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.location_on, color: Color(0xFF9C6ADE)), // Add icon
-                  suffixIcon: const Icon(Icons.map, color: Color(0xFF9C6ADE)), // Add map icon
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty || _selectedLatitude == null) {
-                    return 'กรุณาปักหมุดตำแหน่งร้านบนแผนที่';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Opening Hours
-              TextFormField(
-                controller: _openingHoursController,
-                decoration: InputDecoration(
-                  labelText: 'ระยะเวลาเปิด-ปิดร้าน', // Change Label
-                  hintText: 'เช่น 09:00 - 18:00 น. ทุกวัน',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // Add border radius
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.access_time, color: Color(0xFF9C6ADE)), // Add icon
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'กรุณาป้อนระยะเวลาเปิด-ปิดร้าน';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Shop Phone Number
-              TextFormField(
-                controller: _phoneNumberController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: 'เบอร์โทรศัพท์ร้าน', // Change Label
-                  hintText: 'ป้อนเบอร์โทรศัพท์สำหรับติดต่อร้าน',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), // Add border radius
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.phone, color: Color(0xFF9C6ADE)), // Add icon
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'กรุณาป้อนเบอร์โทรศัพท์ร้าน';
-                  }
-                  // You might add regex for valid phone number validation
-                  return null;
-                },
-              ),
-              const SizedBox(height: 32),
-
-              // Create Store Button
-              _isUploading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE))) // Change CircularProgressIndicator color
-                  : ElevatedButton(
-                      onPressed: _createStore,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white, // Change button background color
-                        foregroundColor: const Color(0xFF9C6ADE), // Change button text color
-                        padding: const EdgeInsets.symmetric(vertical: 18), // Increase padding
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25), // Add border radius
-                        ),
-                        elevation: 5, // Add shadow
-                      ),
-                      child: const Text(
-                        'สร้างร้านค้า',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), // Increase font size and make bold
+                        child: _shopImageFile != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.file(_shopImageFile!, fit: BoxFit.cover))
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.camera_alt, size: 50, color: Colors.grey[600]),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'เพิ่มรูปหน้าร้าน',
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
-            ],
-          ),
-        ),
-      ),
+                    const SizedBox(height: 24),
+
+                    // Store Name
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: 'ชื่อร้านค้า',
+                        hintText: 'ป้อนชื่อร้านค้าของคุณ',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.store, color: Color(0xFF9C6ADE)),
+                      ),
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณาป้อนชื่อร้านค้า' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Description
+                    TextFormField(
+                      controller: _descriptionController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: 'คำอธิบายร้านค้า',
+                        hintText: 'อธิบายเกี่ยวกับร้านค้าของคุณให้ลูกค้าทราบ',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.description, color: Color(0xFF9C6ADE)),
+                      ),
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณาป้อนรายละเอียดร้านค้า' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Store Type Dropdown
+                    DropdownButtonFormField<String>(
+                      value: _selectedStoreType,
+                      decoration: InputDecoration(
+                        labelText: 'ประเภท/หมวดหมู่ร้านค้า',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.category, color: Color(0xFF9C6ADE)),
+                      ),
+                      items: _storeTypes.map((String type) {
+                        return DropdownMenuItem<String>(
+                          value: type,
+                          child: Text(type),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedStoreType = newValue;
+                        });
+                      },
+                      validator: (value) => (value == null) ? 'กรุณาเลือกประเภทร้านค้า' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Location Picker
+                    TextFormField(
+                      controller: _locationAddressController,
+                      readOnly: true,
+                      onTap: _pickLocationOnMap,
+                      decoration: InputDecoration(
+                        labelText: 'ที่ตั้งร้านค้า (เลือกจากแผนที่)',
+                        hintText: _selectedLatitude == null
+                            ? 'แตะเพื่อเลือกตำแหน่งบนแผนที่'
+                            : 'เลือกตำแหน่งแล้ว',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.location_on, color: Color(0xFF9C6ADE)),
+                        suffixIcon: const Icon(Icons.map, color: Color(0xFF9C6ADE)),
+                      ),
+                      validator: (value) => (value == null || value.trim().isEmpty || _selectedLatitude == null) ? 'กรุณาปักหมุดตำแหน่งร้านบนแผนที่' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Opening Hours
+                    TextFormField(
+                      controller: _openingHoursController,
+                      decoration: InputDecoration(
+                        labelText: 'ระยะเวลาเปิด-ปิดร้าน',
+                        hintText: 'เช่น 09:00 - 18:00 น. ทุกวัน',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.access_time, color: Color(0xFF9C6ADE)),
+                      ),
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณาป้อนระยะเวลาเปิด-ปิดร้าน' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Phone Number
+                    TextFormField(
+                      controller: _phoneNumberController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: 'เบอร์โทรศัพท์ร้าน',
+                        hintText: 'ป้อนเบอร์โทรศัพท์สำหรับติดต่อร้าน',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.phone, color: Color(0xFF9C6ADE)),
+                      ),
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณาป้อนเบอร์โทรศัพท์ร้าน' : null,
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Submit Button
+                    _isUploading
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                            onPressed: _createStore,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF9C6ADE),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                              elevation: 5,
+                            ),
+                            child: const Text(
+                              'สร้างร้านค้า',
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }
