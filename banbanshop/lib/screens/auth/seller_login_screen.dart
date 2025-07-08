@@ -1,11 +1,12 @@
-// lib/screens/auth/seller_login_screen.dart (ฉบับแก้ไขล่าสุด)
+// lib/screens/auth/seller_login_screen.dart (ฉบับแก้ไข)
 
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:banbanshop/main.dart'; // <-- Import MyApp
+import 'package:banbanshop/main.dart';
 import 'package:flutter/material.dart';
 import 'package:banbanshop/screens/auth/seller_register_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SellerLoginScreen extends StatefulWidget {
   const SellerLoginScreen({super.key});
@@ -16,44 +17,87 @@ class SellerLoginScreen extends StatefulWidget {
 
 class _SellerLoginScreenState extends State<SellerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _loginController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _loginController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _loginSeller() async {
+  Future<void> _loginSeller() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
-    final String email = _emailController.text.trim();
+    final String loginInput = _loginController.text.trim();
     final String password = _passwordController.text;
+    String? emailToLogin;
 
     try {
-      // 1. ทำการล็อคอินด้วย Firebase Auth เท่านั้น
+      // --- ตรรกะใหม่: ตรวจสอบว่าเป็นอีเมลหรือเบอร์โทร ---
+      bool isEmail = loginInput.contains('@');
+
+      if (isEmail) {
+        emailToLogin = loginInput;
+      } else {
+        // ถ้าไม่ใช่ email, ให้สันนิษฐานว่าเป็นเบอร์โทร และค้นหา email ที่ผูกกัน
+        // จัดรูปแบบเบอร์โทรให้เป็น +66... เพื่อให้ตรงกับข้อมูลใน Firestore
+        String formattedPhone = loginInput;
+        if (formattedPhone.startsWith('0')) {
+          formattedPhone = "+66${formattedPhone.substring(1)}";
+        } else if (formattedPhone.length == 9) {
+          formattedPhone = "+66$formattedPhone";
+        }
+
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('sellers')
+            .where('phoneNumber', isEqualTo: formattedPhone)
+            .limit(1)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          emailToLogin = querySnapshot.docs.first.data()['email'];
+        } else {
+          throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบบัญชีผู้ใช้ด้วยเบอร์โทรศัพท์นี้');
+        }
+      }
+      // ------------------------------------------------
+
+      if (emailToLogin == null) {
+         throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบข้อมูลอีเมลสำหรับใช้เข้าสู่ระบบ');
+      }
+
+      // ทำการล็อคอินด้วย Email และ Password
       await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
+        email: emailToLogin,
         password: password,
       );
 
-      // 2. เมื่อล็อคอินสำเร็จ ไม่ต้องดึงข้อมูลหรือนำทางไป FeedPage เอง
-      // ให้ทำการ "รีสตาร์ท" แอป เพื่อให้ AuthWrapper ทำงาน
+      // ตรวจสอบว่าผู้ใช้ได้ยืนยันอีเมลแล้วหรือยัง
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && !user.emailVerified) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        await FirebaseAuth.instance.signOut(); // ออกจากระบบเพื่อให้ไปยืนยันก่อน
+        setState(() => _isLoading = false);
+        return;
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
         );
-        // การนำทางกลับไปที่ MyApp จะบังคับให้ AuthWrapper ทำงานใหม่
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MyApp()),
@@ -62,29 +106,18 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       }
 
     } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      String message;
-      // ปรับปรุงการจัดการ Error ให้ครอบคลุมมากขึ้น
+      String message = e.message ?? 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
       if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        message = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
-      } else if (e.code == 'invalid-email') {
-        message = 'รูปแบบอีเมลไม่ถูกต้อง';
-      } else {
-        message = 'เกิดข้อผิดพลาด: ${e.message}';
+        message = 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง';
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -99,9 +132,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
@@ -111,42 +142,22 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15.0),
-            boxShadow: [
-              BoxShadow(
-                // ignore: deprecated_member_use
-                color: Colors.grey.withOpacity(0.2),
-                spreadRadius: 2,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), spreadRadius: 2, blurRadius: 5, offset: const Offset(0, 3))],
           ),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ผู้ขาย - เข้าสู่ระบบ',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                const Text('ผู้ขาย - เข้าสู่ระบบ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 _buildInputField(
-                  label: 'อีเมล',
-                  controller: _emailController,
+                  label: 'อีเมล หรือ เบอร์โทรศัพท์',
+                  controller: _loginController,
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'กรุณากรอกอีเมล';
-                    }
-                    final bool isEmail = RegExp(
-                      r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$',
-                    ).hasMatch(value);
-                    if (!isEmail) {
-                      return 'กรุณากรอกอีเมลให้ถูกรูปแบบ';
+                      return 'กรุณากรอกอีเมล หรือ เบอร์โทรศัพท์';
                     }
                     return null;
                   },
@@ -156,11 +167,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                   label: 'รหัสผ่าน',
                   controller: _passwordController,
                   isVisible: _isPasswordVisible,
-                  onToggleVisibility: () {
-                    setState(() {
-                      _isPasswordVisible = !_isPasswordVisible;
-                    });
-                  },
+                  onToggleVisibility: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'กรุณากรอกรหัสผ่าน';
@@ -176,45 +183,21 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
                     onPressed: _isLoading ? null : _loginSeller,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9B7DD9),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
                     ),
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            'เข้าสู่ระบบ',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        : const Text('เข้าสู่ระบบ', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'ยังไม่มีบัญชี?',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
+                    const Text('ยังไม่มีบัญชี?', style: TextStyle(fontSize: 16, color: Colors.grey)),
                     TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const SellerRegisterScreen()),
-                        );
-                      },
-                      child: const Text(
-                        'สมัครสมาชิก',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF9B7DD9),
-                        ),
-                      ),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SellerRegisterScreen())),
+                      child: const Text('สมัครสมาชิก', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF9B7DD9))),
                     ),
                   ],
                 ),
@@ -235,23 +218,13 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
-        ),
+        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.0),
-              borderSide: BorderSide.none,
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0), borderSide: BorderSide.none),
             filled: true,
             fillColor: Colors.grey[200],
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -272,31 +245,18 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
-        ),
+        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           obscureText: !isVisible,
           decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.0),
-              borderSide: BorderSide.none,
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0), borderSide: BorderSide.none),
             filled: true,
             fillColor: Colors.grey[200],
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             suffixIcon: IconButton(
-              icon: Icon(
-                isVisible ? Icons.visibility : Icons.visibility_off,
-                color: Colors.grey,
-              ),
+              icon: Icon(isVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
               onPressed: onToggleVisibility,
             ),
           ),

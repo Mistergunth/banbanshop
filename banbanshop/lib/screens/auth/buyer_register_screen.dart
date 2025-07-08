@@ -1,9 +1,12 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+// lib/screens/auth/buyer_register_screen.dart (OTP Verification)
+
+// ignore_for_file: use_build_context_synchronously, avoid_print
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:banbanshop/screens/auth/buyer_login_screen.dart'; // Import หน้าล็อคอินผู้ซื้อ
+import 'package:banbanshop/screens/auth/buyer_login_screen.dart';
+import 'package:flutter/services.dart';
 
 class BuyerRegisterScreen extends StatefulWidget {
   const BuyerRegisterScreen({super.key});
@@ -14,20 +17,25 @@ class BuyerRegisterScreen extends StatefulWidget {
 
 class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _auth = FirebaseAuth.instance;
 
-  // Controllers for user input
-  final TextEditingController _fullNameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneNumberController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _otpController = TextEditingController();
 
   String? _selectedProvince;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
 
-  // List of provinces (เหมือนกับของผู้ขาย)
+  // --- State สำหรับ OTP ---
+  bool _isOtpSent = false; // สถานะว่าส่ง OTP ไปแล้วหรือยัง
+  String? _verificationId; // เก็บ verificationId ที่ได้จาก Firebase
+  // -----------------------
+
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
     'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร',
@@ -41,7 +49,6 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
     'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ', 'สมุทรสงคราม',
     'สมุทรสาคร', 'สระแก้ว', 'สระบุรี', 'สิงห์บุรี', 'สุโขทัย',
     'สุพรรณบุรี', 'สุราษฎร์ธานี', 'สุรินทร์', 'หนองคาย', 'หนองบัวลำภู',
-
     'อ่างทอง', 'อุดรธานี', 'อุทัยธานี', 'อุตรดิตถ์', 'อุบลราชธานี', 'อำนาจเจริญ'
   ];
 
@@ -49,58 +56,129 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
   void dispose() {
     _fullNameController.dispose();
     _emailController.dispose();
-    _phoneNumberController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
+  // --- ฟังก์ชันสำหรับส่ง OTP ---
+  Future<void> _sendOtp() async {
+    // ตรวจสอบเฉพาะช่องเบอร์โทรก่อนส่ง OTP
+    if (_phoneController.text.isEmpty || _phoneController.text.length != 9) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกเบอร์โทรศัพท์ 9 หลักให้ถูกต้อง')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final phoneNumber = "+66${_phoneController.text.trim()}";
+
+    await _auth.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        // กรณีที่ Firebase ยืนยันอัตโนมัติ (เช่น บนอุปกรณ์เดียวกัน)
+        // เราสามารถล็อคอินได้เลย แต่ในขั้นตอนสมัคร เราจะยังไม่ทำ
+        print("Auto verification completed");
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        print("Verification Failed: ${e.message}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("เกิดข้อผิดพลาดในการส่ง OTP: ${e.message}")),
+        );
+        setState(() => _isLoading = false);
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        // เมื่อส่งรหัสไปแล้ว ให้แสดงช่องกรอก OTP
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OTP ได้ถูกส่งไปยังเบอร์โทรศัพท์ของคุณแล้ว')),
+        );
+        setState(() {
+          _isOtpSent = true;
+          _verificationId = verificationId;
+          _isLoading = false;
+        });
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        // Timeout
+      },
+    );
+  }
+  // --------------------------
+
   void _registerBuyer() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) return;
+    if (!_isOtpSent || _verificationId == null) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากดส่งและยืนยัน OTP ก่อน')),
+      );
+      return;
+    }
 
-      try {
-        // 1. สร้างผู้ใช้ใน Firebase Authentication
-        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+    setState(() => _isLoading = true);
 
-        // 2. บันทึกข้อมูลผู้ซื้อลงใน Cloud Firestore (ใน collection 'buyers')
-        await FirebaseFirestore.instance
-            .collection('buyers') // <-- จุดสำคัญ: เปลี่ยนเป็น collection 'buyers'
-            .doc(userCredential.user!.uid)
-            .set({
-              'uid': userCredential.user!.uid,
-              'fullName': _fullNameController.text.trim(),
-              'email': _emailController.text.trim(),
-              'phoneNumber': _phoneNumberController.text.trim(),
-              'province': _selectedProvince,
-              'createdAt': Timestamp.now(), // เก็บเวลาที่สมัคร
-            });
+    try {
+      // 1. สร้าง Credential จาก OTP ที่ผู้ใช้กรอก
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: _otpController.text.trim(),
+      );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')),
-        );
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const BuyerLoginScreen()),
-          (route) => false,
-        );
+      // 2. สร้างผู้ใช้ใน Firebase Authentication ด้วย Email/Password ก่อน
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-      } on FirebaseAuthException catch (e) {
-        String message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
-        if (e.code == 'weak-password') {
-          message = 'รหัสผ่านคาดเดาง่ายเกินไป';
-        } else if (e.code == 'email-already-in-use') {
-          message = 'อีเมลนี้มีผู้ใช้งานในระบบแล้ว';
-        }
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
-        );
-      } finally {
+      final user = userCredential.user;
+      if (user == null) {
+        throw Exception("ไม่สามารถสร้างผู้ใช้ได้");
+      }
+
+      // 3. เชื่อมโยงเบอร์โทรศัพท์ที่ยืนยันแล้วเข้ากับบัญชี
+      await user.linkWithCredential(credential);
+
+      // 4. ส่งอีเมลยืนยันตัวตน
+      await user.sendEmailVerification();
+
+      // 5. บันทึกข้อมูลผู้ซื้อลงใน Cloud Firestore
+      await FirebaseFirestore.instance.collection('buyers').doc(user.uid).set({
+        'uid': user.uid,
+        'fullName': _fullNameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'phoneNumber': "+66${_phoneController.text.trim()}",
+        'province': _selectedProvince,
+        'createdAt': Timestamp.now(),
+        'isPhoneVerified': true, // เพิ่มสถานะการยืนยันเบอร์
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ')),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const BuyerLoginScreen()),
+        (route) => false,
+      );
+
+    } on FirebaseAuthException catch (e) {
+      String message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
+      if (e.code == 'weak-password') {
+        message = 'รหัสผ่านคาดเดาง่ายเกินไป';
+      } else if (e.code == 'email-already-in-use') {
+        message = 'อีเมลนี้มีผู้ใช้งานในระบบแล้ว';
+      } else if (e.code == 'invalid-verification-code') {
+        message = 'รหัส OTP ไม่ถูกต้อง';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
+      );
+    } finally {
+      if (mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -108,8 +186,6 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // UI ทั้งหมดจะคล้ายกับ seller_register_screen แต่เปลี่ยนข้อความเป็น 'ผู้ซื้อ'
-    // และตัด field ที่ไม่ต้องการออก
     return Scaffold(
       appBar: AppBar(
         title: const Text('บ้านบ้านช้อป', style: TextStyle(color: Colors.black)),
@@ -128,24 +204,14 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
-                spreadRadius: 2,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), spreadRadius: 2, blurRadius: 5, offset: const Offset(0, 3))],
           ),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ผู้ซื้อ - สมัครสมาชิก',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
+                const Text('ผู้ซื้อ - สมัครสมาชิก', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 _buildInputField(label: 'ชื่อ - นามสกุล', controller: _fullNameController, validator: (v) => v!.isEmpty ? 'กรุณากรอกชื่อ' : null),
                 const SizedBox(height: 15),
@@ -155,11 +221,44 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
                    return null;
                 }),
                 const SizedBox(height: 15),
-                _buildInputField(label: 'เบอร์โทรศัพท์', controller: _phoneNumberController, keyboardType: TextInputType.phone, validator: (v) {
-                  if (v!.isEmpty) return 'กรุณากรอกเบอร์โทร';
-                  if (v.length != 10) return 'เบอร์โทรต้องมี 10 หลัก';
-                  return null;
-                }),
+                // --- ส่วนของเบอร์โทรและ OTP ---
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildInputField(
+                        label: 'เบอร์โทรศัพท์',
+                        controller: _phoneController,
+                        prefixText: '+66 ',
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
+                        validator: (v) {
+                          if (v!.isEmpty) return 'กรุณากรอกเบอร์โทร';
+                          if (v.length != 9) return 'ต้องมี 9 หลัก';
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 28.0), // จัดตำแหน่งให้ตรงกับช่องกรอก
+                      child: ElevatedButton(
+                        onPressed: _isLoading || _isOtpSent ? null : _sendOtp,
+                        child: Text(_isOtpSent ? 'ส่งอีกครั้ง' : 'ส่ง OTP'),
+                      ),
+                    )
+                  ],
+                ),
+                if (_isOtpSent) ...[
+                  const SizedBox(height: 15),
+                  _buildInputField(
+                    label: 'รหัส OTP',
+                    controller: _otpController,
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v!.isEmpty ? 'กรุณากรอก OTP' : null,
+                  ),
+                ],
+                // -----------------------------
                 const SizedBox(height: 15),
                 _buildProvinceDropdown(),
                 const SizedBox(height: 15),
@@ -208,8 +307,7 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
     );
   }
 
-  // Helper Widgets (คัดลอกมาและปรับปรุงเล็กน้อย)
-  Widget _buildInputField({required String label, required TextEditingController controller, TextInputType keyboardType = TextInputType.text, String? Function(String?)? validator}) {
+  Widget _buildInputField({required String label, required TextEditingController controller, TextInputType keyboardType = TextInputType.text, String? Function(String?)? validator, List<TextInputFormatter>? inputFormatters, String? prefixText}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -218,7 +316,9 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
+            prefixText: prefixText,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0), borderSide: BorderSide.none),
             filled: true,
             fillColor: Colors.grey[200],
