@@ -1,7 +1,20 @@
+// lib/screens/store_screen_content.dart (Upgraded)
+
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:banbanshop/screens/models/store_model.dart';
+import 'package:banbanshop/screens/seller/store_profile.dart'; // [EDIT] เพิ่ม Import สำหรับหน้าร้านค้า
+
+// Helper class เพื่อเก็บข้อมูลร้านค้าพร้อมระยะทาง
+class StoreWithDistance {
+  final Store store;
+  final double distanceInKm;
+
+  StoreWithDistance({required this.store, required this.distanceInKm});
+}
 
 class StoreScreenContent extends StatefulWidget {
-  // รับ province และ category เพื่อใช้ในการกรองร้านค้า
   final String selectedProvince;
   final String selectedCategory;
 
@@ -15,81 +28,17 @@ class StoreScreenContent extends StatefulWidget {
   State<StoreScreenContent> createState() => _StoreScreenContentState();
 }
 
-class StoreItem {
-  final String name;
-  final String description;
-  final double distance;
-  final double rating;
-  final String imageUrl;
-  final String province; // เพิ่มจังหวัดของร้าน
-  final String category; // เพิ่มหมวดหมู่ของร้าน
-
-  StoreItem({
-    required this.name,
-    required this.description,
-    required this.distance,
-    required this.rating,
-    required this.imageUrl,
-    required this.province,
-    required this.category,
-  });
-}
-
 class _StoreScreenContentState extends State<StoreScreenContent> {
   final TextEditingController _searchController = TextEditingController();
-
-  // ตัวอย่างข้อมูลร้านค้า (สามารถเชื่อมกับ Backend ในอนาคต)
-  final List<StoreItem> _allStores = [
-    StoreItem(
-      name: 'ดอนกอยผ้าคราม',
-      description: 'ผ้าครามสวย ๆ เส้นใยธรรมชาติ 100% พร้อมส่ง',
-      distance: 1.0,
-      rating: 4.8,
-      imageUrl: 'https://placehold.co/100x100/A0E7E2/000000?text=Store1', // Placeholder image
-      province: 'สกลนคร',
-      category: 'เสื้อผ้า',
-    ),
-    StoreItem(
-      name: 'เนื้อโคขุนโพนยางคำ',
-      description: 'เนื้อวัวคุณภาพดีพร้อมทาน',
-      distance: 2.0,
-      rating: 4.9,
-      imageUrl: 'https://placehold.co/100x100/FFDDC1/000000?text=Store2', // Placeholder image
-      province: 'สกลนคร',
-      category: 'อาหาร & เครื่องดื่ม',
-    ),
-    StoreItem(
-      name: 'เครื่องจักสานไม้ไผ่',
-      description: 'สินค้าทำมือคุณภาพดี การันตี 100%',
-      distance: 3.0,
-      rating: 4.8,
-      imageUrl: 'https://placehold.co/100x100/CCE8CC/000000?text=Store3', // Placeholder image
-      province: 'อุดรธานี',
-      category: 'สิ่งของเครื่องใช้',
-    ),
-     StoreItem(
-      name: 'ร้านชุดว่ายน้ำสุดแซ่บ',
-      description: 'ชุดว่ายน้ำหลากหลายสไตล์',
-      distance: 0.5,
-      rating: 4.5,
-      imageUrl: 'https://placehold.co/100x100/D0F0C0/000000?text=Store4', // Placeholder image
-      province: 'กรุงเทพมหานคร',
-      category: 'เสื้อผ้า',
-    ),
-    StoreItem(
-      name: 'ร้านอาหารทะเลสดๆ',
-      description: 'อาหารทะเลจากทะเลอันดามัน',
-      distance: 5.0,
-      rating: 4.7,
-      imageUrl: 'https://placehold.co/100x100/FFF8DC/000000?text=Store5', // Placeholder image
-      province: 'ภูเก็ต',
-      category: 'อาหาร & เครื่องดื่ม',
-    ),
-  ];
+  
+  late Future<List<StoreWithDistance>> _storesFuture;
+  List<StoreWithDistance> _allStores = [];
+  List<StoreWithDistance> _filteredStores = [];
 
   @override
   void initState() {
     super.initState();
+    _storesFuture = _fetchStoresAndCalculateDistances();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -100,192 +49,286 @@ class _StoreScreenContentState extends State<StoreScreenContent> {
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    setState(() {
-      // Rebuild UI to filter stores based on search query
-    });
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('กรุณาเปิดบริการตำแหน่ง (GPS)');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('คุณปฏิเสธการเข้าถึงตำแหน่ง');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error('การเข้าถึงตำแหน่งถูกปฏิเสธถาวร');
+    }
+
+    return await Geolocator.getCurrentPosition();
   }
 
-  // ฟิลเตอร์ร้านค้าตามจังหวัดและหมวดหมู่ที่ได้รับจาก FeedPage
-  List<StoreItem> get _filteredStores {
-    final filteredByProps = _allStores.where((store) {
-      final matchesProvince = widget.selectedProvince == 'ทั้งหมด' || store.province == widget.selectedProvince;
-      final matchesCategory = widget.selectedCategory == 'ทั้งหมด' || store.category == widget.selectedCategory;
-      return matchesProvince && matchesCategory;
-    }).toList();
+  Future<List<StoreWithDistance>> _fetchStoresAndCalculateDistances() async {
+    try {
+      final Position userPosition = await _determinePosition();
+      final QuerySnapshot storeSnapshot =
+          await FirebaseFirestore.instance.collection('stores').get();
 
-    if (_searchController.text.isEmpty) {
-      return filteredByProps;
-    } else {
-      final query = _searchController.text.toLowerCase();
-      return filteredByProps.where((store) {
-        return store.name.toLowerCase().contains(query) ||
-               store.description.toLowerCase().contains(query) ||
-               store.province.toLowerCase().contains(query) || // เพิ่มการค้นหาจากจังหวัด
-               store.category.toLowerCase().contains(query); // เพิ่มการค้นหาจากหมวดหมู่
-      }).toList();
+      if (storeSnapshot.docs.isEmpty) {
+        return [];
+      }
+
+      List<StoreWithDistance> storesWithDistance = [];
+      for (var doc in storeSnapshot.docs) {
+        final store = Store.fromFirestore(doc);
+        if (store.latitude != null && store.longitude != null) {
+          final double distanceInMeters = Geolocator.distanceBetween(
+            userPosition.latitude,
+            userPosition.longitude,
+            store.latitude!,
+            store.longitude!,
+          );
+          storesWithDistance.add(StoreWithDistance(
+            store: store,
+            distanceInKm: distanceInMeters / 1000,
+          ));
+        }
+      }
+      
+      storesWithDistance.sort((a, b) => a.distanceInKm.compareTo(b.distanceInKm));
+      
+      _allStores = storesWithDistance;
+      _applyFilters();
+
+      return _filteredStores;
+    } catch (e) {
+      throw Exception('Failed to load stores: $e');
     }
   }
 
+  void _onSearchChanged() {
+    setState(() {
+      _applyFilters();
+    });
+  }
+  
+  void _applyFilters() {
+    List<StoreWithDistance> tempFiltered = _allStores;
+
+    if (widget.selectedProvince != 'ทั้งหมด') {
+        tempFiltered = tempFiltered.where((item) => item.store.province == widget.selectedProvince).toList();
+    }
+    if (widget.selectedCategory != 'ทั้งหมด') {
+        tempFiltered = tempFiltered.where((item) => item.store.category == widget.selectedCategory).toList();
+    }
+
+    if (_searchController.text.isNotEmpty) {
+      final query = _searchController.text.toLowerCase();
+      tempFiltered = tempFiltered.where((item) {
+        final store = item.store;
+        return (store.name.toLowerCase().contains(query)) ||
+               (store.description.toLowerCase().contains(query)) ||
+               (store.province.toLowerCase().contains(query)) ||
+               (store.category?.toLowerCase().contains(query) ?? false);
+      }).toList();
+    }
+    
+    _filteredStores = tempFiltered;
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: _filteredStores.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.store_outlined, size: 50, color: Colors.grey),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'ไม่มีร้านค้าที่ตรงกับเงื่อนไข',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '${widget.selectedCategory} ใน ${widget.selectedProvince}',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                      ),
-                    ],
+    return FutureBuilder<List<StoreWithDistance>>(
+      future: _storesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'เกิดข้อผิดพลาด: ${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'ค้นหาชื่อร้าน, หมวดหมู่, จังหวัด...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30.0),
+                    borderSide: BorderSide.none,
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(15),
-                  itemCount: _filteredStores.length,
-                  itemBuilder: (context, index) {
-                    final store = _filteredStores[index];
-                    return StoreCard(store: store);
-                  },
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  contentPadding: EdgeInsets.zero,
                 ),
-        ),
-      ],
+              ),
+            ),
+            Expanded(
+              child: _filteredStores.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.store_outlined, size: 50, color: Colors.grey),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'ไม่พบร้านค้าที่ตรงกับเงื่อนไข',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        setState(() {
+                          _storesFuture = _fetchStoresAndCalculateDistances();
+                        });
+                      },
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(15),
+                        itemCount: _filteredStores.length,
+                        itemBuilder: (context, index) {
+                          final storeData = _filteredStores[index];
+                          return StoreCard(storeData: storeData);
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
 class StoreCard extends StatelessWidget {
-  final StoreItem store;
+  final StoreWithDistance storeData;
 
-  const StoreCard({super.key, required this.store});
+  const StoreCard({super.key, required this.storeData});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            // ignore: deprecated_member_use
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Store Image
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              image: DecorationImage(
-                image: NetworkImage(store.imageUrl),
-                fit: BoxFit.cover,
-              ),
+    final store = storeData.store;
+    // [EDIT] ห่อด้วย InkWell เพื่อให้คลิกได้
+    return InkWell(
+      onTap: () {
+        // นำทางไปยังหน้ารายละเอียดร้านค้า
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StoreProfileScreen(
+              storeId: store.id,
+              isSellerView: false, // ผู้ซื้อเป็นคนดู
             ),
           ),
-          const SizedBox(width: 15),
-          // Store Details
-          Expanded( // ใช้ Expanded เพื่อให้ Column นี้ใช้พื้นที่ที่เหลือทั้งหมด
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  store.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        );
+      },
+      borderRadius: BorderRadius.circular(15), // ทำให้เอฟเฟกต์การคลิกเป็นวงกลม
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 15),
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                image: DecorationImage(
+                  image: NetworkImage(store.imageUrl ?? 'https://placehold.co/100x100/EFEFEF/AAAAAA?text=No+Image'),
+                  fit: BoxFit.cover,
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  store.description,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    store.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    // ใช้ Flexible เพื่อให้ข้อความระยะทางไม่ล้น
-                    Flexible( 
-                      child: Text(
-                        '${store.distance.toStringAsFixed(1)} km', // แสดงระยะทาง
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 5),
+                  Text(
+                    store.description,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${storeData.distanceInKm.toStringAsFixed(1)} km',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
-                    ),
-                    const SizedBox(width: 15),
-                    const Icon(Icons.star, size: 16, color: Colors.orange),
-                    const SizedBox(width: 4),
-                    // ใช้ Flexible เพื่อให้ข้อความคะแนนไม่ล้น
-                    Flexible( 
-                      child: Text(
-                        store.rating.toStringAsFixed(1), // แสดงคะแนน
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 15),
+                      const Icon(Icons.star, size: 16, color: Colors.orange),
+                      const SizedBox(width: 4),
+                      Text(
+                        store.averageRating.toStringAsFixed(1),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
-                    ),
-                    const SizedBox(width: 15),
-                    // ใช้ Expanded เพื่อให้ Container นี้ใช้พื้นที่ที่เหลือทั้งหมด
-                    Expanded( 
-                      child: Container( // กล่องแสดงหมวดหมู่และจังหวัดของร้าน
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE8E4FF), // สีที่แตกต่างจาก PostCard เพื่อให้แยกแยะได้
+                          color: const Color(0xFFE8E4FF),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          '${store.category} | ${store.province}', // แสดงทั้งหมวดหมู่และจังหวัด
+                          store.category ?? 'ไม่มีหมวดหมู่',
                           style: const TextStyle(
                             color: Color(0xFF9C6ADE),
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                           ),
-                          maxLines: 1, // จำกัดให้แสดงแค่ 1 บรรทัด
-                          overflow: TextOverflow.ellipsis, // หากล้นให้แสดง ...
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

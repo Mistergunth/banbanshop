@@ -8,6 +8,7 @@ class Store {
   final String name;
   final String description;
   final String type;
+  final String? category; // [EDIT] เพิ่มฟิลด์ category
   final String? imageUrl;
   final String locationAddress;
   final double? latitude;
@@ -16,10 +17,8 @@ class Store {
   final String phoneNumber;
   final DateTime createdAt;
   final String province;
-  // --- เพิ่ม Field สำหรับเรตติ้ง ---
   final double averageRating;
   final int reviewCount;
-  // --------------------------------
 
   Store({
     required this.id,
@@ -27,6 +26,7 @@ class Store {
     required this.name,
     required this.description,
     required this.type,
+    this.category, // [EDIT] เพิ่มใน Constructor
     this.imageUrl,
     required this.locationAddress,
     this.latitude,
@@ -35,13 +35,10 @@ class Store {
     required this.phoneNumber,
     required this.createdAt,
     required this.province,
-    // --- เพิ่มใน Constructor ---
     this.averageRating = 0.0,
     this.reviewCount = 0,
-    // -------------------------
   });
 
-  // Factory constructor สำหรับสร้าง Store จาก Firestore DocumentSnapshot
   factory Store.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
@@ -51,6 +48,7 @@ class Store {
       name: data['name'] ?? '',
       description: data['description'] ?? '',
       type: data['type'] ?? '',
+      category: data['category'] as String?, // [EDIT] อ่านค่า category จาก Firestore
       imageUrl: data['imageUrl'],
       locationAddress: data['locationAddress'] ?? '',
       latitude: (data['latitude'] as num?)?.toDouble(),
@@ -61,20 +59,18 @@ class Store {
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
       province: data['province'] ?? '',
-      // --- ดึงข้อมูลเรตติ้งจาก Firestore ---
       averageRating: (data['averageRating'] as num?)?.toDouble() ?? 0.0,
       reviewCount: data['reviewCount'] ?? 0,
-      // -------------------------------------
     );
   }
 
-  // Method สำหรับแปลง Store เป็น Map สำหรับบันทึกลง Firestore
   Map<String, dynamic> toFirestore() {
     return {
       'ownerUid': ownerUid,
       'name': name,
       'description': description,
       'type': type,
+      'category': category, // [EDIT] เขียนค่า category ลง Firestore
       'imageUrl': imageUrl,
       'locationAddress': locationAddress,
       'latitude': latitude,
@@ -83,10 +79,8 @@ class Store {
       'phoneNumber': phoneNumber,
       'createdAt': Timestamp.fromDate(createdAt),
       'province': province,
-      // --- เพิ่มข้อมูลเรตติ้ง (เผื่อใช้ในอนาคต) ---
       'averageRating': averageRating,
       'reviewCount': reviewCount,
-      // ----------------------------------------
     };
   }
 }

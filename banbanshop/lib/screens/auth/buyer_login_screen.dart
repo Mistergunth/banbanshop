@@ -2,7 +2,6 @@
 
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:banbanshop/main.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -77,7 +76,9 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
         password: password,
       );
 
-      // ตรวจสอบว่าผู้ใช้ได้ยืนยันอีเมลแล้วหรือยัง
+      // [KEY CHANGE] ปิดการตรวจสอบการยืนยันอีเมลชั่วคราวเพื่อการทดสอบ
+      // หากต้องการเปิดใช้งานในเวอร์ชันจริง ให้ลบ comment ด้านล่างออก
+      /*
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && !user.emailVerified) {
          ScaffoldMessenger.of(context).showSnackBar(
@@ -90,15 +91,11 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
         setState(() => _isLoading = false);
         return;
       }
+      */
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
-        );
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const MyApp()),
-          (route) => false,
         );
       }
 

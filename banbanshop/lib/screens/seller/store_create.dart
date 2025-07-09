@@ -15,11 +15,11 @@ import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/models/seller_profile.dart';
 
 class StoreCreateScreen extends StatefulWidget {
-  final VoidCallback? onRefresh; // <-- 1. เพิ่ม field สำหรับรับฟังก์ชัน
+  final VoidCallback? onRefresh;
 
   const StoreCreateScreen({
     super.key,
-    this.onRefresh, // <-- 2. เพิ่มใน constructor
+    this.onRefresh,
   });
 
   @override
@@ -52,10 +52,8 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   final List<String> _storeTypes = [
     'อาหาร & เครื่องดื่ม',
     'เสื้อผ้า',
-    'กีฬา & กิจกรรม',
+    'OTOP',
     'สิ่งของเครื่องใช้',
-    'บริการ',
-    'อื่นๆ',
   ];
 
   @override
@@ -173,6 +171,7 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         type: _selectedStoreType!,
+        category: _selectedStoreType, // [EDIT] เพิ่มการส่งค่า category
         imageUrl: shopImageUrl,
         locationAddress: _locationAddressController.text.trim(),
         latitude: _selectedLatitude,
@@ -205,8 +204,8 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('สร้างร้านค้าสำเร็จ!')),
         );
-        widget.onRefresh?.call(); // <-- 3. เรียกใช้ฟังก์ชัน onRefresh ถ้ามี
-        Navigator.pop(context); // กลับไปยังหน้าก่อนหน้า
+        widget.onRefresh?.call();
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {

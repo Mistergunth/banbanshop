@@ -30,6 +30,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   late TextEditingController _phoneNumberController;
 
   String? _selectedStoreType;
+  String? _selectedProvince; // [EDIT] เพิ่ม State สำหรับจังหวัด
   File? _shopImageFile;
   String? _currentImageUrl;
   bool _isUploading = false;
@@ -44,13 +45,28 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   );
   final String uploadPreset = 'flutter_unsigned_upload';
 
+  // [EDIT] เพิ่ม List ของจังหวัด
+  final List<String> _provinces = [
+    'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
+    'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร',
+    'เชียงราย', 'เชียงใหม่', 'ตรัง', 'ตราด', 'ตาก', 'นครนายก',
+    'นครปฐม', 'นครพนม', 'นครราชสีมา', 'นครศรีธรรมราช', 'นครสวรรค์', 'นนทบุรี',
+    'นราธิวาส', 'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์',
+    'ปราจีนบุรี', 'ปัตตานี', 'พระนครศรีอยุธยา', 'พังงา', 'พัทลุง', 'พิจิตร',
+    'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์', 'แพร่', 'พะเยา', 'ภูเก็ต',
+    'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน', 'ยะลา', 'ยโสธร', 'ร้อยเอ็ด',
+    'ระนอง', 'ระยอง', 'ราชบุรี', 'ลพบุรี', 'ลำปาง', 'ลำพูน', 'เลย',
+    'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ', 'สมุทรสงคราม',
+    'สมุทรสาคร', 'สระแก้ว', 'สระบุรี', 'สิงห์บุรี', 'สุโขทัย',
+    'สุพรรณบุรี', 'สุราษฎร์ธานี', 'สุรินทร์', 'หนองคาย', 'หนองบัวลำภู',
+    'อ่างทอง', 'อุดรธานี', 'อุทัยธานี', 'อุตรดิตถ์', 'อุบลราชธานี', 'อำนาจเจริญ'
+  ];
+
   final List<String> _storeTypes = [
+    'OTOP',
     'อาหาร & เครื่องดื่ม',
     'เสื้อผ้า',
-    'กีฬา & กิจกรรม',
     'สิ่งของเครื่องใช้',
-    'บริการ',
-    'อื่นๆ',
   ];
 
   @override
@@ -61,7 +77,8 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     _locationAddressController = TextEditingController(text: widget.store.locationAddress);
     _openingHoursController = TextEditingController(text: widget.store.openingHours);
     _phoneNumberController = TextEditingController(text: widget.store.phoneNumber);
-    _selectedStoreType = widget.store.type;
+    _selectedStoreType = widget.store.category;
+    _selectedProvince = widget.store.province; // [EDIT] ตั้งค่าจังหวัดเริ่มต้น
     _currentImageUrl = widget.store.imageUrl;
     _selectedLatitude = widget.store.latitude;
     _selectedLongitude = widget.store.longitude;
@@ -152,13 +169,13 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         finalImageUrl = response.secureUrl;
       }
 
-      // --- ส่วนที่แก้ไข ---
-      // 1. เตรียมข้อมูลที่จะอัปเดต
       final String newShopName = _nameController.text.trim();
       final updatedStoreData = {
         'name': newShopName,
         'description': _descriptionController.text.trim(),
         'type': _selectedStoreType!,
+        'category': _selectedStoreType!,
+        'province': _selectedProvince!, // [EDIT] เพิ่มการอัปเดตจังหวัด
         'imageUrl': finalImageUrl,
         'locationAddress': _locationAddressController.text.trim(),
         'latitude': _selectedLatitude,
@@ -167,13 +184,11 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'phoneNumber': _phoneNumberController.text.trim(),
       };
 
-      // 2. อัปเดตข้อมูลร้านค้าใน collection 'stores'
       await FirebaseFirestore.instance
           .collection('stores')
           .doc(widget.store.id)
           .update(updatedStoreData);
 
-      // 3. อัปเดตข้อมูลในโปรไฟล์ผู้ขาย 'sellers'
       await FirebaseFirestore.instance
           .collection('sellers')
           .doc(currentUser.uid)
@@ -185,7 +200,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
             'shopLongitude': _selectedLongitude,
           });
 
-      // 4. อัปเดตโพสต์เก่าทั้งหมดที่เกี่ยวข้อง (Batch Write)
       final postsQuery = await FirebaseFirestore.instance
           .collection('posts')
           .where('storeId', isEqualTo: widget.store.id)
@@ -196,15 +210,14 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         for (var doc in postsQuery.docs) {
           batch.update(doc.reference, {
             'shopName': newShopName,
-            'avatarImageUrl': finalImageUrl, // อัปเดตรูปโปรไฟล์ในโพสต์ด้วย
+            'avatarImageUrl': finalImageUrl,
           });
         }
         await batch.commit();
       }
-      // --- จบส่วนที่แก้ไข ---
 
       if (mounted) {
-        Navigator.pop(context, true); // ส่ง true กลับไปบอกว่ามีการอัปเดตสำเร็จ
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -282,6 +295,22 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                 }).toList(),
                 onChanged: (String? newValue) => setState(() => _selectedStoreType = newValue),
                 validator: (v) => v == null ? 'กรุณาเลือกประเภทร้านค้า' : null,
+              ),
+              const SizedBox(height: 16),
+              // [EDIT] เพิ่ม Dropdown สำหรับจังหวัด
+              DropdownButtonFormField<String>(
+                value: _selectedProvince,
+                decoration: InputDecoration(
+                  labelText: 'จังหวัด',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                items: _provinces.map((String province) {
+                  return DropdownMenuItem<String>(value: province, child: Text(province));
+                }).toList(),
+                onChanged: (String? newValue) => setState(() => _selectedProvince = newValue),
+                validator: (v) => v == null ? 'กรุณาเลือกจังหวัด' : null,
               ),
               const SizedBox(height: 16),
               GestureDetector(

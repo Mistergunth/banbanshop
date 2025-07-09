@@ -79,7 +79,9 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         password: password,
       );
 
-      // ตรวจสอบว่าผู้ใช้ได้ยืนยันอีเมลแล้วหรือยัง
+      // [KEY CHANGE] ปิดการตรวจสอบการยืนยันอีเมลชั่วคราวเพื่อการทดสอบ
+      // หากต้องการเปิดใช้งานในเวอร์ชันจริง ให้ลบ comment ด้านล่างออก
+      /*
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && !user.emailVerified) {
          ScaffoldMessenger.of(context).showSnackBar(
@@ -92,14 +94,12 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         setState(() => _isLoading = false);
         return;
       }
-
-      // [KEY CHANGE] ไม่ต้องทำอะไรหลังจากล็อคอินสำเร็จ
-      // AuthWrapper ใน main.dart จะจัดการการนำทางให้เอง
+      */
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
         );
-        // ไม่ต้องมี Navigator.pushAndRemoveUntil ที่นี่
       }
 
     } on FirebaseAuthException catch (e) {
