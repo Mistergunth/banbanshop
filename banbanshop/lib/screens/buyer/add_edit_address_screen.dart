@@ -1,4 +1,6 @@
-// lib/screens/buyer/add_edit_address_screen.dart (OTP Verification)
+// lib/screens/buyer/add_edit_address_screen.dart (ฉบับแก้ไข)
+
+// ignore_for_file: avoid_print, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -44,10 +46,13 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
       final addr = widget.address!;
       _labelController.text = addr.label;
       _nameController.text = addr.contactName;
-      _phoneController.text = addr.phoneNumber.startsWith('+66') ? addr.phoneNumber.substring(3) : addr.phoneNumber;
+      // ถ้าเบอร์ที่เก็บไว้ขึ้นต้นด้วย +66 ให้ตัดออกเพื่อแสดงในช่องกรอก
+      _phoneController.text = addr.phoneNumber.startsWith('+66')
+          ? addr.phoneNumber.substring(3)
+          : addr.phoneNumber;
       _addressController.text = addr.addressLine;
       _selectedLocation = LatLng(addr.location.latitude, addr.location.longitude);
-      _isPhoneVerified = true; // ถ้าเป็นการแก้ไข ให้ถือว่าเบอร์โทรยืนยันแล้ว
+      _isPhoneVerified = true;
       _originalPhoneNumber = _phoneController.text;
     }
   }
@@ -79,10 +84,8 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
   }
 
   Future<void> _sendOtp() async {
-    if (_phoneController.text.isEmpty || _phoneController.text.length != 9) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณากรอกเบอร์โทรศัพท์ 9 หลักให้ถูกต้อง')),
-      );
+    // ใช้ FormKey ตรวจสอบเฉพาะช่องเบอร์โทรก่อนส่ง
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
@@ -108,52 +111,13 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
           _isLoading = false;
         });
       },
-      codeAutoRetrievalTimeout: (verificationId) {},
+      codeAutoRetrievalTimeout: (String verificationId) {},
     );
   }
 
-  Future<void> _verifyOtpAndSave() async {
+  // --- ฟังก์ชันหลักในการบันทึก (เรียกจากปุ่ม) ---
+  Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    
-    // ถ้าเบอร์โทรไม่เปลี่ยนและยืนยันแล้ว ให้บันทึกเลย
-    if (_isPhoneVerified && _phoneController.text == _originalPhoneNumber) {
-      _saveAddress(null); // ส่ง null เพราะไม่ต้องใช้ credential
-      return;
-    }
-
-    if (_otpController.text.isEmpty || _verificationId == null) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณากรอกรหัส OTP')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: _otpController.text.trim(),
-      );
-      // แค่สร้าง credential เพื่อตรวจสอบว่า OTP ถูกต้องหรือไม่
-      // ไม่ต้อง link กับ user เพราะนี่เป็นแค่การยืนยันเบอร์สำหรับที่อยู่
-      // ในสถานการณ์จริง อาจจะต้อง re-authenticate user ก่อนเพื่อความปลอดภัย
-      // แต่เพื่อความง่าย เราจะข้ามไปก่อน
-      await _auth.signInWithCredential(credential); // การ signIn แค่เพื่อทดสอบ credential
-      await _auth.signOut(); // ออกจากระบบทันทีหลังทดสอบ
-      
-      _saveAddress(credential);
-
-    } on FirebaseAuthException catch (e) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('รหัส OTP ไม่ถูกต้อง: ${e.code}')),
-      );
-    } finally {
-       if(mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _saveAddress(PhoneAuthCredential? credential) async {
     if (_selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาปักหมุดตำแหน่งบนแผนที่')),
@@ -162,8 +126,50 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
     }
 
     setState(() => _isLoading = true);
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+
+    bool isPhoneNumberChanged = _originalPhoneNumber != _phoneController.text;
+
+    // กรณีที่ไม่ต้องยืนยัน OTP (เบอร์เดิม หรือยังไม่เปลี่ยน)
+    if (!isPhoneNumberChanged && _isPhoneVerified) {
+      await _saveAddressToFirestore();
+      return; // จบการทำงาน
+    }
+
+    // กรณีที่ต้องยืนยัน OTP
+    if (_otpController.text.isEmpty || _verificationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกรหัส OTP เพื่อยืนยันเบอร์ใหม่')),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: _otpController.text.trim(),
+      );
+      
+      // การ signInWithCredential เป็นวิธีที่ง่ายที่สุดในการตรวจสอบว่า OTP ถูกต้องหรือไม่
+      // เราจะ reauthenticate ผู้ใช้ปัจจุบันเพื่อความปลอดภัย
+      await _auth.currentUser?.reauthenticateWithCredential(credential);
+      
+      // ถ้า OTP ถูกต้อง ให้บันทึกข้อมูล
+      await _saveAddressToFirestore();
+
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('รหัส OTP ไม่ถูกต้อง: ${e.code}')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --- ฟังก์ชันสำหรับเขียนข้อมูลลง Firestore เท่านั้น ---
+  Future<void> _saveAddressToFirestore() async {
+    final user = _auth.currentUser;
+    if (user == null) return; // ควรจะล็อคอินอยู่แล้ว
 
     final fullPhoneNumber = "+66${_phoneController.text.trim()}";
     final addressData = {
@@ -188,10 +194,8 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาดในการบันทึก: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -212,13 +216,21 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildTextFormField(controller: _labelController, label: 'ป้ายกำกับ (เช่น บ้าน, ที่ทำงาน)'),
+              _buildTextFormField(
+                controller: _labelController,
+                label: 'ป้ายกำกับ (เช่น บ้าน, ที่ทำงาน)',
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกป้ายกำกับ' : null,
+              ),
               const SizedBox(height: 16),
-              _buildTextFormField(controller: _nameController, label: 'ชื่อผู้รับ', validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'กรุณากรอกชื่อผู้รับ';
-                if (!RegExp(r'^[a-zA-Z\u0E00-\u0E7F\s]+$').hasMatch(v)) return 'ชื่อต้องเป็นตัวอักษรเท่านั้น';
-                return null;
-              }),
+              _buildTextFormField(
+                controller: _nameController,
+                label: 'ชื่อผู้รับ',
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'กรุณากรอกชื่อผู้รับ';
+                  if (!RegExp(r'^[a-zA-Z\u0E00-\u0E7F\s]+$').hasMatch(v)) return 'ชื่อต้องเป็นตัวอักษรเท่านั้น';
+                  return null;
+                },
+              ),
               const SizedBox(height: 16),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,7 +241,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                       label: 'เบอร์โทรศัพท์',
                       prefixText: '+66 ',
                       keyboardType: TextInputType.phone,
-                      onChanged: (value) => setState(() {}), // เพื่อให้ UI อัปเดตเมื่อมีการเปลี่ยนแปลง
+                      onChanged: (value) => setState(() {}),
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'กรุณากรอกเบอร์โทร';
@@ -276,7 +288,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton.icon(
-                      onPressed: (isPhoneNumberChanged && !_isOtpSent) ? null : _saveAddress,
+                      onPressed: _submitForm, // <-- เรียกใช้ฟังก์ชันหลัก
                       icon: const Icon(Icons.save),
                       label: const Text('บันทึกที่อยู่'),
                       style: ElevatedButton.styleFrom(
