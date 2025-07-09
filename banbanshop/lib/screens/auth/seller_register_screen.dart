@@ -17,6 +17,8 @@ class SellerRegisterScreen extends StatefulWidget {
 
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  // [KEY CHANGE 1] สร้าง Key สำหรับช่องเบอร์โทรโดยเฉพาะ
+  final _phoneFieldKey = GlobalKey<FormFieldState>();
   final _auth = FirebaseAuth.instance;
 
   final _fullNameController = TextEditingController();
@@ -35,6 +37,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   // --- State สำหรับ OTP ---
   bool _isOtpSent = false;
   String? _verificationId;
+  int? _resendToken;
   // -----------------------
 
   final List<String> _provinces = [
@@ -66,9 +69,8 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   }
 
   Future<void> _sendOtp() async {
-    // ใช้ FormKey ตรวจสอบเฉพาะช่องเบอร์โทรก่อนส่ง
-    if (!_formKey.currentState!.validate()) {
-       // ไม่ต้องทำอะไรถ้าฟอร์มไม่ผ่าน แต่ validator จะแสดงข้อความเอง
+    // [KEY CHANGE 4] เปลี่ยนมาใช้ Key ของช่องเบอร์โทรในการ validate
+    if (!_phoneFieldKey.currentState!.validate()) {
       return;
     }
 
@@ -77,8 +79,10 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
 
     await _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
+      forceResendingToken: _resendToken,
       verificationCompleted: (PhoneAuthCredential credential) {
         print("Auto verification completed");
+        if(mounted) setState(() => _isLoading = false);
       },
       verificationFailed: (FirebaseAuthException e) {
         print("Verification Failed: ${e.message}");
@@ -94,6 +98,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         setState(() {
           _isOtpSent = true;
           _verificationId = verificationId;
+          _resendToken = resendToken; // เก็บ resendToken ไว้
           _isLoading = false;
         });
       },
@@ -118,6 +123,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         smsCode: _otpController.text.trim(),
       );
 
+      // สร้างผู้ใช้ด้วยอีเมลและรหัสผ่านก่อน
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -125,10 +131,13 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
 
       final user = userCredential.user;
       if (user == null) throw Exception("ไม่สามารถสร้างผู้ใช้ได้");
-
+      
+      // จากนั้นทำการเชื่อมบัญชีกับเบอร์โทรศัพท์
       await user.linkWithCredential(credential);
+      // ส่งอีเมลยืนยัน
       await user.sendEmailVerification();
-
+      
+      // บันทึกข้อมูลลง Firestore
       await FirebaseFirestore.instance.collection('sellers').doc(user.uid).set({
         'uid': user.uid,
         'fullName': _fullNameController.text.trim(),
@@ -157,6 +166,8 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         message = 'อีเมลนี้มีผู้ใช้งานในระบบแล้ว';
       } else if (e.code == 'invalid-verification-code') {
         message = 'รหัส OTP ไม่ถูกต้อง';
+      } else if (e.code == 'credential-already-in-use') {
+        message = 'เบอร์โทรศัพท์นี้ถูกใช้งานโดยบัญชีอื่นแล้ว';
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
@@ -213,7 +224,9 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
+                      // [KEY CHANGE 3] ผูก Key เข้ากับช่องเบอร์โทร
                       child: _buildInputField(
+                        fieldKey: _phoneFieldKey,
                         label: 'เบอร์โทรศัพท์',
                         controller: _phoneController,
                         prefixText: '+66 ',
@@ -230,7 +243,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 28.0),
                       child: ElevatedButton(
-                        onPressed: _isLoading || _isOtpSent ? null : _sendOtp,
+                        onPressed: _isLoading ? null : _sendOtp,
                         child: Text(_isOtpSent ? 'ส่งอีกครั้ง' : 'ส่ง OTP'),
                       ),
                     )
@@ -243,6 +256,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                     controller: _otpController,
                     keyboardType: TextInputType.number,
                     validator: (v) => v!.isEmpty ? 'กรุณากรอก OTP' : null,
+
                   ),
                 ],
                 const SizedBox(height: 15),
@@ -299,13 +313,23 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     );
   }
 
-  Widget _buildInputField({required String label, required TextEditingController controller, TextInputType keyboardType = TextInputType.text, String? Function(String?)? validator, List<TextInputFormatter>? inputFormatters, String? prefixText}) {
+  // [KEY CHANGE 2] ปรับปรุงฟังก์ชันให้รับ Key ได้
+  Widget _buildInputField({
+    required String label,
+    required TextEditingController controller,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+    String? prefixText,
+    Key? fieldKey, // เพิ่มพารามิเตอร์ Key
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
         const SizedBox(height: 8),
         TextFormField(
+          key: fieldKey, // กำหนด Key ให้กับ TextFormField
           controller: controller,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
