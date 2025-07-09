@@ -2,7 +2,6 @@
 
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:banbanshop/main.dart';
 import 'package:flutter/material.dart';
 import 'package:banbanshop/screens/auth/seller_register_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -94,15 +93,13 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         return;
       }
 
+      // [KEY CHANGE] ไม่ต้องทำอะไรหลังจากล็อคอินสำเร็จ
+      // AuthWrapper ใน main.dart จะจัดการการนำทางให้เอง
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
         );
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const MyApp()),
-          (route) => false,
-        );
+        // ไม่ต้องมี Navigator.pushAndRemoveUntil ที่นี่
       }
 
     } on FirebaseAuthException catch (e) {

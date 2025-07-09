@@ -17,7 +17,6 @@ class SellerRegisterScreen extends StatefulWidget {
 
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  // [KEY CHANGE 1] สร้าง Key สำหรับช่องเบอร์โทรโดยเฉพาะ
   final _phoneFieldKey = GlobalKey<FormFieldState>();
   final _auth = FirebaseAuth.instance;
 
@@ -69,7 +68,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   }
 
   Future<void> _sendOtp() async {
-    // [KEY CHANGE 4] เปลี่ยนมาใช้ Key ของช่องเบอร์โทรในการ validate
     if (!_phoneFieldKey.currentState!.validate()) {
       return;
     }
@@ -98,7 +96,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         setState(() {
           _isOtpSent = true;
           _verificationId = verificationId;
-          _resendToken = resendToken; // เก็บ resendToken ไว้
+          _resendToken = resendToken;
           _isLoading = false;
         });
       },
@@ -106,6 +104,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     );
   }
 
+  // [EDIT] ปรับปรุงตรรกะการสมัครสมาชิกใหม่ทั้งหมดให้เหมือนฝั่งผู้ซื้อ
   void _registerSeller() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_isOtpSent || _verificationId == null) {
@@ -123,21 +122,27 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         smsCode: _otpController.text.trim(),
       );
 
-      // สร้างผู้ใช้ด้วยอีเมลและรหัสผ่านก่อน
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
+      final userCredential = await _auth.signInWithCredential(credential);
       final user = userCredential.user;
-      if (user == null) throw Exception("ไม่สามารถสร้างผู้ใช้ได้");
+
+      if (user == null) {
+        throw Exception("ไม่สามารถยืนยันเบอร์โทรศัพท์ได้");
+      }
+
+      try {
+        final emailCredential = EmailAuthProvider.credential(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+        await user.linkWithCredential(emailCredential);
+      } catch (e) {
+        await user.delete();
+        throw e;
+      }
       
-      // จากนั้นทำการเชื่อมบัญชีกับเบอร์โทรศัพท์
-      await user.linkWithCredential(credential);
-      // ส่งอีเมลยืนยัน
+      await user.updateProfile(displayName: _fullNameController.text.trim());
       await user.sendEmailVerification();
       
-      // บันทึกข้อมูลลง Firestore
       await FirebaseFirestore.instance.collection('sellers').doc(user.uid).set({
         'uid': user.uid,
         'fullName': _fullNameController.text.trim(),
@@ -162,12 +167,10 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
       String message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
       if (e.code == 'weak-password') {
         message = 'รหัสผ่านคาดเดาง่ายเกินไป';
-      } else if (e.code == 'email-already-in-use') {
-        message = 'อีเมลนี้มีผู้ใช้งานในระบบแล้ว';
+      } else if (e.code == 'email-already-in-use' || e.code == 'credential-already-in-use') {
+        message = 'อีเมลหรือเบอร์โทรศัพท์นี้ถูกใช้งานโดยบัญชีอื่นแล้ว';
       } else if (e.code == 'invalid-verification-code') {
         message = 'รหัส OTP ไม่ถูกต้อง';
-      } else if (e.code == 'credential-already-in-use') {
-        message = 'เบอร์โทรศัพท์นี้ถูกใช้งานโดยบัญชีอื่นแล้ว';
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
@@ -224,24 +227,24 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      // [KEY CHANGE 3] ผูก Key เข้ากับช่องเบอร์โทร
                       child: _buildInputField(
                         fieldKey: _phoneFieldKey,
                         label: 'เบอร์โทรศัพท์',
+                        subLabel: '(ไม่ต้องใส่ 0 นำหน้า)',
                         controller: _phoneController,
                         prefixText: '+66 ',
                         keyboardType: TextInputType.phone,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
                         validator: (v) {
                           if (v!.isEmpty) return 'กรุณากรอกเบอร์โทร';
-                          if (v.length != 9) return 'ต้องมี 9 หลัก (ไม่ต้องใส่ 0)';
+                          if (v.length != 9) return 'ต้องมี 9 หลัก';
                           return null;
                         },
                       ),
                     ),
                     const SizedBox(width: 8),
                     Padding(
-                      padding: const EdgeInsets.only(top: 28.0),
+                      padding: const EdgeInsets.only(top: 44.0),
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _sendOtp,
                         child: Text(_isOtpSent ? 'ส่งอีกครั้ง' : 'ส่ง OTP'),
@@ -256,7 +259,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                     controller: _otpController,
                     keyboardType: TextInputType.number,
                     validator: (v) => v!.isEmpty ? 'กรุณากรอก OTP' : null,
-
                   ),
                 ],
                 const SizedBox(height: 15),
@@ -313,23 +315,27 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     );
   }
 
-  // [KEY CHANGE 2] ปรับปรุงฟังก์ชันให้รับ Key ได้
   Widget _buildInputField({
     required String label,
+    String? subLabel,
     required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
     List<TextInputFormatter>? inputFormatters,
     String? prefixText,
-    Key? fieldKey, // เพิ่มพารามิเตอร์ Key
+    Key? fieldKey,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+        if (subLabel != null) ...[
+          const SizedBox(height: 2),
+          Text(subLabel, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        ],
         const SizedBox(height: 8),
         TextFormField(
-          key: fieldKey, // กำหนด Key ให้กับ TextFormField
+          key: fieldKey,
           controller: controller,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
