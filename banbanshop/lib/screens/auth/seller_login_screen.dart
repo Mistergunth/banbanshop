@@ -1,4 +1,4 @@
-// lib/screens/auth/seller_login_screen.dart (ฉบับแก้ไข)
+// lib/screens/auth/seller_login_screen.dart
 
 // ignore_for_file: use_build_context_synchronously
 
@@ -61,12 +61,13 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         if (querySnapshot.docs.isNotEmpty) {
           emailToLogin = querySnapshot.docs.first.data()['email'];
         } else {
-          throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบบัญชีผู้ใช้ด้วยเบอร์โทรศัพท์นี้');
+          // Throw a generic error to be caught below
+          throw FirebaseAuthException(code: 'user-not-found');
         }
       }
 
       if (emailToLogin == null) {
-         throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบข้อมูลอีเมลสำหรับใช้เข้าสู่ระบบ');
+         throw FirebaseAuthException(code: 'user-not-found');
       }
 
       await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -74,41 +75,31 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         password: password,
       );
 
-      // [KEY CHANGE] เปิดใช้งานการตรวจสอบการยืนยันอีเมล
-      final user = FirebaseAuth.instance.currentUser;
-      // ต้อง reload user state ก่อนเพื่อดึงข้อมูลล่าสุด
-      await user?.reload();
-      final refreshedUser = FirebaseAuth.instance.currentUser;
-
-      if (refreshedUser != null && !refreshedUser.emailVerified) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        await FirebaseAuth.instance.signOut();
-        setState(() => _isLoading = false);
-        return;
-      }
-      // ----------------------------------------------------
+      // The AuthWrapper in main.dart will handle navigation after successful login.
+      // No need to check for email verification here as AuthWrapper already does it.
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
-        );
-        // Navigator.of(context).pushReplacement(...);
+        // You can show a success message, but navigation is handled by AuthWrapper
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
+        // );
       }
 
     } on FirebaseAuthException catch (e) {
-      String message = e.message ?? 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
+      String message;
+      // [KEY CHANGE] Consolidated error messages for a better user experience.
       if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
         message = 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง';
+      } else if (e.code == 'too-many-requests') {
+        message = 'ตรวจพบกิจกรรมที่น่าสงสัย โปรดลองอีกครั้งในภายหลัง';
+      }
+      else {
+        message = 'เกิดข้อผิดพลาด: กรุณาตรวจสอบข้อมูลและลองอีกครั้ง';
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
+        const SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด')),
       );
     } finally {
       if (mounted) {

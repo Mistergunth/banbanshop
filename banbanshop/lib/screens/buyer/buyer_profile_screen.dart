@@ -1,4 +1,4 @@
-// lib/screens/buyer/buyer_profile_screen.dart (ฉบับแก้ไข)
+// lib/screens/buyer/buyer_profile_screen.dart
 
 // ignore_for_file: avoid_print, use_build_context_synchronously
 
@@ -12,7 +12,10 @@ import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:banbanshop/screens/buyer/favorites_screen.dart';
-import 'package:banbanshop/screens/buyer/shipping_address_screen.dart'; // <-- Import ที่อยู่
+import 'package:banbanshop/screens/buyer/shipping_address_screen.dart';
+// --- เพิ่ม Import สำหรับหน้าแก้ไขโปรไฟล์ ---
+import 'package:banbanshop/screens/buyer/edit_buyer_profile_screen.dart';
+
 
 class BuyerProfileScreen extends StatefulWidget {
   const BuyerProfileScreen({super.key});
@@ -195,7 +198,6 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                       icon: Icons.location_on_outlined,
                       text: 'ที่อยู่จัดส่ง',
                       onTap: () {
-                        // แก้ไข: นำทางไปยังหน้า ShippingAddressScreen
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const ShippingAddressScreen()),
@@ -216,8 +218,15 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                       icon: Icons.edit_outlined,
                       text: 'แก้ไขโปรไฟล์',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน')),
+                        // --- [KEY CHANGE] นำทางไปยังหน้าแก้ไขโปรไฟล์ ---
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EditBuyerProfileScreen(
+                              buyerProfile: _buyerProfile!,
+                              onProfileUpdated: _fetchBuyerProfile, // ส่งฟังก์ชัน refresh ไปด้วย
+                            ),
+                          ),
                         );
                       },
                     ),

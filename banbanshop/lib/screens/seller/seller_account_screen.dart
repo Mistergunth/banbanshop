@@ -1,4 +1,4 @@
-// lib/screens/seller/seller_account_screen.dart (ฉบับแก้ไข)
+// lib/screens/seller/seller_account_screen.dart
 
 // ignore_for_file: use_build_context_synchronously
 
@@ -11,7 +11,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
-import 'package:banbanshop/screens/reviews/store_reviews_screen.dart'; // <-- เพิ่ม Import ที่จำเป็น
+import 'package:banbanshop/screens/reviews/store_reviews_screen.dart';
+// --- เพิ่ม Import สำหรับหน้าแก้ไขโปรไฟล์ ---
+import 'package:banbanshop/screens/seller/edit_seller_profile_screen.dart';
+
 
 class SellerAccountScreen extends StatefulWidget {
   final SellerProfile? sellerProfile;
@@ -91,7 +94,6 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
 
   void _logoutSeller() async {
     await FirebaseAuth.instance.signOut();
-    // AuthWrapper will handle navigation
   }
 
   void _navigateAndRefreshOnStoreCreation() async {
@@ -166,7 +168,25 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
               children: [
-                // --- ส่วนที่แก้ไข: จัดกลุ่มปุ่มสำหรับผู้ขายที่มีร้านค้า ---
+                // --- [KEY CHANGE] เพิ่มปุ่มแก้ไขโปรไฟล์ ---
+                _buildActionButton(
+                  text: 'แก้ไขโปรไฟล์',
+                  color: const Color(0xFFE2CCFB),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditSellerProfileScreen(
+                          sellerProfile: seller,
+                          onProfileUpdated: widget.onRefresh ?? () {},
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 15),
+                // ------------------------------------
+
                 if (seller.hasStore == true && seller.storeId != null)
                   Column(
                     children: [
@@ -189,31 +209,26 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                       _buildActionButton(
                         text: 'ดูออเดอร์',
                         color: const Color(0xFFE2CCFB),
-                        onTap: () {
-                          // Navigate to orders screen
-                        },
+                        onTap: () {},
                       ),
                       const SizedBox(height: 15),
                       _buildActionButton(
                         text: 'จัดการสินค้า',
                         color: const Color(0xFFE2CCFB),
-                        onTap: () {
-                          // Navigate to product management screen
-                        },
+                        onTap: () {},
                       ),
                       const SizedBox(height: 15),
                       _buildActionButton(
                         text: 'เรตติ้งและรีวิว',
                         color: const Color(0xFFE2CCFB),
                         onTap: () {
-                          // แก้ไข: นำทางไปยังหน้า Reviews
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => StoreReviewsScreen(
                                 storeId: seller.storeId!,
                                 storeName: seller.shopName ?? 'ร้านค้าของคุณ',
-                                isSellerView: true, // ผู้ขายกำลังดู
+                                isSellerView: true,
                               ),
                             ),
                           );
@@ -227,7 +242,6 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                     color: const Color(0xFFE2CCFB),
                     onTap: _navigateAndRefreshOnStoreCreation,
                   ),
-                // --- จบส่วนที่แก้ไข ---
 
                 const SizedBox(height: 30),
                 _buildLogoutButton(context),

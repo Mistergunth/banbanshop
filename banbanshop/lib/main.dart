@@ -80,32 +80,59 @@ class _AuthWrapperState extends State<AuthWrapper> {
     setState(() {});
   }
 
-  Future<UserData?> _fetchUserData(String uid) async {
+  // [KEY CHANGE] Function signature now accepts the full User object
+  Future<UserData?> _fetchUserData(User user) async {
     try {
-      DocumentSnapshot sellerDoc;
-      for (int i = 0; i < 3; i++) {
-        sellerDoc =
-            await FirebaseFirestore.instance.collection('sellers').doc(uid).get();
-        if (sellerDoc.exists) {
-          SellerProfile sellerProfile =
-              SellerProfile.fromJson(sellerDoc.data() as Map<String, dynamic>);
-          if (sellerProfile.hasStore == true && sellerProfile.storeId != null) {
+      DocumentSnapshot userDoc;
+      String userType = 'buyers'; // Assume buyer first
+
+      // Check if user exists in 'sellers' collection
+      DocumentSnapshot sellerDoc = await FirebaseFirestore.instance.collection('sellers').doc(user.uid).get();
+      
+      if (sellerDoc.exists) {
+        userDoc = sellerDoc;
+        userType = 'sellers';
+      } else {
+        // If not a seller, assume they are a buyer and get their document
+        userDoc = await FirebaseFirestore.instance.collection('buyers').doc(user.uid).get();
+      }
+
+      // --- Self-healing logic for email synchronization ---
+      if (userDoc.exists) {
+        final firestoreEmail = (userDoc.data() as Map<String, dynamic>)['email'];
+        final authEmail = user.email;
+
+        // If emails don't match, update Firestore with the latest from Auth
+        if (firestoreEmail != authEmail && authEmail != null) {
+          // ignore: avoid_print
+          print('Email mismatch found. Syncing Firestore with Auth email...');
+          await userDoc.reference.update({'email': authEmail});
+          // Re-fetch the document to get the updated data for this session
+          userDoc = await userDoc.reference.get();
+        }
+      }
+      // --- End of self-healing logic ---
+
+      // Proceed with fetching profile data using the (potentially updated) document
+      if (userType == 'sellers' && userDoc.exists) {
+         SellerProfile sellerProfile = SellerProfile.fromJson(userDoc.data() as Map<String, dynamic>);
+         Store? storeProfile;
+         if (sellerProfile.hasStore == true && sellerProfile.storeId != null) {
             DocumentSnapshot storeDoc = await FirebaseFirestore.instance
                 .collection('stores')
                 .doc(sellerProfile.storeId)
                 .get();
             if (storeDoc.exists) {
-              Store storeProfile = Store.fromFirestore(storeDoc);
-              return UserData(sellerProfile: sellerProfile, storeProfile: storeProfile);
+              storeProfile = Store.fromFirestore(storeDoc);
             }
-          }
-          return UserData(sellerProfile: sellerProfile, storeProfile: null);
-        }
-        if (i < 2) {
-          await Future.delayed(const Duration(milliseconds: 1500));
-        }
+         }
+         return UserData(sellerProfile: sellerProfile, storeProfile: storeProfile);
+      } else {
+        // For buyers or if data is somehow missing, return with no seller profile.
+        // The FeedPage is designed to handle this gracefully.
+        return UserData(sellerProfile: null, storeProfile: null);
       }
-      return UserData(sellerProfile: null, storeProfile: null);
+
     } catch (e) {
       // ignore: avoid_print
       print("Error fetching user data in AuthWrapper: $e");
@@ -125,33 +152,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (snapshot.hasData && snapshot.data != null) {
           final User user = snapshot.data!;
           if (!user.emailVerified) {
-            // [KEY CHANGE] Pass the user object directly to VerifyEmailScreen
             return VerifyEmailScreen(user: user, onVerified: _refreshAuthWrapper);
           } else {
             // User is logged in and verified, show the main app
             return FutureBuilder<UserData?>(
               key: _futureBuilderKey,
-              future: _fetchUserData(user.uid),
+              // [KEY CHANGE] Pass the full user object to _fetchUserData
+              future: _fetchUserData(user),
               builder: (context, userSnapshot) {
                 if (userSnapshot.connectionState == ConnectionState.waiting) {
                   return const Scaffold(body: Center(child: CircularProgressIndicator()));
                 }
-                if (userSnapshot.hasError || !userSnapshot.hasData) {
-                  return Scaffold(
-                      body: Center(
-                          child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("ไม่สามารถโหลดข้อมูลผู้ใช้ได้"),
-                      const SizedBox(height: 10),
-                      ElevatedButton(
-                        onPressed: _refreshData,
-                        child: const Text("ลองอีกครั้ง"),
-                      )
-                    ],
-                  )));
+                if (userSnapshot.hasError) {
+                   return Scaffold(body: Center(child: Text("เกิดข้อผิดพลาด: ${userSnapshot.error}")));
                 }
-
+                
+                // Even if userSnapshot.data is null (e.g., for a buyer),
+                // we still proceed to FeedPage, which can handle null profiles.
                 SellerProfile? sellerProfile = userSnapshot.data?.sellerProfile;
                 Store? storeProfile = userSnapshot.data?.storeProfile;
                 String initialProvince = sellerProfile?.province ?? 'ทั้งหมด';
