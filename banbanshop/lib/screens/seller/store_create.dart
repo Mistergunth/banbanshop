@@ -1,4 +1,4 @@
-// lib/screens/seller/store_create.dart (ฉบับแก้ไข)
+// lib/screens/seller/store_create.dart
 
 // ignore_for_file: use_build_context_synchronously, avoid_print, deprecated_member_use
 
@@ -13,6 +13,8 @@ import 'package:banbanshop/screens/map_picker_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/models/seller_profile.dart';
+// --- [NEW] Import the new screen for setting hours ---
+import 'package:banbanshop/screens/seller/edit_store_hours_screen.dart';
 
 class StoreCreateScreen extends StatefulWidget {
   final VoidCallback? onRefresh;
@@ -31,7 +33,7 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _locationAddressController = TextEditingController();
-  final TextEditingController _openingHoursController = TextEditingController();
+  // final TextEditingController _openingHoursController = TextEditingController(); // [REMOVED]
   final TextEditingController _phoneNumberController = TextEditingController();
   String? _selectedStoreType;
   File? _shopImageFile;
@@ -41,6 +43,9 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   double? _selectedLatitude;
   double? _selectedLongitude;
   SellerProfile? _currentSellerProfile;
+
+  // --- [NEW] State variable to hold the operating hours map ---
+  late Map<String, dynamic> _operatingHours;
 
   final Cloudinary cloudinary = Cloudinary.full(
     cloudName: 'dbgybkvms',
@@ -59,6 +64,8 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   @override
   void initState() {
     super.initState();
+    // --- [NEW] Initialize with default hours ---
+    _operatingHours = Store.defaultHours();
     _fetchSellerData();
   }
 
@@ -67,7 +74,7 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _locationAddressController.dispose();
-    _openingHoursController.dispose();
+    // _openingHoursController.dispose(); // [REMOVED]
     _phoneNumberController.dispose();
     super.dispose();
   }
@@ -125,6 +132,27 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     }
   }
 
+  // --- [NEW] Function to navigate to the hours editor screen ---
+  Future<void> _editOpeningHours() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditStoreHoursScreen(
+          initialHours: _operatingHours,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _operatingHours = result;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ตั้งค่าเวลาทำการแล้ว')),
+      );
+    }
+  }
+
   Future<void> _createStore() async {
     if (!_formKey.currentState!.validate()) return;
     if (_shopImageFile == null) {
@@ -171,15 +199,18 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         type: _selectedStoreType!,
-        category: _selectedStoreType, // [EDIT] เพิ่มการส่งค่า category
+        category: _selectedStoreType,
         imageUrl: shopImageUrl,
         locationAddress: _locationAddressController.text.trim(),
         latitude: _selectedLatitude,
         longitude: _selectedLongitude,
-        openingHours: _openingHoursController.text.trim(),
+        // openingHours: _openingHoursController.text.trim(), // [REMOVED]
         phoneNumber: _phoneNumberController.text.trim(),
         createdAt: DateTime.now(),
         province: _currentSellerProfile!.province,
+        // --- [NEW] Add new fields when creating a store ---
+        operatingHours: _operatingHours,
+        isManuallyClosed: false, // Default to open
       );
 
       await FirebaseFirestore.instance
@@ -283,7 +314,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Store Name
                     TextFormField(
                       controller: _nameController,
                       decoration: InputDecoration(
@@ -298,7 +328,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Description
                     TextFormField(
                       controller: _descriptionController,
                       maxLines: 4,
@@ -314,7 +343,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Store Type Dropdown
                     DropdownButtonFormField<String>(
                       value: _selectedStoreType,
                       decoration: InputDecoration(
@@ -339,7 +367,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Location Picker
                     TextFormField(
                       controller: _locationAddressController,
                       readOnly: true,
@@ -359,22 +386,28 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Opening Hours
-                    TextFormField(
-                      controller: _openingHoursController,
-                      decoration: InputDecoration(
-                        labelText: 'ระยะเวลาเปิด-ปิดร้าน',
-                        hintText: 'เช่น 09:00 - 18:00 น. ทุกวัน',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                        filled: true,
-                        fillColor: Colors.white,
-                        prefixIcon: const Icon(Icons.access_time, color: Color(0xFF9C6ADE)),
+                    // --- [NEW] Replaced the old text field with a button ---
+                    InkWell(
+                      onTap: _editOpeningHours,
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'เวลาเปิด-ปิดร้าน',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                          filled: true,
+                          fillColor: Colors.white,
+                          prefixIcon: const Icon(Icons.access_time, color: Color(0xFF9C6ADE)),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('ตั้งค่าเวลาทำการ', style: TextStyle(fontSize: 16)),
+                            Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
+                          ],
+                        ),
                       ),
-                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณาป้อนระยะเวลาเปิด-ปิดร้าน' : null,
                     ),
                     const SizedBox(height: 16),
 
-                    // Phone Number
                     TextFormField(
                       controller: _phoneNumberController,
                       keyboardType: TextInputType.phone,
@@ -390,7 +423,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Submit Button
                     _isUploading
                         ? const Center(child: CircularProgressIndicator())
                         : ElevatedButton(

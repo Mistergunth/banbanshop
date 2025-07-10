@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:banbanshop/screens/post_model.dart'; // ตรวจสอบว่า Post model อยู่ที่นี่
+import 'package:banbanshop/screens/models/post_model.dart'; // ตรวจสอบว่า Post model อยู่ที่นี่
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Cloud Firestore
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth เพื่อดึง UID ของผู้ใช้

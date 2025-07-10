@@ -10,7 +10,7 @@ import 'package:banbanshop/screens/seller/seller_account_screen.dart';
 import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart';
 import 'package:banbanshop/screens/store_screen_content.dart';
 import 'package:banbanshop/screens/create_post.dart';
-import 'package:banbanshop/screens/post_model.dart';
+import 'package:banbanshop/screens/models/post_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';

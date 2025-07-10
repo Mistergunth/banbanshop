@@ -1,4 +1,4 @@
-// lib/screens/seller/store_profile.dart (ฉบับแก้ไข)
+// lib/screens/seller/store_profile.dart
 
 // ignore_for_file: library_private_types_in_public_api, avoid_print, use_build_context_synchronously, deprecated_member_use
 
@@ -7,11 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
-import 'package:banbanshop/screens/post_model.dart';
+import 'package:banbanshop/screens/models/post_model.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:banbanshop/screens/reviews/store_reviews_screen.dart';
+import 'package:intl/intl.dart';
+
 
 class StoreProfileScreen extends StatefulWidget {
   final String storeId;
@@ -105,7 +107,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         await favoriteRef.set({
           'storeId': widget.storeId,
           'storeName': _store?.name,
-          'storeImageUrl': _store?.imageUrl,
+          'imageUrl': _store?.imageUrl, // Changed from storeImageUrl
           'addedAt': Timestamp.now(),
         });
         if (mounted) {
@@ -175,7 +177,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         QuerySnapshot postsSnapshot = await FirebaseFirestore.instance
             .collection('posts')
             .where('storeId', isEqualTo: widget.storeId)
-            .orderBy('created_at', descending: true)
+            .orderBy('createdAt', descending: true) // Changed from 'created_at'
             .get();
 
         final fetchedPosts = postsSnapshot.docs.map((doc) {
@@ -211,8 +213,55 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   }
 
   Future<void> _deletePost(Post post) async {
-    // ... (โค้ดส่วนนี้เหมือนเดิม)
+    // ... (This function can remain the same)
   }
+
+  // --- [NEW] Helper widget to display store status ---
+  Widget _buildStoreStatus(Store store) {
+    final bool isOpen = store.isOpen;
+    final String statusText = isOpen ? 'เปิด' : 'ปิด';
+    final Color statusColor = isOpen ? Colors.green : Colors.red;
+
+    final now = DateTime.now().toUtc().add(const Duration(hours: 7));
+    final String currentDayKey = DateFormat('E').format(now).toLowerCase().substring(0, 3);
+    final todaySchedule = store.operatingHours[currentDayKey];
+    String hoursText = 'ปิดทำการวันนี้';
+    if (todaySchedule != null && todaySchedule['isOpen'] == true) {
+      hoursText = 'วันนี้: ${todaySchedule['opens']} - ${todaySchedule['closes']}';
+    }
+    if (store.isManuallyClosed) {
+      hoursText = 'ร้านปิดชั่วคราว';
+    }
+
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                statusText,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              hoursText,
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +281,12 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                   MaterialPageRoute(
                     builder: (context) => EditStoreScreen(store: _store!),
                   ),
-                ).then((_) => _fetchStoreDataAndPosts());
+                ).then((value) {
+                  // Refresh data if edit screen returns true
+                  if (value == true) {
+                    _fetchStoreDataAndPosts();
+                  }
+                });
               },
             ),
         ],
@@ -279,7 +333,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                       Text(_store!.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                                       const SizedBox(height: 4),
 
-                                      // --- ส่วนที่เพิ่มเข้ามา ---
                                       if (_store!.reviewCount > 0)
                                         Row(
                                           children: [
@@ -301,9 +354,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                           'ยังไม่มีรีวิว',
                                           style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                                         ),
-                                      // --- จบส่วนที่เพิ่มเข้ามา ---
-
                                       const SizedBox(height: 8),
+
+                                      // --- [KEY CHANGE] Replaced old openingHours with new status widget ---
+                                      _buildStoreStatus(_store!),
+                                      
                                       Text(_store!.description, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
                                       const SizedBox(height: 8),
                                       Row(
@@ -320,14 +375,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                           Icon(Icons.category, size: 16, color: Colors.grey[600]),
                                           const SizedBox(width: 4),
                                           Flexible(child: Text(_store!.type, style: TextStyle(color: Colors.grey[600]))),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                                          const SizedBox(width: 4),
-                                          Flexible(child: Text(_store!.openingHours, style: TextStyle(color: Colors.grey[600]))),
                                         ],
                                       ),
                                       const SizedBox(height: 4),
@@ -447,7 +494,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   }
 }
 
-// PostCard และ ActionButton Widgets (เหมือนเดิม)
+// PostCard and ActionButton Widgets (You can keep them as they are)
 // ...
 class PostCard extends StatefulWidget {
   final Post post;

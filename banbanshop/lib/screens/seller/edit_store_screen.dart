@@ -1,4 +1,4 @@
-// lib/screens/seller/edit_store_screen.dart (ฉบับแก้ไขล่าสุด)
+// lib/screens/seller/edit_store_screen.dart
 
 // ignore_for_file: use_build_context_synchronously, avoid_print
 
@@ -11,6 +11,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:banbanshop/screens/map_picker_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+// --- [NEW] Import the new screen for setting hours ---
+import 'package:banbanshop/screens/seller/edit_store_hours_screen.dart';
+
 
 class EditStoreScreen extends StatefulWidget {
   final Store store;
@@ -26,17 +29,21 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
   late TextEditingController _locationAddressController;
-  late TextEditingController _openingHoursController;
+  // late TextEditingController _openingHoursController; // [REMOVED]
   late TextEditingController _phoneNumberController;
 
   String? _selectedStoreType;
-  String? _selectedProvince; // [EDIT] เพิ่ม State สำหรับจังหวัด
+  String? _selectedProvince;
   File? _shopImageFile;
   String? _currentImageUrl;
   bool _isUploading = false;
 
   double? _selectedLatitude;
   double? _selectedLongitude;
+
+  // --- [NEW] State variable to hold the operating hours map ---
+  late Map<String, dynamic> _operatingHours;
+
 
   final Cloudinary cloudinary = Cloudinary.full(
     cloudName: 'dbgybkvms',
@@ -45,7 +52,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   );
   final String uploadPreset = 'flutter_unsigned_upload';
 
-  // [EDIT] เพิ่ม List ของจังหวัด
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
     'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร',
@@ -75,13 +81,15 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     _nameController = TextEditingController(text: widget.store.name);
     _descriptionController = TextEditingController(text: widget.store.description);
     _locationAddressController = TextEditingController(text: widget.store.locationAddress);
-    _openingHoursController = TextEditingController(text: widget.store.openingHours);
+    // _openingHoursController = TextEditingController(text: widget.store.openingHours); // [REMOVED]
     _phoneNumberController = TextEditingController(text: widget.store.phoneNumber);
     _selectedStoreType = widget.store.category;
-    _selectedProvince = widget.store.province; // [EDIT] ตั้งค่าจังหวัดเริ่มต้น
+    _selectedProvince = widget.store.province;
     _currentImageUrl = widget.store.imageUrl;
     _selectedLatitude = widget.store.latitude;
     _selectedLongitude = widget.store.longitude;
+    // --- [NEW] Initialize operating hours from the store object ---
+    _operatingHours = Map<String, dynamic>.from(widget.store.operatingHours);
   }
 
   @override
@@ -89,7 +97,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _locationAddressController.dispose();
-    _openingHoursController.dispose();
+    // _openingHoursController.dispose(); // [REMOVED]
     _phoneNumberController.dispose();
     super.dispose();
   }
@@ -125,6 +133,29 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       });
     }
   }
+
+  // --- [NEW] Function to navigate to the hours editor screen ---
+  Future<void> _editOpeningHours() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditStoreHoursScreen(
+          initialHours: _operatingHours,
+        ),
+      ),
+    );
+
+    // If the user saved their changes, update the state
+    if (result != null) {
+      setState(() {
+        _operatingHours = result;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('อัปเดตเวลาทำการแล้ว')),
+      );
+    }
+  }
+
 
   Future<void> _updateStore() async {
     if (!_formKey.currentState!.validate()) return;
@@ -175,13 +206,16 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'description': _descriptionController.text.trim(),
         'type': _selectedStoreType!,
         'category': _selectedStoreType!,
-        'province': _selectedProvince!, // [EDIT] เพิ่มการอัปเดตจังหวัด
+
+        'province': _selectedProvince!,
         'imageUrl': finalImageUrl,
         'locationAddress': _locationAddressController.text.trim(),
         'latitude': _selectedLatitude,
         'longitude': _selectedLongitude,
-        'openingHours': _openingHoursController.text.trim(),
+        // 'openingHours': _openingHoursController.text.trim(), // [REMOVED]
         'phoneNumber': _phoneNumberController.text.trim(),
+        // --- [NEW] Add the new operatingHours map to the update ---
+        'operatingHours': _operatingHours,
       };
 
       await FirebaseFirestore.instance
@@ -189,6 +223,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
           .doc(widget.store.id)
           .update(updatedStoreData);
 
+      // This part for updating other collections seems fine, but let's keep it for now.
       await FirebaseFirestore.instance
           .collection('sellers')
           .doc(currentUser.uid)
@@ -217,7 +252,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       }
 
       if (mounted) {
-        Navigator.pop(context, true);
+        Navigator.pop(context, true); // Pop with a result to indicate success
       }
     } catch (e) {
       if (mounted) {
@@ -297,7 +332,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                 validator: (v) => v == null ? 'กรุณาเลือกประเภทร้านค้า' : null,
               ),
               const SizedBox(height: 16),
-              // [EDIT] เพิ่ม Dropdown สำหรับจังหวัด
               DropdownButtonFormField<String>(
                 value: _selectedProvince,
                 decoration: InputDecoration(
@@ -365,17 +399,24 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณาปักหมุดตำแหน่งร้าน' : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _openingHoursController,
-                decoration: InputDecoration(
-                  labelText: 'ระยะเวลา เปิด-ปิดร้าน',
-                  hintText: 'เช่น 09:00 - 18:00 น.',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  suffixIcon: const Icon(Icons.access_time),
+              // --- [NEW] Replaced the old text field with a button ---
+              InkWell(
+                onTap: _editOpeningHours,
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'เวลาเปิด-ปิดร้าน',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('ตั้งค่าเวลาทำการ', style: TextStyle(fontSize: 16)),
+                      Icon(Icons.access_time, color: Colors.grey),
+                    ],
+                  ),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณาป้อนระยะเวลาเปิด-ปิดร้าน' : null,
               ),
               const SizedBox(height: 32),
               _isUploading
