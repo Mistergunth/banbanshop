@@ -17,6 +17,7 @@ class SellerRegisterScreen extends StatefulWidget {
 
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailFieldKey = GlobalKey<FormFieldState>();
   final _phoneFieldKey = GlobalKey<FormFieldState>();
   final _auth = FirebaseAuth.instance;
 
@@ -33,11 +34,9 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
 
-  // --- State สำหรับ OTP ---
   bool _isOtpSent = false;
   String? _verificationId;
   int? _resendToken;
-  // -----------------------
 
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
@@ -68,43 +67,69 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   }
 
   Future<void> _sendOtp() async {
-    if (!_phoneFieldKey.currentState!.validate()) {
+    // Validate email and phone fields first
+    if (!_emailFieldKey.currentState!.validate() || !_phoneFieldKey.currentState!.validate()) {
       return;
     }
 
     setState(() => _isLoading = true);
-    final phoneNumber = "+66${_phoneController.text.trim()}";
 
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      forceResendingToken: _resendToken,
-      verificationCompleted: (PhoneAuthCredential credential) {
-        print("Auto verification completed");
-        if(mounted) setState(() => _isLoading = false);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        print("Verification Failed: ${e.message}");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("เกิดข้อผิดพลาดในการส่ง OTP: ${e.code}")),
+    try {
+      // [KEY CHANGE] Check if email exists BEFORE sending OTP
+      final email = _emailController.text.trim();
+      print("[REG] Checking if email '$email' exists...");
+      final List<String> signInMethods = await _auth.fetchSignInMethodsForEmail(email);
+
+      if (signInMethods.isNotEmpty) {
+        throw FirebaseAuthException(code: 'email-already-in-use');
+      }
+      print("[REG] Email is available. Proceeding with phone verification...");
+
+      final phoneNumber = "+66${_phoneController.text.trim()}";
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        forceResendingToken: _resendToken,
+        verificationCompleted: (PhoneAuthCredential credential) {
+           if(mounted) setState(() => _isLoading = false);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("เกิดข้อผิดพลาดในการส่ง OTP: ${e.message}")),
+          );
+          if (mounted) setState(() => _isLoading = false);
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('OTP ได้ถูกส่งไปยังเบอร์โทรศัพท์ของคุณแล้ว')),
+          );
+          setState(() {
+            _isOtpSent = true;
+            _verificationId = verificationId;
+            _resendToken = resendToken;
+            _isLoading = false;
+          });
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {},
+      );
+    } on FirebaseAuthException catch (e) {
+       if (e.code == 'email-already-in-use') {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น')),
         );
-        if (mounted) setState(() => _isLoading = false);
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP ได้ถูกส่งไปยังเบอร์โทรศัพท์ของคุณแล้ว')),
+       } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: ${e.message}')),
         );
-        setState(() {
-          _isOtpSent = true;
-          _verificationId = verificationId;
-          _resendToken = resendToken;
-          _isLoading = false;
-        });
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {},
-    );
+       }
+       if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+       ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
+        );
+       if (mounted) setState(() => _isLoading = false);
+    }
   }
 
-  // [EDIT] ปรับปรุงตรรกะการสมัครสมาชิกใหม่ทั้งหมดให้เหมือนฝั่งผู้ซื้อ
   void _registerSeller() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_isOtpSent || _verificationId == null) {
@@ -115,34 +140,34 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     }
 
     setState(() => _isLoading = true);
-
+    
     try {
+      // Step 1: Sign in with phone credential
       PhoneAuthCredential credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: _otpController.text.trim(),
       );
-
       final userCredential = await _auth.signInWithCredential(credential);
       final user = userCredential.user;
 
       if (user == null) {
-        throw Exception("ไม่สามารถยืนยันเบอร์โทรศัพท์ได้");
+        throw Exception("Phone auth failed, user is null.");
       }
 
-      try {
-        final emailCredential = EmailAuthProvider.credential(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
-        await user.linkWithCredential(emailCredential);
-      } catch (e) {
-        await user.delete();
-        throw e;
-      }
+      // Step 2: Link with email credential
+      final emailCredential = EmailAuthProvider.credential(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      await user.linkWithCredential(emailCredential);
       
+      // Step 3: Update profile
       await user.updateProfile(displayName: _fullNameController.text.trim());
-      await user.sendEmailVerification();
       
+      // Step 4: Send verification email
+      await user.sendEmailVerification();
+
+      // Step 5: Save user data to Firestore
       await FirebaseFirestore.instance.collection('sellers').doc(user.uid).set({
         'uid': user.uid,
         'fullName': _fullNameController.text.trim(),
@@ -154,29 +179,24 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         'createdAt': Timestamp.now(),
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ')),
-      );
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
-        (route) => false,
-      );
-
     } on FirebaseAuthException catch (e) {
       String message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
       if (e.code == 'weak-password') {
         message = 'รหัสผ่านคาดเดาง่ายเกินไป';
-      } else if (e.code == 'email-already-in-use' || e.code == 'credential-already-in-use') {
-        message = 'อีเมลหรือเบอร์โทรศัพท์นี้ถูกใช้งานโดยบัญชีอื่นแล้ว';
+      } else if (e.code == 'invalid-credential' || e.code == 'credential-already-in-use'){
+        message = 'ข้อมูลรับรองไม่ถูกต้องหรือถูกใช้งานแล้ว';
       } else if (e.code == 'invalid-verification-code') {
         message = 'รหัส OTP ไม่ถูกต้อง';
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
-      );
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -212,16 +232,22 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                 const Text('ผู้ขาย - สมัครสมาชิก', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 _buildInputField(label: 'ชื่อ - นามสกุล', controller: _fullNameController, validator: (v) {
-                  if (v!.isEmpty) return 'กรุณากรอกชื่อ';
+                  if (v == null || v.isEmpty) return 'กรุณากรอกชื่อ';
                   if (!RegExp(r'^[a-zA-Z\u0E00-\u0E7F\s]+$').hasMatch(v)) return 'ชื่อต้องเป็นตัวอักษรเท่านั้น';
                   return null;
                 }),
                 const SizedBox(height: 15),
-                _buildInputField(label: 'อีเมล', controller: _emailController, keyboardType: TextInputType.emailAddress, validator: (v) {
-                  if (v!.isEmpty) return 'กรุณากรอกอีเมล';
-                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) return 'รูปแบบอีเมลไม่ถูกต้อง';
-                   return null;
-                }),
+                _buildInputField(
+                  fieldKey: _emailFieldKey,
+                  label: 'อีเมล', 
+                  controller: _emailController, 
+                  keyboardType: TextInputType.emailAddress, 
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'กรุณากรอกอีเมล';
+                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v)) return 'รูปแบบอีเมลไม่ถูกต้อง';
+                    return null;
+                  }
+                ),
                 const SizedBox(height: 15),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,7 +262,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                         keyboardType: TextInputType.phone,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
                         validator: (v) {
-                          if (v!.isEmpty) return 'กรุณากรอกเบอร์โทร';
+                          if (v == null || v.isEmpty) return 'กรุณากรอกเบอร์โทร';
                           if (v.length != 9) return 'ต้องมี 9 หลัก';
                           return null;
                         },
@@ -258,26 +284,26 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                     label: 'รหัส OTP',
                     controller: _otpController,
                     keyboardType: TextInputType.number,
-                    validator: (v) => v!.isEmpty ? 'กรุณากรอก OTP' : null,
+                    validator: (v) => (v == null || v.isEmpty) ? 'กรุณากรอก OTP' : null,
                   ),
                 ],
                 const SizedBox(height: 15),
                 _buildProvinceDropdown(),
                 const SizedBox(height: 15),
                 _buildPasswordField(label: 'รหัสผ่าน', controller: _passwordController, isVisible: _isPasswordVisible, onToggleVisibility: () => setState(() => _isPasswordVisible = !_isPasswordVisible), validator: (v) {
-                  if (v!.isEmpty) return 'กรุณากรอกรหัสผ่าน';
+                  if (v == null || v.isEmpty) return 'กรุณากรอกรหัสผ่าน';
                   if (v.length < 6) return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
                   return null;
                 }),
                 const SizedBox(height: 15),
                 _buildPasswordField(label: 'ยืนยันรหัสผ่าน', controller: _confirmPasswordController, isVisible: _isConfirmPasswordVisible, onToggleVisibility: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible), validator: (v) {
-                  if (v!.isEmpty) return 'กรุณายืนยันรหัสผ่าน';
+                  if (v == null || v.isEmpty) return 'กรุณายืนยันรหัสผ่าน';
                   if (v != _passwordController.text) return 'รหัสผ่านไม่ตรงกัน';
                   return null;
                 }),
                 const SizedBox(height: 15),
                 _buildInputField(label: 'บัตรประชาชน', controller: _idCardController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)], validator: (v) {
-                  if (v!.isEmpty) return 'กรุณากรอกเลขบัตรประชาชน';
+                  if (v == null || v.isEmpty) return 'กรุณากรอกเลขบัตรประชาชน';
                   if (v.length != 13) return 'เลขบัตรประชาชนต้องมี 13 หลัก';
                   return null;
                 }),
@@ -381,7 +407,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('จังหวัดที่ตั้งร้าน', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const Text('จังหวัดที่ตั้งร้าน', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: _selectedProvince,

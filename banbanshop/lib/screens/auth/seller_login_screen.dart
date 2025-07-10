@@ -40,14 +40,11 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     String? emailToLogin;
 
     try {
-      // --- ตรรกะใหม่: ตรวจสอบว่าเป็นอีเมลหรือเบอร์โทร ---
       bool isEmail = loginInput.contains('@');
 
       if (isEmail) {
         emailToLogin = loginInput;
       } else {
-        // ถ้าไม่ใช่ email, ให้สันนิษฐานว่าเป็นเบอร์โทร และค้นหา email ที่ผูกกัน
-        // จัดรูปแบบเบอร์โทรให้เป็น +66... เพื่อให้ตรงกับข้อมูลใน Firestore
         String formattedPhone = loginInput;
         if (formattedPhone.startsWith('0')) {
           formattedPhone = "+66${formattedPhone.substring(1)}";
@@ -67,39 +64,40 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบบัญชีผู้ใช้ด้วยเบอร์โทรศัพท์นี้');
         }
       }
-      // ------------------------------------------------
 
       if (emailToLogin == null) {
          throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบข้อมูลอีเมลสำหรับใช้เข้าสู่ระบบ');
       }
 
-      // ทำการล็อคอินด้วย Email และ Password
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailToLogin,
         password: password,
       );
 
-      // [KEY CHANGE] ปิดการตรวจสอบการยืนยันอีเมลชั่วคราวเพื่อการทดสอบ
-      // หากต้องการเปิดใช้งานในเวอร์ชันจริง ให้ลบ comment ด้านล่างออก
-      /*
+      // [KEY CHANGE] เปิดใช้งานการตรวจสอบการยืนยันอีเมล
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null && !user.emailVerified) {
+      // ต้อง reload user state ก่อนเพื่อดึงข้อมูลล่าสุด
+      await user?.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+
+      if (refreshedUser != null && !refreshedUser.emailVerified) {
          ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ'),
             backgroundColor: Colors.orange,
           ),
         );
-        await FirebaseAuth.instance.signOut(); // ออกจากระบบเพื่อให้ไปยืนยันก่อน
+        await FirebaseAuth.instance.signOut();
         setState(() => _isLoading = false);
         return;
       }
-      */
+      // ----------------------------------------------------
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
         );
+        // Navigator.of(context).pushReplacement(...);
       }
 
     } on FirebaseAuthException catch (e) {

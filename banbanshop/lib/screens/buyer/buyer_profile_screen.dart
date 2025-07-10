@@ -212,15 +212,6 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                         );
                       },
                     ),
-                     _buildProfileOptionButton(
-                      icon: Icons.rate_review_outlined,
-                      text: 'รีวิวของฉัน',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน')),
-                        );
-                      },
-                    ),
                     _buildProfileOptionButton(
                       icon: Icons.edit_outlined,
                       text: 'แก้ไขโปรไฟล์',
