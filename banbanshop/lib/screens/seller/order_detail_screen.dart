@@ -6,6 +6,8 @@ import 'package:banbanshop/screens/models/order_model.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:banbanshop/screens/seller/seller_live_tracking_screen.dart';
+// --- [KEY CHANGE] Import the new screen for seller to track buyer pickup ---
+import 'package:banbanshop/screens/seller/seller_pickup_tracking_screen.dart';
 
 
 class OrderDetailScreen extends StatefulWidget {
@@ -36,7 +38,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final orderRef = db.collection('stores').doc(widget.order.storeId).collection('orders').doc(widget.order.id);
 
     try {
-      // Deduct stock when order moves to 'shipped' (for transfer) or 'processing' (for COD)
       bool shouldDeductStock = (newStatus == OrderStatus.shipped && widget.order.paymentMethod == 'transfer') ||
                                (newStatus == OrderStatus.shipped && widget.order.paymentMethod == 'cod');
 
@@ -69,7 +70,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           _currentOrderStatus = newStatus;
         });
 
-        // If the order is finalized, pop the screen after a short delay
         if (newStatus == OrderStatus.delivered || newStatus == OrderStatus.cancelled) {
           Future.delayed(const Duration(seconds: 1), () {
             if (mounted) {
@@ -211,7 +211,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildStatusManagementSection(Order currentOrder) {
-    // Case 1: New order, waiting for payment (Transfer only)
     if (currentOrder.status == OrderStatus.pending) {
       return _buildActionButton(
         text: 'ยกเลิกออเดอร์',
@@ -220,18 +219,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       );
     }
     
-    // Case 2: Order is paid (Transfer) or is a COD order. Ready for processing.
     if (currentOrder.status == OrderStatus.processing) {
       bool isCOD = currentOrder.paymentMethod == 'cod';
+      String buttonText = currentOrder.deliveryMethod == 'pickup'
+          ? 'ยืนยัน (พร้อมให้ลูกค้ารับ)'
+          : (isCOD ? 'ยืนยันออเดอร์ (เตรียมจัดส่ง)' : 'ยืนยันการชำระเงิน (เตรียมจัดส่ง)');
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildActionButton(
-            text: isCOD ? 'ยืนยันออเดอร์ (เตรียมจัดส่ง)' : 'ยืนยันการชำระเงิน (เตรียมจัดส่ง)',
+            text: buttonText,
             onPressed: () => _updateOrderStatus(OrderStatus.shipped),
             color: Colors.green,
           ),
-          // Show reject button only for Transfer payments that have a slip
           if (!isCOD && currentOrder.paymentSlipUrl != null) ...[
             const SizedBox(height: 10),
             _buildActionButton(
@@ -244,15 +245,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       );
     }
     
-    // Case 3: Order is shipped. Can start tracking or mark as delivered.
     if (currentOrder.status == OrderStatus.shipped) {
        return Column(
          crossAxisAlignment: CrossAxisAlignment.stretch,
          children: [
-           // Only show tracking for delivery, not for pickup
            if (currentOrder.deliveryMethod == 'delivery')
              _buildActionButton(
-               text: 'เริ่มติดตามการจัดส่ง (GPS)',
+               text: 'ติดตามการจัดส่ง (GPS)',
                onPressed: () {
                  Navigator.push(
                    context,
@@ -262,10 +261,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                  );
                },
                color: Colors.blue,
+             )
+           else // deliveryMethod is 'pickup'
+             _buildActionButton(
+               text: 'ติดตามลูกค้าที่มารับสินค้า',
+               onPressed: () {
+                 // --- [KEY CHANGE] เปิดใช้งานการนำทางไปยังหน้าจอใหม่ ---
+                 Navigator.push(
+                   context,
+                   MaterialPageRoute(
+                     builder: (context) => SellerPickupTrackingScreen(order: currentOrder),
+                   ),
+                 );
+               },
+               color: Colors.deepPurple,
              ),
            const SizedBox(height: 10),
            _buildActionButton(
-             text: currentOrder.deliveryMethod == 'pickup' ? 'ลูกค้ารับสินค้าแล้ว' : 'สินค้าจัดส่งถึงแล้ว',
+             text: 'ลูกค้ารับสินค้า/จัดส่งถึงแล้ว',
              onPressed: () => _updateOrderStatus(OrderStatus.delivered),
              color: Colors.teal,
            ),
@@ -273,7 +286,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
        );
     }
 
-    // For delivered or cancelled orders, just show the status.
     return Card(
       child: ListTile(
         title: const Text('สถานะปัจจุบัน', style: TextStyle(fontWeight: FontWeight.bold)),

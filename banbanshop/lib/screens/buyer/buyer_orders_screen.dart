@@ -1,13 +1,12 @@
 // lib/screens/buyer/buyer_orders_screen.dart
 
+import 'package:banbanshop/screens/buyer/buyer_pickup_tracking_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:banbanshop/screens/models/order_model.dart';
 import 'package:banbanshop/screens/buyer/buyer_live_tracking_screen.dart';
-// Note: You might need to create a buyer-specific order detail screen later
-// For now, we link directly to tracking.
 
 class BuyerOrdersScreen extends StatefulWidget {
   const BuyerOrdersScreen({super.key});
@@ -23,7 +22,6 @@ class _BuyerOrdersScreenState extends State<BuyerOrdersScreen> {
     if (_currentUser == null) {
       return Stream.value([]);
     }
-    // --- [KEY FIX] Removed unnecessary '!' operator ---
     return FirebaseFirestore.instance
         .collectionGroup('orders')
         .where('buyerId', isEqualTo: _currentUser.uid)
@@ -86,7 +84,8 @@ class BuyerOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final DateFormat formatter = DateFormat('dd MMMM yyyy, HH:mm', 'th');
-    final bool isShipped = order.status == OrderStatus.shipped;
+    // --- [KEY CHANGE] เปลี่ยนชื่อตัวแปรให้สื่อความหมายมากขึ้น ---
+    final bool isReadyForAction = order.status == OrderStatus.shipped;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -122,26 +121,54 @@ class BuyerOrderCard extends StatelessWidget {
             _buildInfoRow(Icons.calendar_today_outlined, 'วันที่สั่ง:', formatter.format(order.orderDate.toDate())),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.receipt_long_outlined, 'ยอดรวม:', '฿${order.totalAmount.toStringAsFixed(2)}'),
-            if (isShipped) ...[
+            const SizedBox(height: 8),
+            // --- [NEW] แสดงวิธีจัดส่ง ---
+            _buildInfoRow(
+              order.deliveryMethod == 'pickup' ? Icons.store_mall_directory_outlined : Icons.local_shipping_outlined,
+              'วิธีจัดส่ง:',
+              order.deliveryMethod == 'pickup' ? 'รับที่ร้าน' : 'จัดส่ง',
+            ),
+            
+            // --- [KEY CHANGE] ตรวจสอบ deliveryMethod เพื่อแสดงปุ่มที่ถูกต้อง ---
+            if (isReadyForAction) ...[
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.track_changes_rounded),
-                  label: const Text('ติดตามการจัดส่ง'),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BuyerLiveTrackingScreen(order: order),
+                child: order.deliveryMethod == 'pickup'
+                    // ปุ่มสำหรับ "รับที่ร้าน"
+                    ? ElevatedButton.icon(
+                        icon: const Icon(Icons.pin_drop_outlined),
+                        label: const Text('เริ่มแชร์ตำแหน่งเพื่อไปรับสินค้า'),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BuyerPickupTrackingScreen(order: order),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                        ),
+                      )
+                    // ปุ่มสำหรับ "จัดส่ง" (เหมือนเดิม)
+                    : ElevatedButton.icon(
+                        icon: const Icon(Icons.track_changes_rounded),
+                        label: const Text('ติดตามการจัดส่ง'),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BuyerLiveTrackingScreen(order: order),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
               ),
             ]
           ],
@@ -174,7 +201,6 @@ class BuyerOrderCard extends StatelessWidget {
         return Colors.green;
       case OrderStatus.cancelled:
         return Colors.red;
-      // --- [KEY FIX] Removed the unreachable default case ---
     }
   }
 }
