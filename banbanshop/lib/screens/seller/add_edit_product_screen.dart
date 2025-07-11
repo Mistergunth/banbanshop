@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
-// --- [KEY FIX] Add the missing import for Firestore ---
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:banbanshop/screens/models/product_model.dart';
 
@@ -112,18 +111,25 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         }
       }
 
-      final productData = Product(
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim(),
-        price: double.tryParse(_priceController.text.trim()) ?? 0.0,
-        imageUrl: imageUrl,
-        category: 'Default', // Placeholder, can be expanded later
-        isAvailable: _isAvailable,
-        stock: _isUnlimitedStock ? -1 : int.tryParse(_stockController.text.trim()) ?? 0,
-      ).toFirestore();
+      // --- [KEY FIX] ---
+      // Create a Map directly instead of creating a Product instance,
+      // to avoid constructor errors when creating a new product.
+      final Map<String, dynamic> productData = {
+        'storeId': widget.storeId,
+        'name': _nameController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
+        'imageUrl': imageUrl,
+        'category': 'Default', // Placeholder, can be expanded later
+        'isAvailable': _isAvailable,
+        'stock': _isUnlimitedStock ? -1 : int.tryParse(_stockController.text.trim()) ?? 0,
+      };
+
 
       if (widget.product == null) {
         // Create new product
+        // Add createdAt timestamp for new products
+        productData['createdAt'] = FieldValue.serverTimestamp();
         await FirebaseFirestore.instance
             .collection('stores')
             .doc(widget.storeId)
@@ -131,6 +137,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             .add(productData);
       } else {
         // Update existing product
+        // No need to update createdAt
         await FirebaseFirestore.instance
             .collection('stores')
             .doc(widget.storeId)

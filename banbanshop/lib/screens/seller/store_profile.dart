@@ -8,6 +8,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/models/post_model.dart';
+import 'package:banbanshop/screens/models/product_model.dart';
+// --- [NEW] Import the Add/Edit Product Screen ---
+import 'package:banbanshop/screens/seller/add_edit_product_screen.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
@@ -32,6 +35,7 @@ class StoreProfileScreen extends StatefulWidget {
 class _StoreProfileScreenState extends State<StoreProfileScreen> {
   Store? _store;
   List<Post> _storePosts = [];
+  List<Product> _storeProducts = [];
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -49,7 +53,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   void initState() {
     super.initState();
     _currentUser = FirebaseAuth.instance.currentUser;
-    _fetchStoreDataAndPosts();
+    _fetchStoreData();
   }
 
   Future<void> _checkIfFavorited() async {
@@ -107,7 +111,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         await favoriteRef.set({
           'storeId': widget.storeId,
           'storeName': _store?.name,
-          'imageUrl': _store?.imageUrl, // Changed from storeImageUrl
+          'imageUrl': _store?.imageUrl,
           'addedAt': Timestamp.now(),
         });
         if (mounted) {
@@ -149,7 +153,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     }
   }
 
-  Future<void> _fetchStoreDataAndPosts() async {
+  Future<void> _fetchStoreData() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -160,35 +165,40 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         throw Exception('Store ID is empty.');
       }
 
-      DocumentSnapshot storeDoc = await FirebaseFirestore.instance
+      final storeFuture = FirebaseFirestore.instance.collection('stores').doc(widget.storeId).get();
+      final postsFuture = FirebaseFirestore.instance
+          .collection('posts')
+          .where('storeId', isEqualTo: widget.storeId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      final productsFuture = FirebaseFirestore.instance
           .collection('stores')
           .doc(widget.storeId)
+          .collection('products')
+          .where('isAvailable', isEqualTo: true)
+          .orderBy('createdAt', descending: false)
           .get();
 
+      final results = await Future.wait([storeFuture, postsFuture, productsFuture]);
+      
+      final storeDoc = results[0] as DocumentSnapshot;
+      final postsSnapshot = results[1] as QuerySnapshot;
+      final productsSnapshot = results[2] as QuerySnapshot;
+
+
       if (storeDoc.exists && storeDoc.data() != null) {
-        if(mounted) {
-          setState(() {
-            _store = Store.fromFirestore(storeDoc);
-          });
-        }
-
-        await _checkIfFavorited();
-
-        QuerySnapshot postsSnapshot = await FirebaseFirestore.instance
-            .collection('posts')
-            .where('storeId', isEqualTo: widget.storeId)
-            .orderBy('createdAt', descending: true) // Changed from 'created_at'
-            .get();
-
-        final fetchedPosts = postsSnapshot.docs.map((doc) {
-          return Post.fromJson({...doc.data() as Map<String, dynamic>, 'id': doc.id});
-        }).toList();
+        final fetchedStore = Store.fromFirestore(storeDoc);
+        final fetchedPosts = postsSnapshot.docs.map((doc) => Post.fromJson({...doc.data() as Map<String, dynamic>, 'id': doc.id})).toList();
+        final fetchedProducts = productsSnapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
 
         if(mounted) {
           setState(() {
+            _store = fetchedStore;
             _storePosts = fetchedPosts;
+            _storeProducts = fetchedProducts;
           });
         }
+        await _checkIfFavorited();
       } else {
         if(mounted) {
           setState(() {
@@ -197,7 +207,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         }
       }
     } catch (e) {
-      print("Error fetching store data or posts: $e");
+      print("Error fetching store data: $e");
       if(mounted) {
         setState(() {
           _errorMessage = 'เกิดข้อผิดพลาด: $e';
@@ -216,7 +226,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     // ... (This function can remain the same)
   }
 
-  // --- [NEW] Helper widget to display store status ---
   Widget _buildStoreStatus(Store store) {
     final bool isOpen = store.isOpen;
     final String statusText = isOpen ? 'เปิด' : 'ปิด';
@@ -232,7 +241,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     if (store.isManuallyClosed) {
       hoursText = 'ร้านปิดชั่วคราว';
     }
-
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,6 +270,110 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     );
   }
 
+  Widget _buildProductSection() {
+    if (_storeProducts.isEmpty) {
+      return const SizedBox.shrink(); 
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'สินค้าของร้าน',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 15),
+          SizedBox(
+            height: 180, 
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _storeProducts.length,
+              itemBuilder: (context, index) {
+                final product = _storeProducts[index];
+                return _buildProductCard(product);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductCard(Product product) {
+    return GestureDetector(
+      onTap: () {
+        // Navigate to edit product screen if the user is the seller
+        if (widget.isSellerView) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddEditProductScreen(
+                storeId: widget.storeId,
+                product: product,
+              ),
+            ),
+          ).then((result) {
+            // If a product was updated, refresh the data
+            if (result == true) {
+              _fetchStoreData();
+            }
+          });
+        }
+      },
+      child: Container(
+        width: 140,
+        margin: const EdgeInsets.only(right: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 110,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+                image: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(product.imageUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: product.imageUrl == null || product.imageUrl!.isEmpty
+                  ? const Center(child: Icon(Icons.inventory_2_outlined, color: Colors.grey, size: 40))
+                  : null,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              product.name,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              '฿${product.price.toStringAsFixed(2)}',
+              style: TextStyle(color: Colors.grey[800], fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -282,212 +394,233 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                     builder: (context) => EditStoreScreen(store: _store!),
                   ),
                 ).then((value) {
-                  // Refresh data if edit screen returns true
                   if (value == true) {
-                    _fetchStoreDataAndPosts();
+                    _fetchStoreData();
                   }
                 });
               },
             ),
         ],
       ),
+      // --- [KEY CHANGE] Add FloatingActionButton for adding products ---
+      floatingActionButton: widget.isSellerView
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddEditProductScreen(storeId: widget.storeId),
+                  ),
+                ).then((result) {
+                  // If a new product was added, refresh the data
+                  if (result == true) {
+                    _fetchStoreData();
+                  }
+                });
+              },
+              backgroundColor: const Color(0xFF9C6ADE),
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
           : _errorMessage != null
               ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)))
               : _store == null
                   ? const Center(child: Text('ไม่พบข้อมูลร้านค้า'))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(15),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.1),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CircleAvatar(
-                                  radius: 40,
-                                  backgroundColor: Colors.grey[200],
-                                  backgroundImage: _store!.imageUrl != null && _store!.imageUrl!.startsWith('http')
-                                      ? NetworkImage(_store!.imageUrl!)
-                                      : const AssetImage('assets/images/default_store.png') as ImageProvider,
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(_store!.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                                      const SizedBox(height: 4),
-
-                                      if (_store!.reviewCount > 0)
+                  : RefreshIndicator(
+                      onRefresh: _fetchStoreData, // Allows pull-to-refresh
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Store Info Card
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(15),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 40,
+                                    backgroundColor: Colors.grey[200],
+                                    backgroundImage: _store!.imageUrl != null && _store!.imageUrl!.startsWith('http')
+                                        ? NetworkImage(_store!.imageUrl!)
+                                        : const AssetImage('assets/images/default_store.png') as ImageProvider,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(_store!.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 4),
+                                        if (_store!.reviewCount > 0)
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.star, color: Colors.amber, size: 20),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                _store!.averageRating.toStringAsFixed(1),
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '(${_store!.reviewCount} รีวิว)',
+                                                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                              ),
+                                            ],
+                                          )
+                                        else
+                                          Text(
+                                            'ยังไม่มีรีวิว',
+                                            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                          ),
+                                        const SizedBox(height: 8),
+                                        _buildStoreStatus(_store!),
+                                        Text(_store!.description, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                                            const SizedBox(width: 4),
+                                            Flexible(child: Text(_store!.locationAddress, style: TextStyle(color: Colors.grey[600]))),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            const Icon(Icons.star, color: Colors.amber, size: 20),
+                                            Icon(Icons.category, size: 16, color: Colors.grey[600]),
                                             const SizedBox(width: 4),
-                                            Text(
-                                              _store!.averageRating.toStringAsFixed(1),
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '(${_store!.reviewCount} รีวิว)',
-                                              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                                            ),
+                                            Flexible(child: Text(_store!.type, style: TextStyle(color: Colors.grey[600]))),
                                           ],
-                                        )
-                                      else
-                                        Text(
-                                          'ยังไม่มีรีวิว',
-                                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                                         ),
-                                      const SizedBox(height: 8),
-
-                                      // --- [KEY CHANGE] Replaced old openingHours with new status widget ---
-                                      _buildStoreStatus(_store!),
-                                      
-                                      Text(_store!.description, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
-                                          const SizedBox(width: 4),
-                                          Flexible(child: Text(_store!.locationAddress, style: TextStyle(color: Colors.grey[600]))),
-                                        ],
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.phone, size: 16, color: Colors.grey[600]),
+                                            const SizedBox(width: 4),
+                                            Flexible(child: Text(_store!.phoneNumber, style: TextStyle(color: Colors.grey[600]))),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            // Action Buttons
+                            Column(
+                              children: [
+                                if (_store?.latitude != null && _store?.longitude != null)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.navigation_outlined),
+                                      label: const Text('นำทางไปยังร้านค้า'),
+                                      onPressed: () {
+                                        _launchMapsUrl(_store!.latitude!, _store!.longitude!);
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF5C6BC0),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.category, size: 16, color: Colors.grey[600]),
-                                          const SizedBox(width: 4),
-                                          Flexible(child: Text(_store!.type, style: TextStyle(color: Colors.grey[600]))),
-                                        ],
+                                    ),
+                                  ),
+                                const SizedBox(height: 8),
+                                if (!widget.isSellerView)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      icon: _isCheckingFavorite
+                                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.0))
+                                          : Icon(_isFavorited ? Icons.favorite : Icons.favorite_border),
+                                      label: Text(_isFavorited ? 'ลบจากรายการโปรด' : 'เพิ่มในรายการโปรด'),
+                                      onPressed: _toggleFavorite,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _isFavorited ? Colors.pink[400] : const Color(0xFF7E57C2),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.phone, size: 16, color: Colors.grey[600]),
-                                          const SizedBox(width: 4),
-                                          Flexible(child: Text(_store!.phoneNumber, style: TextStyle(color: Colors.grey[600]))),
-                                        ],
+                                    ),
+                                  ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.rate_review_outlined),
+                                    label: const Text('เรตติ้งและรีวิว'),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => StoreReviewsScreen(
+                                            storeId: widget.storeId,
+                                            storeName: _store?.name ?? 'ร้านค้า',
+                                            isSellerView: widget.isSellerView,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF66BB6A),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          Column(
-                            children: [
-                              if (_store?.latitude != null && _store?.longitude != null)
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    icon: const Icon(Icons.navigation_outlined),
-                                    label: const Text('นำทางไปยังร้านค้า'),
-                                    onPressed: () {
-                                      _launchMapsUrl(_store!.latitude!, _store!.longitude!);
+                            _buildProductSection(),
+                            const SizedBox(height: 20),
+                            Text(
+                              widget.isSellerView ? 'โพสต์ของร้านค้าฉัน' : 'โพสต์ของร้าน ${_store!.name}',
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 15),
+                            _storePosts.isEmpty
+                                ? const Center(child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 32.0),
+                                  child: Text('ยังไม่มีโพสต์สำหรับร้านค้านี้'),
+                                ))
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: _storePosts.length,
+                                    itemBuilder: (context, index) {
+                                      final post = _storePosts[index];
+                                      return PostCard(
+                                        post: post,
+                                        onDelete: _deletePost,
+                                        currentUserId: FirebaseAuth.instance.currentUser?.uid,
+                                      );
                                     },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF5C6BC0),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
                                   ),
-                                ),
-                              const SizedBox(height: 8),
-                              if (!widget.isSellerView)
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    icon: _isCheckingFavorite
-                                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.0))
-                                        : Icon(_isFavorited ? Icons.favorite : Icons.favorite_border),
-                                    label: Text(_isFavorited ? 'ลบจากรายการโปรด' : 'เพิ่มในรายการโปรด'),
-                                    onPressed: _toggleFavorite,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _isFavorited ? Colors.pink[400] : const Color(0xFF7E57C2),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.rate_review_outlined),
-                                  label: const Text('เรตติ้งและรีวิว'),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => StoreReviewsScreen(
-                                          storeId: widget.storeId,
-                                          storeName: _store?.name ?? 'ร้านค้า',
-                                          isSellerView: widget.isSellerView,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF66BB6A),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            widget.isSellerView ? 'โพสต์ของร้านค้าฉัน' : 'โพสต์ของร้าน ${_store!.name}',
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 15),
-                          _storePosts.isEmpty
-                              ? const Center(child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 32.0),
-                                child: Text('ยังไม่มีโพสต์สำหรับร้านค้านี้'),
-                              ))
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: _storePosts.length,
-                                  itemBuilder: (context, index) {
-                                    final post = _storePosts[index];
-                                    return PostCard(
-                                      post: post,
-                                      onDelete: _deletePost,
-                                      currentUserId: FirebaseAuth.instance.currentUser?.uid,
-                                    );
-                                  },
-                                ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
     );

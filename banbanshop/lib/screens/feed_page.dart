@@ -18,7 +18,6 @@ import 'dart:async';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:banbanshop/screens/seller/store_profile.dart';
 import 'package:banbanshop/screens/role_select.dart';
-import 'package:banbanshop/screens/seller/seller_orders_screen.dart';
 import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart';
 
 class FeedPage extends StatefulWidget {
