@@ -56,6 +56,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('จัดการสินค้า'),
+        backgroundColor: const Color(0xFF9B7DD9),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),

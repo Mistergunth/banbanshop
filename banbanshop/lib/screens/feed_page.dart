@@ -283,8 +283,9 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Widget _buildMiddlePage() {
+    // --- [KEY CHANGE] ส่ง isEmbedded: true ไปให้ SellerOrdersScreen ---
     return widget.sellerProfile != null
-        ? const SellerOrdersScreen()
+        ? const SellerOrdersScreen(isEmbedded: true)
         : const BuyerCartScreen();
   }
 
@@ -324,12 +325,13 @@ class _FeedPageState extends State<FeedPage> {
     final List<Widget> pages = [
       _buildFeedContent(),
       _buildMiddlePage(),
-      Container(),
+      Container(), // Placeholder for Create Post
       _buildProfilePage(),
     ];
 
     return Scaffold(
       backgroundColor: const Color(0xFFE8F4FD),
+      // --- [KEY CHANGE] Reverted this change. The main AppBar is now always visible. ---
       appBar: AppBar(
         backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
@@ -367,7 +369,7 @@ class _FeedPageState extends State<FeedPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      widget.storeProfile?.name ?? widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช้อป',
+                      widget.storeProfile?.name ?? widget.sellerProfile?.fullName ?? 'ผู้ใช้บ้านบ้านช็อป',
                       style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     if (widget.sellerProfile != null)
@@ -398,17 +400,12 @@ class _FeedPageState extends State<FeedPage> {
                 if (mounted) Navigator.pop(context);
               },
             ),
-
-            // --- ส่วนที่แก้ไข ---
-            // แสดงปุ่ม "จัดการร้านค้า" ต่อเมื่อมีข้อมูลร้านค้าแล้วเท่านั้น
             if (widget.storeProfile != null)
               ListTile(
                 leading: const Icon(Icons.settings_outlined),
                 title: const Text('จัดการร้านค้าของฉัน'),
                 onTap: () {
-                  // ปิด Drawer ก่อน
                   Navigator.pop(context);
-                  // จากนั้นค่อยเปิดหน้าใหม่
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -420,9 +417,7 @@ class _FeedPageState extends State<FeedPage> {
                   );
                 },
               ),
-            // --- จบส่วนที่แก้ไข ---
-
-            if (widget.sellerProfile == null) // แสดงเมนูนี้เฉพาะผู้ซื้อ หรือ Guest
+            if (widget.sellerProfile == null)
               ListTile(
                 leading: const Icon(Icons.favorite_outline),
                 title: const Text('รายการโปรด'),
@@ -433,7 +428,6 @@ class _FeedPageState extends State<FeedPage> {
                   if (mounted) Navigator.pop(context);
                 },
               ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: DropdownButtonFormField<String>(
@@ -627,7 +621,7 @@ class _FeedPageState extends State<FeedPage> {
   String _getAppBarTitle() {
     switch (_selectedIndex) {
       case 0:
-        return 'บ้านบ้านช้อป';
+        return 'บ้านบ้านช็อป';
       case 1:
         return widget.sellerProfile != null ? 'รายการออเดอร์' : 'ตะกร้าสินค้า';
       case 2:
@@ -635,7 +629,7 @@ class _FeedPageState extends State<FeedPage> {
       case 3:
         return widget.sellerProfile != null ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ';
       default:
-        return 'บ้านบ้านช้อป';
+        return 'บ้านบ้านช็อป';
     }
   }
 }
@@ -756,6 +750,11 @@ class _PostCardState extends State<PostCard> {
                             ),
                           ),
                           const SizedBox(width: 8),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          const SizedBox(width: 0, height: 25,),
                           Flexible(
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -770,13 +769,13 @@ class _PostCardState extends State<PostCard> {
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
                         ],
-                      ),
+                      )
                     ],
+                    
                   ),
                 ),
                 if (isMyPost)

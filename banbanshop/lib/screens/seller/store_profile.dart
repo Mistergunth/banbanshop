@@ -9,8 +9,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/models/post_model.dart';
 import 'package:banbanshop/screens/models/product_model.dart';
-// --- [NEW] Import the Add/Edit Product Screen ---
 import 'package:banbanshop/screens/seller/add_edit_product_screen.dart';
+// --- [NEW] Import the Product Detail Screen ---
+import 'package:banbanshop/screens/buyer/product_detail_screen.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
@@ -175,7 +176,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
           .collection('stores')
           .doc(widget.storeId)
           .collection('products')
-          .where('isAvailable', isEqualTo: true)
+          // --- [KEY CHANGE] Fetch products for both seller and buyer view ---
+          // .where('isAvailable', isEqualTo: true) 
           .orderBy('createdAt', descending: false)
           .get();
 
@@ -189,7 +191,20 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       if (storeDoc.exists && storeDoc.data() != null) {
         final fetchedStore = Store.fromFirestore(storeDoc);
         final fetchedPosts = postsSnapshot.docs.map((doc) => Post.fromJson({...doc.data() as Map<String, dynamic>, 'id': doc.id})).toList();
-        final fetchedProducts = productsSnapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
+        
+        // --- [KEY CHANGE] Filter products based on view ---
+        List<Product> fetchedProducts;
+        if (widget.isSellerView) {
+          // Seller sees all products
+          fetchedProducts = productsSnapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
+        } else {
+          // Buyer only sees available products
+          fetchedProducts = productsSnapshot.docs
+              .map((doc) => Product.fromFirestore(doc))
+              .where((product) => product.isAvailable)
+              .toList();
+        }
+
 
         if(mounted) {
           setState(() {
@@ -272,6 +287,19 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
   Widget _buildProductSection() {
     if (_storeProducts.isEmpty) {
+      if(widget.isSellerView){
+         return Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: const Center(
+              child: Text('ยังไม่มีสินค้าในร้านค้าของคุณ\nกดปุ่ม + เพื่อเพิ่มสินค้าใหม่', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            ),
+         );
+      }
       return const SizedBox.shrink(); 
     }
 
@@ -316,8 +344,9 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   Widget _buildProductCard(Product product) {
     return GestureDetector(
       onTap: () {
-        // Navigate to edit product screen if the user is the seller
+        // --- [KEY CHANGE] Navigate to different screens based on view ---
         if (widget.isSellerView) {
+          // Seller navigates to edit product screen
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -327,48 +356,59 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
               ),
             ),
           ).then((result) {
-            // If a product was updated, refresh the data
             if (result == true) {
               _fetchStoreData();
             }
           });
+        } else {
+          // Buyer navigates to product detail screen
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailScreen(product: product),
+            ),
+          );
         }
       },
       child: Container(
         width: 140,
         margin: const EdgeInsets.only(right: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 110,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-                image: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(product.imageUrl!),
-                        fit: BoxFit.cover,
-                      )
+        child: Opacity(
+          // --- [KEY CHANGE] Dim the product if unavailable for seller view ---
+          opacity: widget.isSellerView && !product.isAvailable ? 0.5 : 1.0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 110,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                  image: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(product.imageUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: product.imageUrl == null || product.imageUrl!.isEmpty
+                    ? const Center(child: Icon(Icons.inventory_2_outlined, color: Colors.grey, size: 40))
                     : null,
               ),
-              child: product.imageUrl == null || product.imageUrl!.isEmpty
-                  ? const Center(child: Icon(Icons.inventory_2_outlined, color: Colors.grey, size: 40))
-                  : null,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              product.name,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              '฿${product.price.toStringAsFixed(2)}',
-              style: TextStyle(color: Colors.grey[800], fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                product.name,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                '฿${product.price.toStringAsFixed(2)}',
+                style: TextStyle(color: Colors.grey[800], fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -402,7 +442,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
             ),
         ],
       ),
-      // --- [KEY CHANGE] Add FloatingActionButton for adding products ---
       floatingActionButton: widget.isSellerView
           ? FloatingActionButton(
               onPressed: () {
@@ -412,7 +451,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                     builder: (context) => AddEditProductScreen(storeId: widget.storeId),
                   ),
                 ).then((result) {
-                  // If a new product was added, refresh the data
                   if (result == true) {
                     _fetchStoreData();
                   }
@@ -429,13 +467,12 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
               : _store == null
                   ? const Center(child: Text('ไม่พบข้อมูลร้านค้า'))
                   : RefreshIndicator(
-                      onRefresh: _fetchStoreData, // Allows pull-to-refresh
+                      onRefresh: _fetchStoreData,
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Store Info Card
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
@@ -522,7 +559,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            // Action Buttons
                             Column(
                               children: [
                                 if (_store?.latitude != null && _store?.longitude != null)

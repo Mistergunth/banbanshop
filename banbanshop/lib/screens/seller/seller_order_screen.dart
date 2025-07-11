@@ -8,7 +8,13 @@ import 'package:banbanshop/screens/seller/order_detail_screen.dart';
 import 'package:intl/intl.dart';
 
 class SellerOrdersScreen extends StatefulWidget {
-  const SellerOrdersScreen({super.key});
+  // --- [NEW] เพิ่ม Flag เพื่อควบคุมการแสดงผล AppBar ---
+  final bool isEmbedded;
+
+  const SellerOrdersScreen({
+    super.key,
+    this.isEmbedded = false, // ค่าเริ่มต้นคือ false (แสดง AppBar)
+  });
 
   @override
   State<SellerOrdersScreen> createState() => _SellerOrdersScreenState();
@@ -64,44 +70,64 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7), // A light grey background
-      appBar: AppBar(
-        // [KEY CHANGE] Added back button and themed the AppBar
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () => Navigator.of(context).pop(),
+    // --- [KEY CHANGE] สร้าง Widget หลักที่ประกอบด้วย TabBar และ TabBarView ---
+    Widget screenContent = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _storeId == null
+            ? const Center(child: Text('คุณยังไม่มีร้านค้า'))
+            : Column(
+                children: [
+                  Container(
+                    color: const Color(0xFF9B7DD9), // สีพื้นหลังของ TabBar
+                    child: TabBar(
+                      controller: _tabController,
+                      tabs: _tabs,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white.withOpacity(0.7),
+                      indicatorColor: Colors.white,
+                      indicatorWeight: 3.0,
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildOrdersList(OrderStatus.pending),
+                        _buildOrdersList(OrderStatus.processing),
+                        _buildOrdersList(OrderStatus.delivered),
+                        _buildOrdersList(OrderStatus.cancelled),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+    // ถ้าไม่ได้เป็นการแสดงผลแบบฝัง (isEmbedded = false) ให้สร้าง Scaffold แบบเต็ม
+    if (!widget.isEmbedded) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F5F7),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF9B7DD9),
+          foregroundColor: Colors.white,
+          elevation: 1,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: const Text(
+            'รายการออเดอร์ของฉัน',
+            style: TextStyle(fontWeight: FontWeight.w500),
+          ),
+          centerTitle: true,
         ),
-        title: const Text(
-          'รายการออเดอร์ของฉัน',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: _tabs,
-          labelColor: Theme.of(context).primaryColor,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Theme.of(context).primaryColor,
-          indicatorWeight: 3.0,
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _storeId == null
-              ? const Center(child: Text('คุณยังไม่มีร้านค้า'))
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildOrdersList(OrderStatus.pending),
-                    _buildOrdersList(OrderStatus.processing),
-                    _buildOrdersList(OrderStatus.delivered),
-                    _buildOrdersList(OrderStatus.cancelled),
-                  ],
-                ),
+        body: screenContent,
+      );
+    }
+
+    // ถ้าเป็นการแสดงผลแบบฝัง (isEmbedded = true) ให้แสดงเฉพาะเนื้อหา
+    return Container(
+      color: const Color(0xFFF5F5F7),
+      child: screenContent,
     );
   }
 
@@ -111,7 +137,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
     }
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collectionGroup('orders') // Query across all 'orders' subcollections
+          .collectionGroup('orders')
           .where('storeId', isEqualTo: _storeId)
           .where('status', isEqualTo: status.toString().split('.').last)
           .orderBy('orderDate', descending: true)
@@ -124,7 +150,6 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
           return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          // [KEY CHANGE] Improved empty state UI
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -164,7 +189,6 @@ class OrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final DateFormat formatter = DateFormat('dd MMM yyyy, HH:mm', 'th');
 
-    // [KEY CHANGE] Redesigned OrderCard for better UI/UX
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       elevation: 2,
@@ -178,6 +202,7 @@ class OrderCard extends StatelessWidget {
             MaterialPageRoute(
               builder: (context) => OrderDetailScreen(order: order),
             ),
+
           );
         },
         child: Padding(
