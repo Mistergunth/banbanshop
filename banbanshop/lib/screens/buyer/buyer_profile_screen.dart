@@ -13,8 +13,9 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:banbanshop/screens/buyer/favorites_screen.dart';
 import 'package:banbanshop/screens/buyer/shipping_address_screen.dart';
-// --- เพิ่ม Import สำหรับหน้าแก้ไขโปรไฟล์ ---
 import 'package:banbanshop/screens/buyer/edit_buyer_profile_screen.dart';
+// --- [NEW] Import the new buyer orders screen ---
+import 'package:banbanshop/screens/buyer/buyer_orders_screen.dart';
 
 
 class BuyerProfileScreen extends StatefulWidget {
@@ -194,6 +195,17 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   children: [
+                    // --- [NEW] Button to view my orders ---
+                    _buildProfileOptionButton(
+                      icon: Icons.receipt_long_outlined,
+                      text: 'รายการสั่งซื้อของฉัน',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const BuyerOrdersScreen()),
+                        );
+                      },
+                    ),
                     _buildProfileOptionButton(
                       icon: Icons.location_on_outlined,
                       text: 'ที่อยู่จัดส่ง',
@@ -218,13 +230,12 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                       icon: Icons.edit_outlined,
                       text: 'แก้ไขโปรไฟล์',
                       onTap: () {
-                        // --- [KEY CHANGE] นำทางไปยังหน้าแก้ไขโปรไฟล์ ---
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => EditBuyerProfileScreen(
                               buyerProfile: _buyerProfile!,
-                              onProfileUpdated: _fetchBuyerProfile, // ส่งฟังก์ชัน refresh ไปด้วย
+                              onProfileUpdated: _fetchBuyerProfile,
                             ),
                           ),
                         );

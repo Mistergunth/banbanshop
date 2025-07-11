@@ -49,6 +49,7 @@ dependencies:
   url_launcher: ^6.3.1
   flutter_localization: ^0.3.3
   location: ^8.0.1
+  flutter_polyline_points: ^2.1.0
   
 
   # The following adds the Cupertino Icons font to your application.

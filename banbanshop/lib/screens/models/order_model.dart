@@ -3,49 +3,31 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:banbanshop/screens/models/order_item_model.dart';
 
+enum DeliveryMethod { delivery, pickup }
+enum PaymentMethod { transfer, cod }
+
 enum OrderStatus {
-  pending,      // รอดำเนินการ (ใหม่)
-  processing,   // กำลังเตรียมสินค้า
-  shipped,      // จัดส่งแล้ว
-  delivered,    // ส่งสำเร็จ
-  cancelled,    // ยกเลิกแล้ว
+  pending,
+  processing,
+  shipped,
+  delivered,
+  cancelled,
 }
 
-// Helper extension to convert enum to string and back
 extension OrderStatusExtension on OrderStatus {
   String get name {
     switch (this) {
-      case OrderStatus.pending:
-        return 'ใหม่';
-      case OrderStatus.processing:
-        return 'กำลังดำเนินการ';
-      case OrderStatus.shipped:
-        return 'จัดส่งแล้ว';
-      case OrderStatus.delivered:
-        return 'สำเร็จ';
-      case OrderStatus.cancelled:
-        return 'ยกเลิก';
+      case OrderStatus.pending: return 'ใหม่';
+      case OrderStatus.processing: return 'กำลังดำเนินการ';
+      case OrderStatus.shipped: return 'จัดส่งแล้ว';
+      case OrderStatus.delivered: return 'สำเร็จ';
+      case OrderStatus.cancelled: return 'ยกเลิก';
     }
   }
-
   static OrderStatus fromString(String status) {
-    switch (status) {
-      case 'pending':
-        return OrderStatus.pending;
-      case 'processing':
-        return OrderStatus.processing;
-      case 'shipped':
-        return OrderStatus.shipped;
-      case 'delivered':
-        return OrderStatus.delivered;
-      case 'cancelled':
-        return OrderStatus.cancelled;
-      default:
-        return OrderStatus.pending;
-    }
+    return OrderStatus.values.firstWhere((e) => e.toString().split('.').last == status, orElse: () => OrderStatus.pending);
   }
 }
-
 
 class Order {
   final String id;
@@ -58,8 +40,16 @@ class Order {
   final double totalAmount;
   final OrderStatus status;
   final Timestamp orderDate;
-  // --- [NEW] Field for payment slip URL ---
   final String? paymentSlipUrl;
+  
+  // --- Fields for IN-APP Live Tracking ---
+  final GeoPoint? delivererLocation; 
+  final Timestamp? lastLocationUpdate; 
+  // --- [NEW] Field for the destination address coordinates ---
+  final GeoPoint? shippingLocation; 
+
+  final String deliveryMethod;
+  final String paymentMethod;
 
   Order({
     required this.id,
@@ -72,13 +62,17 @@ class Order {
     required this.totalAmount,
     required this.status,
     required this.orderDate,
-    // --- [NEW] Add to constructor ---
     this.paymentSlipUrl,
+    this.delivererLocation,
+    this.lastLocationUpdate,
+    // --- [NEW] Add to constructor ---
+    this.shippingLocation,
+    this.deliveryMethod = 'delivery',
+    this.paymentMethod = 'transfer',
   });
 
   factory Order.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    
     var itemsList = data['items'] as List<dynamic>? ?? [];
     List<OrderItem> orderItems = itemsList.map((item) => OrderItem.fromMap(item)).toList();
 
@@ -93,8 +87,13 @@ class Order {
       totalAmount: (data['totalAmount'] ?? 0.0).toDouble(),
       status: OrderStatusExtension.fromString(data['status'] ?? 'pending'),
       orderDate: data['orderDate'] ?? Timestamp.now(),
-      // --- [NEW] Read from Firestore ---
       paymentSlipUrl: data['paymentSlipUrl'],
+      delivererLocation: data['delivererLocation'] as GeoPoint?,
+      lastLocationUpdate: data['lastLocationUpdate'] as Timestamp?,
+      // --- [NEW] Read from Firestore ---
+      shippingLocation: data['shippingLocation'] as GeoPoint?,
+      deliveryMethod: data['deliveryMethod'] ?? 'delivery',
+      paymentMethod: data['paymentMethod'] ?? 'transfer',
     );
   }
 
@@ -109,8 +108,36 @@ class Order {
       'totalAmount': totalAmount,
       'status': status.toString().split('.').last,
       'orderDate': orderDate,
-      // --- [NEW] Write to Firestore ---
       'paymentSlipUrl': paymentSlipUrl,
+      'delivererLocation': delivererLocation,
+      'lastLocationUpdate': lastLocationUpdate,
+      // --- [NEW] Write to Firestore ---
+      'shippingLocation': shippingLocation,
+      'deliveryMethod': deliveryMethod,
+      'paymentMethod': paymentMethod,
     };
+  }
+
+  Order copyWith({
+    OrderStatus? status,
+  }) {
+    return Order(
+      id: id,
+      storeId: storeId,
+      buyerId: buyerId,
+      buyerName: buyerName,
+      shippingAddress: shippingAddress,
+      buyerPhoneNumber: buyerPhoneNumber,
+      items: items,
+      totalAmount: totalAmount,
+      status: status ?? this.status,
+      orderDate: orderDate,
+      paymentSlipUrl: paymentSlipUrl,
+      delivererLocation: delivererLocation,
+      lastLocationUpdate: lastLocationUpdate,
+      shippingLocation: shippingLocation,
+      deliveryMethod: deliveryMethod,
+      paymentMethod: paymentMethod,
+    );
   }
 }

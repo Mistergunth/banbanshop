@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:banbanshop/screens/models/order_model.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:banbanshop/screens/seller/seller_live_tracking_screen.dart';
+
 
 class OrderDetailScreen extends StatefulWidget {
   final Order order;
@@ -17,45 +19,44 @@ class OrderDetailScreen extends StatefulWidget {
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _isLoading = false;
+  late OrderStatus _currentOrderStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentOrderStatus = widget.order.status;
+  }
 
   Future<void> _updateOrderStatus(OrderStatus newStatus) async {
+    if (_isLoading || _currentOrderStatus == newStatus) return;
+
     setState(() => _isLoading = true);
 
     final db = FirebaseFirestore.instance;
     final orderRef = db.collection('stores').doc(widget.order.storeId).collection('orders').doc(widget.order.id);
 
     try {
-      // --- [KEY CHANGE] Use a transaction to update stock and order status together ---
-      if (newStatus == OrderStatus.shipped) {
-        // This is the critical part: deduct stock when confirming payment
+      // Deduct stock when order moves to 'shipped' (for transfer) or 'processing' (for COD)
+      bool shouldDeductStock = (newStatus == OrderStatus.shipped && widget.order.paymentMethod == 'transfer') ||
+                               (newStatus == OrderStatus.shipped && widget.order.paymentMethod == 'cod');
+
+      if (shouldDeductStock) {
         await db.runTransaction((transaction) async {
-          // 1. Loop through each item in the order
           for (final item in widget.order.items) {
-            final productRef = db
-                .collection('stores')
-                .doc(widget.order.storeId)
-                .collection('products')
-                .doc(item.productId);
-            
+            final productRef = db.collection('stores').doc(widget.order.storeId).collection('products').doc(item.productId);
             final productDoc = await transaction.get(productRef);
 
-            if (!productDoc.exists) {
-              throw Exception("Product with ID ${item.productId} not found!");
-            }
+            if (!productDoc.exists) throw Exception("Product with ID ${item.productId} not found!");
             
             final currentStock = productDoc.data()!['stock'] as int;
-            // Only deduct stock if it's not unlimited (-1)
             if (currentStock != -1) {
               final newStock = currentStock - item.quantity;
-              transaction.update(productRef, {'stock': newStock < 0 ? 0 : newStock}); // Prevent negative stock
+              transaction.update(productRef, {'stock': newStock < 0 ? 0 : newStock});
             }
           }
-
-          // 2. After updating all product stocks, update the order status
           transaction.update(orderRef, {'status': newStatus.toString().split('.').last});
         });
       } else {
-        // For other status updates (like cancelling), just update the status
         await orderRef.update({'status': newStatus.toString().split('.').last});
       }
 
@@ -63,13 +64,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('อัปเดตสถานะออเดอร์สำเร็จ!'), backgroundColor: Colors.green),
         );
-        Navigator.pop(context, true); // Pop with a result to indicate success
+        
+        setState(() {
+          _currentOrderStatus = newStatus;
+        });
+
+        // If the order is finalized, pop the screen after a short delay
+        if (newStatus == OrderStatus.delivered || newStatus == OrderStatus.cancelled) {
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              Navigator.pop(context, true);
+            }
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
       }
     } finally {
       if (mounted) {
@@ -97,7 +108,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final order = widget.order;
+    final order = widget.order.copyWith(status: _currentOrderStatus); 
     final DateFormat formatter = DateFormat('dd MMMM yyyy, HH:mm', 'th');
 
     return Scaffold(
@@ -115,7 +126,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               children: [
                 _buildInfoRow(Icons.person_outline, 'ชื่อ:', order.buyerName),
                 _buildInfoRow(Icons.phone_outlined, 'เบอร์โทร:', order.buyerPhoneNumber),
-                _buildInfoRow(Icons.home_outlined, 'ที่อยู่:', order.shippingAddress, isAddress: true),
+                if (order.deliveryMethod == 'delivery')
+                  _buildInfoRow(Icons.home_outlined, 'ที่อยู่:', order.shippingAddress, isAddress: true),
               ],
             ),
             const SizedBox(height: 16),
@@ -130,9 +142,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         borderRadius: BorderRadius.circular(8),
                         child: Image.network(
                           item.imageUrl ?? 'https://placehold.co/60x60/EFEFEF/AAAAAA?text=No+Image',
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
+                          width: 60, height: 60, fit: BoxFit.cover,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -153,8 +163,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
             const SizedBox(height: 16),
             _buildSectionCard(
-              title: 'สรุปยอด',
+              title: 'สรุปยอดและวิธีจัดส่ง',
               children: [
+                _buildInfoRow(Icons.delivery_dining_outlined, 'วิธีจัดส่ง:', order.deliveryMethod == 'pickup' ? 'รับที่ร้าน' : 'จัดส่ง'),
+                _buildInfoRow(Icons.payment_outlined, 'วิธีชำระเงิน:', order.paymentMethod == 'cod' ? 'เก็บเงินปลายทาง' : 'โอนเงิน'),
+                const Divider(height: 20),
                 _buildInfoRow(null, 'ยอดรวม:', '฿${order.totalAmount.toStringAsFixed(2)}'),
                 _buildInfoRow(null, 'วันที่สั่งซื้อ:', formatter.format(order.orderDate.toDate())),
               ],
@@ -163,7 +176,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               _buildPaymentSlipSection(order.paymentSlipUrl!),
 
             const SizedBox(height: 24),
-            _buildStatusManagementSection(),
+            _buildStatusManagementSection(order),
           ],
         ),
       ),
@@ -184,13 +197,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network(
-                    imageUrl,
-                    height: 200,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) =>
-                        progress == null ? child : const Center(child: CircularProgressIndicator()),
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Center(child: Text('ไม่สามารถแสดงรูปภาพได้')),
+                    imageUrl, height: 200, fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator()),
+                    errorBuilder: (context, error, stackTrace) => const Center(child: Text('ไม่สามารถแสดงรูปภาพได้')),
                   ),
                 ),
               ),
@@ -201,8 +210,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _buildStatusManagementSection() {
-    if (widget.order.status == OrderStatus.pending) {
+  Widget _buildStatusManagementSection(Order currentOrder) {
+    // Case 1: New order, waiting for payment (Transfer only)
+    if (currentOrder.status == OrderStatus.pending) {
       return _buildActionButton(
         text: 'ยกเลิกออเดอร์',
         onPressed: () => _updateOrderStatus(OrderStatus.cancelled),
@@ -210,39 +220,65 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       );
     }
     
-    if (widget.order.status == OrderStatus.processing) {
+    // Case 2: Order is paid (Transfer) or is a COD order. Ready for processing.
+    if (currentOrder.status == OrderStatus.processing) {
+      bool isCOD = currentOrder.paymentMethod == 'cod';
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildActionButton(
-            text: 'ยืนยันการชำระเงิน (เตรียมจัดส่ง)',
+            text: isCOD ? 'ยืนยันออเดอร์ (เตรียมจัดส่ง)' : 'ยืนยันการชำระเงิน (เตรียมจัดส่ง)',
             onPressed: () => _updateOrderStatus(OrderStatus.shipped),
             color: Colors.green,
           ),
-          const SizedBox(height: 10),
-          _buildActionButton(
-            text: 'ปฏิเสธ (ยกเลิกออเดอร์)',
-            onPressed: () => _updateOrderStatus(OrderStatus.cancelled),
-            color: Colors.red.withOpacity(0.8),
-          ),
+          // Show reject button only for Transfer payments that have a slip
+          if (!isCOD && currentOrder.paymentSlipUrl != null) ...[
+            const SizedBox(height: 10),
+            _buildActionButton(
+              text: 'ปฏิเสธ (ยกเลิกออเดอร์)',
+              onPressed: () => _updateOrderStatus(OrderStatus.cancelled),
+              color: Colors.red.withOpacity(0.8),
+            ),
+          ],
         ],
       );
     }
     
-    // --- [NEW] Add button for when order is shipped ---
-    if (widget.order.status == OrderStatus.shipped) {
-       return _buildActionButton(
-        text: 'สินค้าจัดส่งถึงแล้ว',
-        onPressed: () => _updateOrderStatus(OrderStatus.delivered),
-        color: Colors.blue,
-      );
+    // Case 3: Order is shipped. Can start tracking or mark as delivered.
+    if (currentOrder.status == OrderStatus.shipped) {
+       return Column(
+         crossAxisAlignment: CrossAxisAlignment.stretch,
+         children: [
+           // Only show tracking for delivery, not for pickup
+           if (currentOrder.deliveryMethod == 'delivery')
+             _buildActionButton(
+               text: 'เริ่มติดตามการจัดส่ง (GPS)',
+               onPressed: () {
+                 Navigator.push(
+                   context,
+                   MaterialPageRoute(
+                     builder: (context) => SellerLiveTrackingScreen(order: currentOrder),
+                   ),
+                 );
+               },
+               color: Colors.blue,
+             ),
+           const SizedBox(height: 10),
+           _buildActionButton(
+             text: currentOrder.deliveryMethod == 'pickup' ? 'ลูกค้ารับสินค้าแล้ว' : 'สินค้าจัดส่งถึงแล้ว',
+             onPressed: () => _updateOrderStatus(OrderStatus.delivered),
+             color: Colors.teal,
+           ),
+         ],
+       );
     }
 
+    // For delivered or cancelled orders, just show the status.
     return Card(
       child: ListTile(
         title: const Text('สถานะปัจจุบัน', style: TextStyle(fontWeight: FontWeight.bold)),
         trailing: Text(
-          widget.order.status.name,
+          currentOrder.status.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),

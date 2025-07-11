@@ -24,7 +24,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Address> _addresses = [];
   bool _isLoading = true;
   bool _isPlacingOrder = false;
-  final double _shippingFee = 10.00; // Example shipping fee
+  
+  // --- [NEW] State variables for delivery and payment methods ---
+  app_order.DeliveryMethod _selectedDeliveryMethod = app_order.DeliveryMethod.delivery;
+  app_order.PaymentMethod _selectedPaymentMethod = app_order.PaymentMethod.transfer;
+  
+  final double _shippingFee = 10.00;
 
   @override
   void initState() {
@@ -52,7 +57,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() {
           _addresses = fetchedAddresses;
           if (fetchedAddresses.isNotEmpty) {
-            _selectedAddress = fetchedAddresses.firstWhere((a) => a.isDefault, orElse: () => fetchedAddresses.first);
+            _selectedAddress = fetchedAddresses.firstWhere(
+              (a) => a.isDefault,
+              orElse: () => fetchedAddresses.first,
+            );
           }
           _isLoading = false;
         });
@@ -68,7 +76,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _placeOrder() async {
-    if (_selectedAddress == null) {
+    if (_selectedDeliveryMethod == app_order.DeliveryMethod.delivery && _selectedAddress == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาเลือกที่อยู่สำหรับจัดส่ง')),
       );
@@ -86,7 +94,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = FirebaseAuth.instance.currentUser!;
     final storeId = widget.cartItems.first.storeId; 
     final double subtotal = widget.cartItems.fold(0, (sum, item) => sum + (item.price * item.quantity));
-    final double totalAmount = subtotal + _shippingFee;
+    final double currentShippingFee = _selectedDeliveryMethod == app_order.DeliveryMethod.delivery ? _shippingFee : 0;
+    final double totalAmount = subtotal + currentShippingFee;
 
     try {
       final List<OrderItem> orderItems = widget.cartItems.map((cartItem) {
@@ -103,13 +112,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         id: '', 
         storeId: storeId,
         buyerId: user.uid,
-        buyerName: _selectedAddress!.contactName,
-        buyerPhoneNumber: _selectedAddress!.phoneNumber,
-        shippingAddress: _selectedAddress!.addressLine,
+        buyerName: _selectedAddress?.contactName ?? user.displayName ?? 'N/A',
+        buyerPhoneNumber: _selectedAddress?.phoneNumber ?? 'N/A',
+        shippingAddress: _selectedDeliveryMethod == app_order.DeliveryMethod.delivery 
+            ? _selectedAddress!.addressLine 
+            : 'รับสินค้าเองที่ร้าน',
+        shippingLocation: _selectedDeliveryMethod == app_order.DeliveryMethod.delivery
+            ? _selectedAddress!.location
+            : null,
         items: orderItems,
         totalAmount: totalAmount,
         orderDate: Timestamp.now(),
-        status: app_order.OrderStatus.pending,
+        status: _selectedPaymentMethod == app_order.PaymentMethod.cod 
+            ? app_order.OrderStatus.processing // For COD, go directly to processing
+            : app_order.OrderStatus.pending,    // For transfer, wait for payment
+        deliveryMethod: _selectedDeliveryMethod.toString().split('.').last,
+        paymentMethod: _selectedPaymentMethod.toString().split('.').last,
       );
 
       final orderRef = await FirebaseFirestore.instance
@@ -118,42 +136,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .collection('orders')
           .add(newOrder.toFirestore());
 
-      // --- [BUG FIX] The cart clearing logic has been REMOVED from this function. ---
-      // The cart will now only be cleared after a successful payment confirmation.
-      /*
-      final cartCollection = FirebaseFirestore.instance
-          .collection('buyers')
-          .doc(user.uid)
-          .collection('cart');
-      
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-      for (var item in widget.cartItems) {
-        batch.delete(cartCollection.doc(item.productId));
-      }
-      await batch.commit();
-      */
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('สร้างคำสั่งซื้อสำเร็จ! กรุณาชำระเงิน')),
-        );
-        
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PaymentScreen(
-              orderId: orderRef.id, 
-              storeId: storeId
+        if (_selectedPaymentMethod == app_order.PaymentMethod.transfer) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('สร้างคำสั่งซื้อสำเร็จ! กรุณาชำระเงิน')),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PaymentScreen(orderId: orderRef.id, storeId: storeId),
             ),
-          ),
-        );
+          );
+        } else { // Cash on Delivery
+          // For COD, we still need to clear the cart
+          final cartCollection = FirebaseFirestore.instance.collection('buyers').doc(user.uid).collection('cart');
+          WriteBatch batch = FirebaseFirestore.instance.batch();
+          for (var item in widget.cartItems) {
+            batch.delete(cartCollection.doc(item.productId));
+          }
+          await batch.commit();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('สั่งซื้อสำเร็จ! เตรียมรอรับสินค้าและชำระเงินปลายทาง')),
+          );
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       }
 
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาดในการสร้างคำสั่งซื้อ: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาดในการสร้างคำสั่งซื้อ: $e')));
       }
     } finally {
       if (mounted) {
@@ -162,10 +174,72 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  void _showAddressSelectionDialog() {
+    if (_addresses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('คุณยังไม่มีที่อยู่จัดส่ง กรุณาเพิ่มที่อยู่ก่อน')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'เลือกที่อยู่จัดส่ง',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _addresses.length,
+                  itemBuilder: (context, index) {
+                    final address = _addresses[index];
+                    final bool isSelected = _selectedAddress?.id == address.id;
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      elevation: isSelected ? 4 : 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: isSelected ? const BorderSide(color: Color(0xFF9C6ADE), width: 2) : BorderSide.none,
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                          color: isSelected ? const Color(0xFF9C6ADE) : Colors.grey,
+                        ),
+                        title: Text(address.contactName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(address.addressLine),
+                        onTap: () {
+                          setState(() {
+                            _selectedAddress = address;
+                          });
+                          Navigator.pop(context);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final double subtotal = widget.cartItems.fold(0, (sum, item) => sum + (item.price * item.quantity));
-    final double totalAmount = subtotal + _shippingFee;
+    final double currentShippingFee = _selectedDeliveryMethod == app_order.DeliveryMethod.delivery ? _shippingFee : 0;
+    final double totalAmount = subtotal + currentShippingFee;
 
     return Scaffold(
       appBar: AppBar(
@@ -180,12 +254,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle('ที่อยู่ในการจัดส่ง'),
-                  _buildAddressSection(),
+                  _buildSectionTitle('วิธีจัดส่ง'),
+                  _buildDeliveryMethodSelector(),
                   const SizedBox(height: 24),
+
+                  if (_selectedDeliveryMethod == app_order.DeliveryMethod.delivery) ...[
+                    _buildSectionTitle('ที่อยู่ในการจัดส่ง'),
+                    _buildAddressSection(),
+                    const SizedBox(height: 24),
+                  ],
+
                   _buildSectionTitle('รายการสินค้า'),
                   _buildItemsList(),
                   const SizedBox(height: 24),
+                  
+                  _buildSectionTitle('วิธีชำระเงิน'),
+                  _buildPaymentMethodSelector(),
+                  const SizedBox(height: 24),
+
                   _buildSectionTitle('สรุปยอดชำระเงิน'),
                   _buildPriceSummary(subtotal, totalAmount),
                 ],
@@ -197,14 +283,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 12.0),
       child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildDeliveryMethodSelector() {
+    return SegmentedButton<app_order.DeliveryMethod>(
+      segments: const <ButtonSegment<app_order.DeliveryMethod>>[
+        ButtonSegment<app_order.DeliveryMethod>(
+            value: app_order.DeliveryMethod.delivery,
+            label: Text('จัดส่ง'),
+            icon: Icon(Icons.local_shipping_outlined)),
+        ButtonSegment<app_order.DeliveryMethod>(
+            value: app_order.DeliveryMethod.pickup,
+            label: Text('รับที่ร้าน'),
+            icon: Icon(Icons.storefront_outlined)),
+      ],
+      selected: {_selectedDeliveryMethod},
+      onSelectionChanged: (Set<app_order.DeliveryMethod> newSelection) {
+        setState(() {
+          _selectedDeliveryMethod = newSelection.first;
+        });
+      },
+    );
+  }
+
+   Widget _buildPaymentMethodSelector() {
+    return SegmentedButton<app_order.PaymentMethod>(
+      segments: const <ButtonSegment<app_order.PaymentMethod>>[
+        ButtonSegment<app_order.PaymentMethod>(
+            value: app_order.PaymentMethod.transfer,
+            label: Text('โอนเงิน'),
+            icon: Icon(Icons.qr_code)),
+        ButtonSegment<app_order.PaymentMethod>(
+            value: app_order.PaymentMethod.cod,
+            label: Text('เก็บปลายทาง'),
+            icon: Icon(Icons.money_outlined)),
+      ],
+      selected: {_selectedPaymentMethod},
+      onSelectionChanged: (Set<app_order.PaymentMethod> newSelection) {
+        setState(() {
+          _selectedPaymentMethod = newSelection.first;
+        });
+      },
     );
   }
 
   Widget _buildAddressSection() {
     if (_addresses.isEmpty) {
-      return const Text('กรุณาเพิ่มที่อยู่ในโปรไฟล์ของคุณ');
+      return Card(child: ListTile(title: Text('กรุณาเพิ่มที่อยู่ในโปรไฟล์ของคุณ'), onTap: (){/* TODO: Navigate to add address screen */},));
     }
     return Card(
       child: ListTile(
@@ -212,9 +340,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         title: Text(_selectedAddress?.contactName ?? 'เลือกที่อยู่', style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(_selectedAddress?.addressLine ?? 'ยังไม่ได้เลือกที่อยู่'),
         trailing: const Icon(Icons.arrow_forward_ios),
-        onTap: () {
-          // TODO: Implement address selection dialog
-        },
+        onTap: _showAddressSelectionDialog,
       ),
     );
   }
@@ -245,7 +371,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             _buildPriceRow('ราคาสินค้า', subtotal),
             const SizedBox(height: 8),
-            _buildPriceRow('ค่าจัดส่ง', _shippingFee),
+            _buildPriceRow('ค่าจัดส่ง', _selectedDeliveryMethod == app_order.DeliveryMethod.delivery ? _shippingFee : 0),
             const Divider(height: 24),
             _buildPriceRow('ยอดรวมสุทธิ', totalAmount, isTotal: true),
           ],

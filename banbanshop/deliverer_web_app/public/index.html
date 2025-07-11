@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ติดตามการจัดส่ง</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #4CAF50; /* Green for success/action */
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        button {
+            background-color: #2196F3; /* Blue for action */
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+            width: 100%; /* Make buttons full width */
+            box-sizing: border-box;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 25px;
+            font-weight: bold;
+            color: #E64A19; /* Orange for warnings/errors */
+        }
+        #locationData {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #555;
+            word-break: break-all;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #D32F2F; }
+
+        /* Styles for manual input form */
+        .manual-input-section {
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .manual-input-section h2 {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 15px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #666;
+        }
+        .input-group input[type="number"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        .alternative-buttons {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+        .alternative-buttons button {
+            background-color: #FF9800;
+            margin-top: 0;
+        }
+        .alternative-buttons button:hover {
+            background-color: #FB8C00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>เริ่มการจัดส่ง</h1>
+        <p id="orderInfo">กำลังโหลดข้อมูลออเดอร์...</p>
+        
+        <div id="autoTrackingSection">
+            <p><strong>วิธีที่ 1: ติดตามอัตโนมัติด้วย GPS (แนะนำ)</strong></p>
+            <button id="startButton" disabled>อนุญาตการเข้าถึง GPS และเริ่มจัดส่ง</button>
+        </div>
+
+        <div class="manual-input-section">
+            <h2>หรือ วิธีที่ 2: ป้อนตำแหน่งเอง</h2>
+            <div class="input-group">
+                <label for="latitudeInput">ละติจูด (Latitude):</label>
+                <input type="number" id="latitudeInput" placeholder="ตัวอย่าง: 13.7563">
+            </div>
+            <div class="input-group">
+                <label for="longitudeInput">ลองจิจูด (Longitude):</label>
+                <input type="number" id="longitudeInput" placeholder="ตัวอย่าง: 100.5018">
+            </div>
+            <button id="manualSubmitButton" disabled>ยืนยันตำแหน่งที่ป้อนเอง</button>
+        </div>
+
+        <p id="status"></p>
+        <div id="locationData"></div>
+    </div>
+
+    <script>
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyARIFuWc67wCnFLeazTLOmc--CtUGP0UZA",
+            authDomain: "banbanshop.firebaseapp.com",
+            projectId: "banbanshop",
+            storageBucket: "banbanshop.firebasestorage.app",
+            messagingSenderId: "329459505690",
+            appId: "1:329459505690:web:dd710138b44788ae900fa3"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const orderInfoElement = document.getElementById('orderInfo');
+        const startButton = document.getElementById('startButton');
+        const manualSubmitButton = document.getElementById('manualSubmitButton');
+        const latitudeInput = document.getElementById('latitudeInput');
+        const longitudeInput = document.getElementById('longitudeInput');
+        const statusElement = document.getElementById('status');
+        const locationDataElement = document.getElementById('locationData');
+
+        let orderId = ''; // From URL
+        let trackingId = ''; // From URL
+        let storeId = ''; // This will be fetched from Firestore based on trackingId
+        let watchId = null;
+
+        // Function to parse URL query parameters
+        function getQueryParams() {
+            const params = {};
+            window.location.search.substring(1).split('&').forEach(param => {
+                const parts = param = param.split('=');
+                if (parts.length === 2) {
+                    params[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+                }
+            });
+            return params;
+        }
+
+        // [MODIFIED] Function to update location in Firestore
+        // This function now relies on storeId, orderId, trackingId being set globally on page load
+        // It no longer performs a query within itself.
+        async function updateLocationInFirestore(latitude, longitude, source = 'auto') {
+            // Check if global variables are set from DOMContentLoaded
+            if (!orderId || !trackingId || !storeId) {
+                statusElement.textContent = 'ข้อผิดพลาด: ไม่สามารถส่งตำแหน่งได้. ข้อมูลเริ่มต้นไม่ครบถ้วน (Order, Tracking, Store ID).';
+                statusElement.classList.add('error');
+                console.error("Missing global IDs:", { orderId, trackingId, storeId });
+                return;
+            }
+
+            const timestamp = firebase.firestore.Timestamp.now();
+            
+            locationDataElement.innerHTML = `
+                ละติจูด: ${latitude.toFixed(6)}<br>
+                ลองจิจูด: ${longitude.toFixed(6)}<br>
+                เวลา: ${new Date(timestamp.toDate()).toLocaleString()}<br>
+                ที่มา: ${source}
+            `;
+            statusElement.textContent = 'กำลังส่งตำแหน่ง...';
+            statusElement.classList.add('success');
+            statusElement.classList.remove('error');
+
+            try {
+                // [IMPORTANT FIX] Directly update using storeId, orderId that were fetched on DOMContentLoaded
+                // No need to query again here.
+                await db.collection('stores')
+                  .doc(storeId)
+                  .collection('orders')
+                  .doc(orderId)
+                  .update({
+                      delivererLocation: new firebase.firestore.GeoPoint(latitude, longitude),
+                      lastLocationUpdate: timestamp,
+                      trackingId: trackingId // Still include for rule validation
+                  });
+                statusElement.textContent = 'ส่งตำแหน่งสำเร็จ!';
+                statusElement.classList.remove('error');
+                statusElement.classList.add('success');
+            } catch (error) {
+                console.error("Error updating location: ", error);
+                statusElement.textContent = `ข้อผิดพลาดในการส่งตำแหน่ง: ${error.message}`;
+                statusElement.classList.add('error');
+                statusElement.classList.remove('success');
+            }
+        }
+
+        // Initialize on page load - fetch storeId
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = getQueryParams();
+            orderId = params['orderId'] || '';
+            trackingId = params['trackingId'] || '';
+
+            if (orderId && trackingId) {
+                orderInfoElement.textContent = `กำลังโหลดข้อมูลออเดอร์ #${orderId.substring(0, 8)}...`;
+                
+                try {
+                    // Query by trackingId only, then check orderId as document ID
+                    // This avoids the FieldPath.documentId() with partial path issue
+                    const orderSnapshot = await db.collectionGroup('orders')
+                                                .where('trackingId', '==', trackingId)
+                                                .limit(1)
+                                                .get();
+
+                    if (!orderSnapshot.empty) {
+                        const orderDoc = orderSnapshot.docs[0];
+                        // Verify that the orderId from URL matches the document ID
+                        if (orderDoc.id === orderId) {
+                            const orderData = orderDoc.data();
+                            storeId = orderData.storeId; // Store the fetched storeId globally
+                            
+                            orderInfoElement.textContent = `คุณกำลังจะเริ่มจัดส่งออเดอร์ #${orderId.substring(0, 8)}`;
+                            startButton.disabled = false;
+                            manualSubmitButton.disabled = false;
+                        } else {
+                            // orderId from URL does not match document ID found by trackingId
+                            orderInfoElement.textContent = 'ไม่พบออเดอร์ที่ตรงกับข้อมูลนี้';
+                            statusElement.textContent = 'ลิงก์ไม่ถูกต้อง: Order ID ไม่ตรงกัน';
+                            statusElement.classList.add('error');
+                        }
+                    } else {
+                        orderInfoElement.textContent = 'ไม่พบออเดอร์ที่ตรงกับ Tracking ID นี้';
+                        statusElement.textContent = 'ลิงก์ไม่ถูกต้อง หรือออเดอร์ไม่พร้อมจัดส่ง';
+                        statusElement.classList.add('error');
+                    }
+                } catch (error) {
+                    console.error("Error fetching order on load: ", error);
+                    orderInfoElement.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูลออเดอร์';
+                    statusElement.textContent = `ข้อผิดพลาด: ${error.message}`;
+                    statusElement.classList.add('error');
+                }
+
+            } else {
+                orderInfoElement.textContent = 'ไม่พบข้อมูลออเดอร์ กรุณาตรวจสอบลิงก์ (Order ID หรือ Tracking ID หายไป)';
+                statusElement.textContent = 'ลิงก์ไม่ถูกต้อง';
+                statusElement.classList.add('error');
+            }
+        });
+
+        // Geolocation tracking start button
+        startButton.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                statusElement.textContent = 'กำลังขออนุญาตเข้าถึงตำแหน่ง...';
+                statusElement.classList.remove('error');
+                statusElement.classList.add('success');
+                startButton.disabled = true;
+                manualSubmitButton.disabled = true;
+
+                watchId = navigator.geolocation.watchPosition(
+                    position => {
+                        const { latitude, longitude } = position.coords;
+                        updateLocationInFirestore(latitude, longitude, 'auto');
+                    },
+                    error => {
+                        statusElement.textContent = `ข้อผิดพลาดในการเข้าถึง GPS: ${error.message}`;
+                        statusElement.classList.add('error');
+                        statusElement.classList.remove('success');
+                        startButton.disabled = false;
+                        manualSubmitButton.disabled = false;
+                        if (watchId) {
+                            navigator.geolocation.clearWatch(watchId);
+                            watchId = null;
+                        }
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 60000,
+                        timeout: 60000
+                    }
+                );
+            } else {
+                statusElement.textContent = 'เบราว์เซอร์ของคุณไม่รองรับ Geolocation API';
+                statusElement.classList.add('error');
+            }
+        });
+
+        // Manual location submit button
+        manualSubmitButton.addEventListener('click', () => {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            startButton.disabled = false;
+
+            const lat = parseFloat(latitudeInput.value);
+            const lon = parseFloat(longitudeInput.value);
+
+            if (isNaN(lat) || isNaN(lon)) {
+                statusElement.textContent = 'กรุณากรอก ละติจูด และ ลองจิจูด ให้ถูกต้อง';
+                statusElement.classList.add('error');
+                return;
+            }
+            
+            updateLocationInFirestore(lat, lon, 'manual');
+            statusElement.textContent = 'ส่งตำแหน่งที่ป้อนเองแล้ว!';
+            statusElement.classList.add('success');
+        });
+
+        // Optional: Stop tracking when the user closes the page (not guaranteed to always run)
+        window.addEventListener('beforeunload', () => {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+        });
+
+    </script>
+</body>
+</html>
