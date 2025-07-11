@@ -1,0 +1,228 @@
+// lib/screens/seller/seller_orders_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:banbanshop/screens/models/order_model.dart';
+import 'package:banbanshop/screens/seller/order_detail_screen.dart';
+import 'package:intl/intl.dart';
+
+class SellerOrdersScreen extends StatefulWidget {
+  const SellerOrdersScreen({super.key});
+
+  @override
+  State<SellerOrdersScreen> createState() => _SellerOrdersScreenState();
+}
+
+class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  String? _storeId;
+  bool _isLoading = true;
+
+  final List<Tab> _tabs = const [
+    Tab(text: 'ใหม่'),
+    Tab(text: 'กำลังดำเนินการ'),
+    Tab(text: 'สำเร็จ'),
+    Tab(text: 'ยกเลิก'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+    _fetchUserStoreId();
+  }
+
+  Future<void> _fetchUserStoreId() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    try {
+      final sellerDoc = await FirebaseFirestore.instance.collection('sellers').doc(user.uid).get();
+      if (mounted && sellerDoc.exists && sellerDoc.data()!.containsKey('storeId')) {
+        setState(() {
+          _storeId = sellerDoc.data()!['storeId'];
+          _isLoading = false;
+        });
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      // ignore: avoid_print
+      print("Error fetching store ID: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7), // A light grey background
+      appBar: AppBar(
+        // [KEY CHANGE] Added back button and themed the AppBar
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 1,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'รายการออเดอร์ของฉัน',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: _tabs,
+          labelColor: Theme.of(context).primaryColor,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Theme.of(context).primaryColor,
+          indicatorWeight: 3.0,
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _storeId == null
+              ? const Center(child: Text('คุณยังไม่มีร้านค้า'))
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildOrdersList(OrderStatus.pending),
+                    _buildOrdersList(OrderStatus.processing),
+                    _buildOrdersList(OrderStatus.delivered),
+                    _buildOrdersList(OrderStatus.cancelled),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildOrdersList(OrderStatus status) {
+    if (_storeId == null) {
+      return const Center(child: Text('ไม่สามารถโหลดข้อมูลร้านค้าได้'));
+    }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collectionGroup('orders') // Query across all 'orders' subcollections
+          .where('storeId', isEqualTo: _storeId)
+          .where('status', isEqualTo: status.toString().split('.').last)
+          .orderBy('orderDate', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          // [KEY CHANGE] Improved empty state UI
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey[300]),
+                const SizedBox(height: 16),
+                Text(
+                  'ไม่มีออเดอร์ "${status.name}"',
+                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final orders = snapshot.data!.docs.map((doc) => Order.fromFirestore(doc)).toList();
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(12.0),
+          itemCount: orders.length,
+          itemBuilder: (context, index) {
+            final order = orders[index];
+            return OrderCard(order: order);
+          },
+        );
+      },
+    );
+  }
+}
+
+class OrderCard extends StatelessWidget {
+  final Order order;
+
+  const OrderCard({super.key, required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final DateFormat formatter = DateFormat('dd MMM yyyy, HH:mm', 'th');
+
+    // [KEY CHANGE] Redesigned OrderCard for better UI/UX
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OrderDetailScreen(order: order),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'ออเดอร์ #${order.id.substring(0, 8).toUpperCase()}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+                ],
+              ),
+              const Divider(height: 20),
+              Row(
+                children: [
+                  Icon(Icons.person_outline, size: 18, color: Colors.grey[700]),
+                  const SizedBox(width: 8),
+                  Text('ผู้ซื้อ: ${order.buyerName}', style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                   Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey[700]),
+                   const SizedBox(width: 8),
+                   Text('วันที่สั่ง: ${formatter.format(order.orderDate.toDate())}', style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'ยอดรวม: ฿${order.totalAmount.toStringAsFixed(2)}',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).primaryColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -3,6 +3,7 @@
 // ignore_for_file: use_build_context_synchronously, avoid_print
 
 import 'package:banbanshop/screens/models/seller_profile.dart';
+import 'package:banbanshop/screens/seller/seller_order_screen.dart';
 import 'package:banbanshop/screens/seller/store_create.dart';
 import 'package:banbanshop/screens/seller/store_profile.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:banbanshop/screens/reviews/store_reviews_screen.dart';
 import 'package:banbanshop/screens/seller/edit_seller_profile_screen.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
+import 'package:banbanshop/screens/seller/product_management_screen.dart';
 
 
 class SellerAccountScreen extends StatefulWidget {
@@ -104,7 +106,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             province: _store!.province,
             averageRating: _store!.averageRating,
             reviewCount: _store!.reviewCount,
-            isManuallyClosed: isManuallyClosed, // Update the value
+            isManuallyClosed: isManuallyClosed,
             operatingHours: _store!.operatingHours,
           );
         });
@@ -284,7 +286,6 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                                 color: !_store!.isManuallyClosed ? Colors.green[700] : Colors.red[700],
                               ),
                             ),
-                            // [KEY CHANGE] Updated subtitle text for clarity
                             subtitle: Text(!_store!.isManuallyClosed ? 'ลูกค้าสามารถเห็นและสั่งซื้อได้' : 'ลูกค้าจะเห็นร้านค้าแต่ไม่สามารถสั่งซื้อได้'),
                             value: !_store!.isManuallyClosed,
                             onChanged: _toggleManualStoreStatus,
@@ -309,16 +310,39 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                         },
                       ),
                       const SizedBox(height: 15),
+                      // --- [KEY CHANGE] Connect the button to the new screen ---
                       _buildActionButton(
                         text: 'ดูออเดอร์',
                         color: const Color(0xFFE2CCFB),
-                        onTap: () {},
+                        onTap: () {
+                           Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SellerOrdersScreen(),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 15),
                       _buildActionButton(
                         text: 'จัดการสินค้า',
                         color: const Color(0xFFE2CCFB),
-                        onTap: () {},
+                        onTap: () {
+                          if (_store != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProductManagementScreen(
+                                  storeId: _store!.id,
+                                ),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('กำลังโหลดข้อมูลร้านค้า กรุณาลองอีกครั้ง')),
+                            );
+                          }
+                        },
                       ),
                       const SizedBox(height: 15),
                       _buildActionButton(
