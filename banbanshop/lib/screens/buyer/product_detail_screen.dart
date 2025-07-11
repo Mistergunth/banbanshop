@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/models/product_model.dart';
 import 'package:banbanshop/screens/models/cart_model.dart';
+import 'package:banbanshop/screens/models/store_model.dart'; // --- [NEW] Import Store model
 import 'package:google_fonts/google_fonts.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -20,14 +21,58 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
   bool _isLoading = false;
 
-  // --- [NEW] Check if the product is out of stock ---
+  // --- [NEW] Add state to hold the store data ---
+  Store? _store;
+  bool _isStoreLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStoreStatus();
+  }
+
+  // --- [NEW] Function to fetch store data ---
+  Future<void> _fetchStoreStatus() async {
+    try {
+      final storeDoc = await FirebaseFirestore.instance
+          .collection('stores')
+          .doc(widget.product.storeId)
+          .get();
+      if (storeDoc.exists && mounted) {
+        setState(() {
+          _store = Store.fromFirestore(storeDoc);
+          _isStoreLoading = false;
+        });
+      } else {
+         if (mounted) {
+          setState(() {
+            _isStoreLoading = false;
+          });
+         }
+      }
+    } catch (e) {
+      print("Error fetching store status: $e");
+      if (mounted) {
+        setState(() {
+          _isStoreLoading = false;
+        });
+      }
+    }
+  }
+
+
   bool get isOutOfStock {
-    // Product is out of stock if stock is 0 or less, but not -1 (unlimited)
     return widget.product.stock <= 0 && widget.product.stock != -1;
   }
 
+  // --- [NEW] Check if the store is open ---
+  bool get isStoreOpen {
+    // If store data is not loaded yet, or store is null, assume it's closed.
+    if (_store == null) return false;
+    return _store!.isOpen;
+  }
+
   void _incrementQuantity() {
-    // --- [NEW] Add a check against the available stock ---
     if (widget.product.stock != -1 && _quantity >= widget.product.stock) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('ไม่สามารถเพิ่มเกินจำนวนสต็อกที่มี (${widget.product.stock} ชิ้น)')),
@@ -102,6 +147,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- [NEW] Determine if the add to cart button should be disabled ---
+    final bool canAddToCart = !isOutOfStock && isStoreOpen && !_isLoading;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.product.name),
@@ -143,7 +191,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     style: const TextStyle(fontSize: 24, color: Color(0xFF9C6ADE), fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  // --- [NEW] Display stock information ---
                   Text(
                     isOutOfStock 
                       ? 'สินค้าหมด' 
@@ -184,44 +231,76 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // --- [NEW] Show store status message ---
+            if (_isStoreLoading)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8.0),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
+              )
+            else if (!isStoreOpen)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.door_back_door_outlined, color: Colors.red[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'ขณะนี้ร้านค้าปิดทำการ',
+                        style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  // --- [NEW] Disable button if out of stock ---
-                  icon: const Icon(Icons.remove_circle_outline),
-                  onPressed: isOutOfStock ? null : _decrementQuantity,
-                  iconSize: 30,
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      // Disable if cannot add to cart
+                      onPressed: !canAddToCart ? null : _decrementQuantity,
+                      iconSize: 30,
+                    ),
+                    Text(
+                      '$_quantity',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      // Disable if cannot add to cart
+                      onPressed: !canAddToCart ? null : _incrementQuantity,
+                      iconSize: 30,
+                    ),
+                  ],
                 ),
-                Text(
-                  '$_quantity',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  // --- [NEW] Disable button if out of stock ---
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: isOutOfStock ? null : _incrementQuantity,
-                  iconSize: 30,
+                ElevatedButton.icon(
+                  onPressed: canAddToCart ? _addToCart : null, // Use the combined check
+                  icon: (isOutOfStock || !isStoreOpen || _isLoading)
+                      ? const SizedBox.shrink()
+                      : const Icon(Icons.add_shopping_cart),
+                  label: _isLoading
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
+                      : Text(isOutOfStock ? 'สินค้าหมด' : (isStoreOpen ? 'เพิ่มลงตะกร้า' : 'ร้านปิด')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: canAddToCart ? const Color(0xFF66BB6A) : Colors.grey,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: GoogleFonts.kanit().fontFamily ),
+                  ),
                 ),
               ],
-            ),
-            ElevatedButton.icon(
-              // --- [NEW] Disable button if out of stock or loading ---
-              onPressed: (isOutOfStock || _isLoading) ? null : _addToCart,
-              icon: (isOutOfStock || _isLoading)
-                  ? const SizedBox.shrink()
-                  : const Icon(Icons.add_shopping_cart),
-              label: _isLoading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
-                  : Text(isOutOfStock ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isOutOfStock ? Colors.grey : const Color(0xFF66BB6A),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: GoogleFonts.kanit().fontFamily ),
-              ),
             ),
           ],
         ),
