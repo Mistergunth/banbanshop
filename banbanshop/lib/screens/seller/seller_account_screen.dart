@@ -16,6 +16,8 @@ import 'package:banbanshop/screens/reviews/store_reviews_screen.dart';
 import 'package:banbanshop/screens/seller/edit_seller_profile_screen.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/seller/product_management_screen.dart';
+// --- [NEW] Import the new payment screen ---
+import 'package:banbanshop/screens/seller/edit_payment_screen.dart';
 
 
 class SellerAccountScreen extends StatefulWidget {
@@ -108,6 +110,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             reviewCount: _store!.reviewCount,
             isManuallyClosed: isManuallyClosed,
             operatingHours: _store!.operatingHours,
+            paymentInfo: _store!.paymentInfo, // Keep existing payment info
           );
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -253,6 +256,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             child: Column(
               children: [
                 _buildActionButton(
+                  icon: Icons.person_outline,
                   text: 'แก้ไขโปรไฟล์',
                   color: const Color(0xFFE2CCFB),
                   onTap: () {
@@ -295,6 +299,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                       const SizedBox(height: 15),
 
                       _buildActionButton(
+                        icon: Icons.store_outlined,
                         text: 'หน้าโปรไฟล์ร้านค้า',
                         color: const Color(0xFFE2CCFB),
                         onTap: () {
@@ -310,8 +315,8 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                         },
                       ),
                       const SizedBox(height: 15),
-                      // --- [KEY CHANGE] Connect the button to the new screen ---
                       _buildActionButton(
+                        icon: Icons.receipt_long_outlined,
                         text: 'ดูออเดอร์',
                         color: const Color(0xFFE2CCFB),
                         onTap: () {
@@ -325,6 +330,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                       ),
                       const SizedBox(height: 15),
                       _buildActionButton(
+                        icon: Icons.inventory_2_outlined,
                         text: 'จัดการสินค้า',
                         color: const Color(0xFFE2CCFB),
                         onTap: () {
@@ -345,7 +351,34 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                         },
                       ),
                       const SizedBox(height: 15),
+                      // --- [NEW] Button for managing payment info ---
                       _buildActionButton(
+                        icon: Icons.payment_outlined,
+                        text: 'จัดการช่องทางชำระเงิน',
+                        color: const Color(0xFFE2CCFB),
+                        onTap: () {
+                          if (_store != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditPaymentScreen(store: _store!),
+                              ),
+                            ).then((value) {
+                              // Refresh store data if payment info was updated
+                              if (value == true) {
+                                _fetchStoreData();
+                              }
+                            });
+                          } else {
+                             ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('กำลังโหลดข้อมูลร้านค้า กรุณาลองอีกครั้ง')),
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 15),
+                      _buildActionButton(
+                        icon: Icons.star_border_outlined,
                         text: 'เรตติ้งและรีวิว',
                         color: const Color(0xFFE2CCFB),
                         onTap: () {
@@ -365,6 +398,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                   )
                 else
                   _buildActionButton(
+                    icon: Icons.add_business_outlined,
                     text: 'สร้างร้านค้า',
                     color: const Color(0xFFE2CCFB),
                     onTap: _navigateAndRefreshOnStoreCreation,
@@ -381,6 +415,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
   }
 
   Widget _buildActionButton({
+    required IconData icon,
     required String text,
     required Color color,
     required VoidCallback onTap,
@@ -394,14 +429,20 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
           color: color,
           borderRadius: BorderRadius.circular(10),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.black87),
+            const SizedBox(width: 10),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -20,7 +20,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
   bool _isLoading = false;
 
+  // --- [NEW] Check if the product is out of stock ---
+  bool get isOutOfStock {
+    // Product is out of stock if stock is 0 or less, but not -1 (unlimited)
+    return widget.product.stock <= 0 && widget.product.stock != -1;
+  }
+
   void _incrementQuantity() {
+    // --- [NEW] Add a check against the available stock ---
+    if (widget.product.stock != -1 && _quantity >= widget.product.stock) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ไม่สามารถเพิ่มเกินจำนวนสต็อกที่มี (${widget.product.stock} ชิ้น)')),
+      );
+      return;
+    }
     setState(() {
       _quantity++;
     });
@@ -55,12 +68,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final doc = await cartRef.get();
 
       if (doc.exists) {
-        // If item already in cart, update quantity
         await cartRef.update({
           'quantity': FieldValue.increment(_quantity),
         });
       } else {
-        // If new item, create it in cart
         final newCartItem = CartItem(
           productId: widget.product.id,
           storeId: widget.product.storeId,
@@ -132,8 +143,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     style: const TextStyle(fontSize: 24, color: Color(0xFF9C6ADE), fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                  // --- [NEW] Display stock information ---
+                  Text(
+                    isOutOfStock 
+                      ? 'สินค้าหมด' 
+                      : (widget.product.stock == -1 
+                          ? 'มีสินค้า' 
+                          : 'มีสินค้าทั้งหมด: ${widget.product.stock} ชิ้น'),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isOutOfStock ? Colors.red : Colors.green[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(height: 16),
                   const Text(
                     'รายละเอียด',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -167,8 +190,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             Row(
               children: [
                 IconButton(
+                  // --- [NEW] Disable button if out of stock ---
                   icon: const Icon(Icons.remove_circle_outline),
-                  onPressed: _decrementQuantity,
+                  onPressed: isOutOfStock ? null : _decrementQuantity,
                   iconSize: 30,
                 ),
                 Text(
@@ -176,22 +200,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
+                  // --- [NEW] Disable button if out of stock ---
                   icon: const Icon(Icons.add_circle_outline),
-                  onPressed: _incrementQuantity,
+                  onPressed: isOutOfStock ? null : _incrementQuantity,
                   iconSize: 30,
                 ),
               ],
             ),
             ElevatedButton.icon(
-              onPressed: _isLoading ? null : _addToCart,
-              icon: _isLoading
+              // --- [NEW] Disable button if out of stock or loading ---
+              onPressed: (isOutOfStock || _isLoading) ? null : _addToCart,
+              icon: (isOutOfStock || _isLoading)
                   ? const SizedBox.shrink()
                   : const Icon(Icons.add_shopping_cart),
               label: _isLoading
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
-                  : const Text('เพิ่มลงตะกร้า'),
+                  : Text(isOutOfStock ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF66BB6A),
+                backgroundColor: isOutOfStock ? Colors.grey : const Color(0xFF66BB6A),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: GoogleFonts.kanit().fontFamily ),

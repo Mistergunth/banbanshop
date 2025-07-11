@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/models/cart_model.dart';
+// --- [NEW] Import the checkout screen ---
+import 'package:banbanshop/screens/buyer/checkout_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class BuyerCartScreen extends StatefulWidget {
@@ -105,6 +107,7 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
             children: [
               Expanded(
                 child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
                   itemCount: cartItems.length,
                   itemBuilder: (context, index) {
                     final item = cartItems[index];
@@ -112,7 +115,8 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
                   },
                 ),
               ),
-              _buildSummary(totalPrice),
+              // --- [KEY CHANGE] Pass cartItems to the summary widget ---
+              _buildSummary(totalPrice, cartItems),
             ],
           );
         },
@@ -169,7 +173,8 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
     );
   }
 
-  Widget _buildSummary(double totalPrice) {
+  // --- [KEY CHANGE] Method now accepts the list of cart items ---
+  Widget _buildSummary(double totalPrice, List<CartItem> cartItems) {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -198,16 +203,26 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
+              // --- [KEY CHANGE] Navigate to CheckoutScreen on press ---
               onPressed: () {
-                // TODO: Navigate to checkout screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('ฟังก์ชันชำระเงินยังไม่พร้อมใช้งาน')),
-                );
+                if (cartItems.isNotEmpty) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CheckoutScreen(cartItems: cartItems),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ไม่สามารถดำเนินการได้เนื่องจากตะกร้าว่างเปล่า')),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF66BB6A),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               child: Text('ไปที่หน้าชำระเงิน', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: GoogleFonts.kanit().fontFamily)),

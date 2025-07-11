@@ -58,6 +58,8 @@ class Order {
   final double totalAmount;
   final OrderStatus status;
   final Timestamp orderDate;
+  // --- [NEW] Field for payment slip URL ---
+  final String? paymentSlipUrl;
 
   Order({
     required this.id,
@@ -70,6 +72,8 @@ class Order {
     required this.totalAmount,
     required this.status,
     required this.orderDate,
+    // --- [NEW] Add to constructor ---
+    this.paymentSlipUrl,
   });
 
   factory Order.fromFirestore(DocumentSnapshot doc) {
@@ -89,6 +93,8 @@ class Order {
       totalAmount: (data['totalAmount'] ?? 0.0).toDouble(),
       status: OrderStatusExtension.fromString(data['status'] ?? 'pending'),
       orderDate: data['orderDate'] ?? Timestamp.now(),
+      // --- [NEW] Read from Firestore ---
+      paymentSlipUrl: data['paymentSlipUrl'],
     );
   }
 
@@ -101,8 +107,10 @@ class Order {
       'buyerPhoneNumber': buyerPhoneNumber,
       'items': items.map((item) => item.toMap()).toList(),
       'totalAmount': totalAmount,
-      'status': status.toString().split('.').last, // e.g., 'OrderStatus.pending' -> 'pending'
+      'status': status.toString().split('.').last,
       'orderDate': orderDate,
+      // --- [NEW] Write to Firestore ---
+      'paymentSlipUrl': paymentSlipUrl,
     };
   }
 }

@@ -8,12 +8,11 @@ import 'package:banbanshop/screens/seller/order_detail_screen.dart';
 import 'package:intl/intl.dart';
 
 class SellerOrdersScreen extends StatefulWidget {
-  // --- [NEW] เพิ่ม Flag เพื่อควบคุมการแสดงผล AppBar ---
   final bool isEmbedded;
 
   const SellerOrdersScreen({
     super.key,
-    this.isEmbedded = false, // ค่าเริ่มต้นคือ false (แสดง AppBar)
+    this.isEmbedded = false,
   });
 
   @override
@@ -25,9 +24,11 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
   String? _storeId;
   bool _isLoading = true;
 
+  // --- [KEY CHANGE] Add the 'Shipped' tab ---
   final List<Tab> _tabs = const [
     Tab(text: 'ใหม่'),
     Tab(text: 'กำลังดำเนินการ'),
+    Tab(text: 'จัดส่งแล้ว'), // New tab
     Tab(text: 'สำเร็จ'),
     Tab(text: 'ยกเลิก'),
   ];
@@ -35,6 +36,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
   @override
   void initState() {
     super.initState();
+    // --- [KEY CHANGE] Update TabController length ---
     _tabController = TabController(length: _tabs.length, vsync: this);
     _fetchUserStoreId();
   }
@@ -70,7 +72,6 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    // --- [KEY CHANGE] สร้าง Widget หลักที่ประกอบด้วย TabBar และ TabBarView ---
     Widget screenContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _storeId == null
@@ -78,10 +79,11 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
             : Column(
                 children: [
                   Container(
-                    color: const Color(0xFF9B7DD9), // สีพื้นหลังของ TabBar
+                    color: const Color(0xFF9B7DD9),
                     child: TabBar(
                       controller: _tabController,
                       tabs: _tabs,
+                      isScrollable: true, // Allow tabs to scroll if they don't fit
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white.withOpacity(0.7),
                       indicatorColor: Colors.white,
@@ -94,6 +96,8 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
                       children: [
                         _buildOrdersList(OrderStatus.pending),
                         _buildOrdersList(OrderStatus.processing),
+                        // --- [KEY CHANGE] Add the view for 'Shipped' orders ---
+                        _buildOrdersList(OrderStatus.shipped),
                         _buildOrdersList(OrderStatus.delivered),
                         _buildOrdersList(OrderStatus.cancelled),
                       ],
@@ -102,7 +106,6 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
                 ],
               );
 
-    // ถ้าไม่ได้เป็นการแสดงผลแบบฝัง (isEmbedded = false) ให้สร้าง Scaffold แบบเต็ม
     if (!widget.isEmbedded) {
       return Scaffold(
         backgroundColor: const Color(0xFFF5F5F7),
@@ -124,7 +127,6 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
       );
     }
 
-    // ถ้าเป็นการแสดงผลแบบฝัง (isEmbedded = true) ให้แสดงเฉพาะเนื้อหา
     return Container(
       color: const Color(0xFFF5F5F7),
       child: screenContent,
@@ -202,8 +204,12 @@ class OrderCard extends StatelessWidget {
             MaterialPageRoute(
               builder: (context) => OrderDetailScreen(order: order),
             ),
-
-          );
+          ).then((value) {
+            // This is a simple way to refresh, though not strictly necessary with streams
+            if (value == true) {
+              // The stream will handle the update automatically
+            }
+          });
         },
         child: Padding(
           padding: const EdgeInsets.all(16.0),
