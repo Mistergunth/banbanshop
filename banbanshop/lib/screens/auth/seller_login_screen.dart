@@ -28,6 +28,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     super.dispose();
   }
 
+  // --- [KEY CHANGE] ปรับปรุงฟังก์ชันการล็อกอินทั้งหมด ---
   Future<void> _loginSeller() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -40,18 +41,24 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     String? emailToLogin;
 
     try {
+      // ตรวจสอบว่าเป็นอีเมลหรือไม่
       bool isEmail = loginInput.contains('@');
-
+      
       if (isEmail) {
+        // ถ้าเป็นอีเมล, ใช้เป็นข้อมูลล็อกอินโดยตรง
         emailToLogin = loginInput;
       } else {
-        String formattedPhone = loginInput;
+        // ถ้าไม่ใช่, ให้ถือว่าเป็นเบอร์โทรศัพท์และแปลงให้อยู่ในรูปแบบ E.164 (+66)
+        String formattedPhone = loginInput.replaceAll(RegExp(r'\D'), ''); // เอาทุกอย่างที่ไม่ใช่ตัวเลขออก
         if (formattedPhone.startsWith('0')) {
           formattedPhone = "+66${formattedPhone.substring(1)}";
         } else if (formattedPhone.length == 9) {
           formattedPhone = "+66$formattedPhone";
+        } else if (formattedPhone.startsWith('66') && formattedPhone.length == 11) {
+          formattedPhone = "+$formattedPhone";
         }
 
+        // ค้นหาอีเมลจากเบอร์โทรศัพท์ใน Firestore
         final querySnapshot = await FirebaseFirestore.instance
             .collection('sellers')
             .where('phoneNumber', isEqualTo: formattedPhone)
@@ -61,33 +68,23 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         if (querySnapshot.docs.isNotEmpty) {
           emailToLogin = querySnapshot.docs.first.data()['email'];
         } else {
-          // Throw a generic error to be caught below
+          // ถ้าไม่เจอเบอร์โทรในระบบ ให้แสดงข้อความผิดพลาด
           throw FirebaseAuthException(code: 'user-not-found');
         }
       }
 
-      if (emailToLogin == null) {
+      if (emailToLogin == null || emailToLogin.isEmpty) {
          throw FirebaseAuthException(code: 'user-not-found');
       }
 
+      // ทำการล็อกอินด้วยอีเมลและรหัสผ่าน
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailToLogin,
         password: password,
       );
 
-      // The AuthWrapper in main.dart will handle navigation after successful login.
-      // No need to check for email verification here as AuthWrapper already does it.
-      
-      if (mounted) {
-        // You can show a success message, but navigation is handled by AuthWrapper
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
-        // );
-      }
-
     } on FirebaseAuthException catch (e) {
       String message;
-      // [KEY CHANGE] Consolidated error messages for a better user experience.
       if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
         message = 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง';
       } else if (e.code == 'too-many-requests') {

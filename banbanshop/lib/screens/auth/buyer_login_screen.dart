@@ -28,6 +28,7 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
     super.dispose();
   }
 
+  // --- [KEY CHANGE] ปรับปรุงฟังก์ชันการล็อกอินทั้งหมด ---
   Future<void> _loginBuyer() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -39,18 +40,24 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
     String? emailToLogin;
 
     try {
+      // ตรวจสอบว่าเป็นอีเมลหรือไม่
       bool isEmail = loginInput.contains('@');
-
+      
       if (isEmail) {
+        // ถ้าเป็นอีเมล, ใช้เป็นข้อมูลล็อกอินโดยตรง
         emailToLogin = loginInput;
       } else {
-        String formattedPhone = loginInput;
+        // ถ้าไม่ใช่, ให้ถือว่าเป็นเบอร์โทรศัพท์และแปลงให้อยู่ในรูปแบบ E.164 (+66)
+        String formattedPhone = loginInput.replaceAll(RegExp(r'\D'), ''); // เอาทุกอย่างที่ไม่ใช่ตัวเลขออก
         if (formattedPhone.startsWith('0')) {
           formattedPhone = "+66${formattedPhone.substring(1)}";
         } else if (formattedPhone.length == 9) {
           formattedPhone = "+66$formattedPhone";
+        } else if (formattedPhone.startsWith('66') && formattedPhone.length == 11) {
+          formattedPhone = "+$formattedPhone";
         }
 
+        // ค้นหาอีเมลจากเบอร์โทรศัพท์ใน Firestore
         final querySnapshot = await FirebaseFirestore.instance
             .collection('buyers')
             .where('phoneNumber', isEqualTo: formattedPhone)
@@ -60,22 +67,22 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
         if (querySnapshot.docs.isNotEmpty) {
           emailToLogin = querySnapshot.docs.first.data()['email'];
         } else {
-          throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบบัญชีผู้ใช้ด้วยเบอร์โทรศัพท์นี้');
+          // ถ้าไม่เจอเบอร์โทรในระบบ ให้แสดงข้อความผิดพลาด
+          throw FirebaseAuthException(code: 'user-not-found');
         }
       }
 
-      if (emailToLogin == null) {
-         throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบข้อมูลอีเมลสำหรับใช้เข้าสู่ระบบ');
+      if (emailToLogin == null || emailToLogin.isEmpty) {
+         throw FirebaseAuthException(code: 'user-not-found');
       }
 
+      // ทำการล็อกอินด้วยอีเมลและรหัสผ่าน
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailToLogin,
         password: password,
       );
 
-      // [KEY CHANGE] เปิดใช้งานการตรวจสอบการยืนยันอีเมล
       final user = FirebaseAuth.instance.currentUser;
-      // ต้อง reload user state ก่อนเพื่อดึงข้อมูลล่าสุด
       await user?.reload();
       final refreshedUser = FirebaseAuth.instance.currentUser;
 
@@ -90,19 +97,15 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
         setState(() => _isLoading = false);
         return;
       }
-      // ----------------------------------------------------
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ!')),
-        );
-        // Navigator.of(context).pushReplacement(...);
+        // การนำทางจะถูกจัดการโดย AuthWrapper
       }
 
     } on FirebaseAuthException catch (e) {
-      String message = e.message ?? 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
-      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        message = 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง';
+      String message = 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง';
+      if (e.code == 'too-many-requests') {
+        message = 'ตรวจพบกิจกรรมที่น่าสงสัย โปรดลองอีกครั้งในภายหลัง';
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
