@@ -28,7 +28,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     super.dispose();
   }
 
-  // --- [KEY CHANGE] ปรับปรุงฟังก์ชันการล็อกอินทั้งหมด ---
   Future<void> _loginSeller() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -41,15 +40,19 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
     String? emailToLogin;
 
     try {
-      // ตรวจสอบว่าเป็นอีเมลหรือไม่
       bool isEmail = loginInput.contains('@');
       
       if (isEmail) {
-        // ถ้าเป็นอีเมล, ใช้เป็นข้อมูลล็อกอินโดยตรง
         emailToLogin = loginInput;
+
+        // [NEW] Check if this email belongs to a buyer BEFORE attempting login
+        final buyerDoc = await FirebaseFirestore.instance.collection('buyers').where('email', isEqualTo: emailToLogin).limit(1).get();
+        if (buyerDoc.docs.isNotEmpty) {
+          throw FirebaseAuthException(code: 'email-is-buyer', message: 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง');
+        }
+
       } else {
-        // ถ้าไม่ใช่, ให้ถือว่าเป็นเบอร์โทรศัพท์และแปลงให้อยู่ในรูปแบบ E.164 (+66)
-        String formattedPhone = loginInput.replaceAll(RegExp(r'\D'), ''); // เอาทุกอย่างที่ไม่ใช่ตัวเลขออก
+        String formattedPhone = loginInput.replaceAll(RegExp(r'\D'), '');
         if (formattedPhone.startsWith('0')) {
           formattedPhone = "+66${formattedPhone.substring(1)}";
         } else if (formattedPhone.length == 9) {
@@ -58,7 +61,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           formattedPhone = "+$formattedPhone";
         }
 
-        // ค้นหาอีเมลจากเบอร์โทรศัพท์ใน Firestore
         final querySnapshot = await FirebaseFirestore.instance
             .collection('sellers')
             .where('phoneNumber', isEqualTo: formattedPhone)
@@ -68,8 +70,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         if (querySnapshot.docs.isNotEmpty) {
           emailToLogin = querySnapshot.docs.first.data()['email'];
         } else {
-          // ถ้าไม่เจอเบอร์โทรในระบบ ให้แสดงข้อความผิดพลาด
-          throw FirebaseAuthException(code: 'user-not-found');
+          throw FirebaseAuthException(code: 'user-not-found', message: 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง');
         }
       }
 
@@ -77,11 +78,45 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
          throw FirebaseAuthException(code: 'user-not-found');
       }
 
-      // ทำการล็อกอินด้วยอีเมลและรหัสผ่าน
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailToLogin,
         password: password,
       );
+
+      final user = userCredential.user;
+      if (user == null) {
+        throw FirebaseAuthException(code: 'user-not-found', message: 'ไม่พบข้อมูลผู้ใช้งาน');
+      }
+
+      await user.reload();
+      IdTokenResult idTokenResult = await user.getIdTokenResult(true);
+      Map<String, dynamic>? claims = idTokenResult.claims;
+
+      if (claims != null && claims['role'] == 'sellers') {
+        if (!user.emailVerified) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          await Future.delayed(const Duration(seconds: 2));
+          await FirebaseAuth.instance.signOut();
+          return;
+        }
+      } else {
+        // This case should ideally be caught by the pre-check if user logs in with email.
+        // But if they login with phone linked to a buyer email, this will catch it.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('บัญชีนี้ไม่ใช่บัญชีผู้ขาย กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        await Future.delayed(const Duration(seconds: 2));
+        await FirebaseAuth.instance.signOut();
+        return;
+      }
 
     } on FirebaseAuthException catch (e) {
       String message;
@@ -89,6 +124,10 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         message = 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง';
       } else if (e.code == 'too-many-requests') {
         message = 'ตรวจพบกิจกรรมที่น่าสงสัย โปรดลองอีกครั้งในภายหลัง';
+      } else if (e.message != null && e.message!.contains('อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง')) {
+          message = e.message!;
+      } else if (e.code == 'email-is-buyer') { // [NEW] Custom error message for buyer email
+          message = e.message!;
       }
       else {
         message = 'เกิดข้อผิดพลาด: กรุณาตรวจสอบข้อมูลและลองอีกครั้ง';
@@ -96,7 +135,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด')),
+        SnackBar(content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด: $e')),
       );
     } finally {
       if (mounted) {

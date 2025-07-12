@@ -1,103 +1,96 @@
+// The Cloud Functions for Firebase SDK to create Cloud Functions and set up triggers.
+const {onDocumentWritten} = require("firebase-functions/v2/firestore");
+const {logger} = require("firebase-functions");
 
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-admin.initializeApp(); // Initialize Firebase Admin SDK
+// The Firebase Admin SDK to access Firestore.
+const admin = require("firebase-admin");
+admin.initializeApp();
 
-// Cloudinary configuration (IMPORTANT: Use environment variables or Firebase Functions config)
-// For production, DO NOT hardcode API_KEY and API_SECRET here.
-// Use `firebase functions:config:set cloudinary.cloud_name="your_name" cloudinary.api_key="your_key" cloudinary.api_secret="your_secret"`
-// Then access them via functions.config().cloudinary.cloud_name, etc.
-const cloudinary = require('cloudinary').v2;
+/**
+ * ฟังก์ชันที่จะทำงานทุกครั้งที่มีการเขียน (สร้าง, แก้ไข, ลบ)
+ * ใน sub-collection 'reviews' ของร้านค้าใดๆ
+ * โดยใช้ синтаксисของ Cloud Functions v2
+ */
+exports.updateStoreRating = onDocumentWritten("stores/{storeId}/reviews/{reviewId}", async (event) => {
+  // ดึง storeId จากพารามิเตอร์ของ path
+  const storeId = event.params.storeId;
+  logger.log(`Detected a review change for store: ${storeId}`);
 
-cloudinary.config({
-    cloud_name: functions.config().cloudinary.cloud_name, // Get from Firebase Functions config
-    api_key: functions.config().cloudinary.api_key,       // Get from Firebase Functions config
-    api_secret: functions.config().cloudinary.api_secret, // Get from Firebase Functions config
-    secure: true
+  // อ้างอิงไปยังเอกสารของร้านค้านั้นๆ
+  const storeRef = admin.firestore().collection("stores").doc(storeId);
+
+  // ดึงข้อมูลรีวิวทั้งหมดของร้านค้านี้
+  const reviewsSnapshot = await storeRef.collection("reviews").get();
+
+  // ถ้าไม่มีรีวิวเหลืออยู่เลย (เช่น รีวิวสุดท้ายถูกลบ)
+  // ให้อัปเดตข้อมูลร้านค้าเป็น 0 แล้วจบการทำงาน
+  if (reviewsSnapshot.empty) {
+    logger.log(`No reviews for store ${storeId}. Setting rating to 0.`);
+    return storeRef.update({
+      averageRating: 0,
+      reviewCount: 0,
+    });
+  }
+
+  // คำนวณคะแนนรวม
+  let totalRating = 0;
+  reviewsSnapshot.forEach((doc) => {
+    totalRating += doc.data().rating;
+  });
+
+  // จำนวนรีวิวทั้งหมด
+  const reviewCount = reviewsSnapshot.size;
+
+  // คะแนนเฉลี่ย
+  const averageRating = totalRating / reviewCount;
+
+  // อัปเดตข้อมูลในเอกสารของร้านค้า
+  logger.log(
+      `Updating store ${storeId}: reviewCount=${reviewCount}, ` +
+      `averageRating=${averageRating.toFixed(2)}`,
+  );
+  return storeRef.update({
+    reviewCount: reviewCount,
+    averageRating: averageRating,
+  });
 });
 
-// HTTP Cloud Function สำหรับลบโพสต์
-exports.deletePost = functions.https.onCall(async (data, context) => {
-    // 1. ตรวจสอบว่าผู้ใช้ล็อกอินอยู่หรือไม่
-    if (!context.auth) {
-        throw new functions.https.HttpsError(
-            'unauthenticated',
-            'ต้องเข้าสู่ระบบเพื่อลบโพสต์'
-        );
-    }
+// --- [NEW] Cloud Functions for Custom Claims ---
 
-    const postId = data.postId;
-    const userId = context.auth.uid; // UID ของผู้ใช้ที่เรียกใช้ Function
-
-    if (!postId) {
-        throw new functions.https.HttpsError(
-            'invalid-argument',
-            'ต้องระบุ postId'
-        );
-    }
-
-    const db = admin.firestore();
-    const postRef = db.collection('posts').doc(postId);
-
+/**
+ * ฟังก์ชันที่จะทำงานเมื่อมีการสร้างเอกสารใหม่ใน collection 'buyers'
+ * เพื่อกำหนด Custom Claim 'role: buyer' ให้กับผู้ใช้งาน Firebase Auth
+ */
+exports.addRoleOnBuyerCreate = onDocumentWritten("buyers/{userId}", async (event) => {
+  // ตรวจสอบว่าเป็นการสร้างเอกสารใหม่เท่านั้น (ไม่ใช่การอัปเดตหรือลบ)
+  if (!event.data.before.exists && event.data.after.exists) {
+    const userId = event.params.userId;
+    logger.log(`Detected new buyer document for user: ${userId}. Setting custom claim 'role: buyer'.`);
     try {
-        const postDoc = await postRef.get();
-
-        // 2. ตรวจสอบว่าโพสต์มีอยู่จริงหรือไม่
-        if (!postDoc.exists) {
-            throw new functions.https.HttpsError(
-                'not-found',
-                'ไม่พบโพสต์ที่ต้องการลบ'
-            );
-        }
-
-        const postData = postDoc.data();
-        // 3. ตรวจสอบสิทธิ์: ผู้ใช้ที่ลบต้องเป็นเจ้าของโพสต์
-        if (postData.ownerUid !== userId) {
-            throw new functions.https.HttpsError(
-                'permission-denied',
-                'คุณไม่มีสิทธิ์ลบโพสต์นี้'
-            );
-        }
-
-        const imageUrl = postData.imageUrl;
-
-        // 4. ลบโพสต์จาก Firestore
-        await postRef.delete();
-        console.log(`Post ${postId} deleted from Firestore.`);
-
-        // 5. ลบรูปภาพจาก Cloudinary
-        if (imageUrl) {
-            const uri = new URL(imageUrl);
-            const pathSegments = uri.pathname.split('/').filter(segment => segment);
-            // public_id มักจะเป็นส่วนสุดท้ายของ path ก่อนนามสกุลไฟล์
-            // เช่น /image/upload/v12345/folder/public_id.jpg
-            let publicId = pathSegments[pathSegments.length - 1].split('.')[0];
-            if (pathSegments.length > 2 && pathSegments[pathSegments.length - 2] !== 'upload') {
-                // หากมี folder เช่น /image/upload/my_folder/public_id.jpg
-                publicId = `${pathSegments[pathSegments.length - 2]}/${publicId}`;
-            }
-
-            const cloudinaryDeleteResponse = await cloudinary.uploader.destroy(publicId);
-            if (cloudinaryDeleteResponse.result === 'ok') {
-                console.log(`Image ${publicId} deleted from Cloudinary.`);
-            } else {
-                console.error(`Failed to delete image ${publicId} from Cloudinary:`, cloudinaryDeleteResponse);
-                // ไม่ต้อง throw error กลับไปที่ client เพราะโพสต์ถูกลบจาก Firestore แล้ว
-                // แต่ควร log ข้อผิดพลาดไว้
-            }
-        }
-
-        return {success: true, message: 'โพสต์ถูกลบสำเร็จ'};
-
+      await admin.auth().setCustomUserClaims(userId, { role: 'buyers' }); // ตั้งค่า role เป็น 'buyers'
+      logger.log(`Custom claim 'role: buyers' set successfully for user ${userId}.`);
     } catch (error) {
-        console.error('Error deleting post:', error);
-        // ส่ง error ที่เหมาะสมกลับไปที่ client
-        if (error instanceof functions.https.HttpsError) {
-            throw error;
-        }
-        throw new functions.https.HttpsError(
-            'internal',
-            'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์'
-        );
+      logger.error(`Error setting custom claim for buyer ${userId}:`, error);
     }
+  }
+  return null;
+});
+
+/**
+ * ฟังก์ชันที่จะทำงานเมื่อมีการสร้างเอกสารใหม่ใน collection 'sellers'
+ * เพื่อกำหนด Custom Claim 'role: seller' ให้กับผู้ใช้งาน Firebase Auth
+ */
+exports.addRoleOnSellerCreate = onDocumentWritten("sellers/{userId}", async (event) => {
+  // ตรวจสอบว่าเป็นการสร้างเอกสารใหม่เท่านั้น (ไม่ใช่การอัปเดตหรือลบ)
+  if (!event.data.before.exists && event.data.after.exists) {
+    const userId = event.params.userId;
+    logger.log(`Detected new seller document for user: ${userId}. Setting custom claim 'role: seller'.`);
+    try {
+      await admin.auth().setCustomUserClaims(userId, { role: 'sellers' }); // ตั้งค่า role เป็น 'sellers'
+      logger.log(`Custom claim 'role: sellers' set successfully for user ${userId}.`);
+    } catch (error) {
+      logger.error(`Error setting custom claim for seller ${userId}:`, error);
+    }
+  }
+  return null;
 });

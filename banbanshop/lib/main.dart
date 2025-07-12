@@ -56,8 +56,9 @@ class MyApp extends StatelessWidget {
 class UserData {
   final SellerProfile? sellerProfile;
   final Store? storeProfile;
+  final String? userRole; // Add user role to UserData
 
-  UserData({this.sellerProfile, this.storeProfile});
+  UserData({this.sellerProfile, this.storeProfile, this.userRole});
 }
 
 class AuthWrapper extends StatefulWidget {
@@ -80,30 +81,77 @@ class _AuthWrapperState extends State<AuthWrapper> {
     setState(() {});
   }
 
-  // [KEY CHANGE] Function signature now accepts the full User object
   Future<UserData?> _fetchUserData(User user) async {
-    try {
-      DocumentSnapshot userDoc;
-      String userType = 'buyers'; // Assume buyer first
+    String? userRole;
+    SellerProfile? sellerProfile;
+    Store? storeProfile;
+    DocumentSnapshot? userDoc;
 
-      // Check if user exists in 'sellers' collection
-      DocumentSnapshot sellerDoc = await FirebaseFirestore.instance.collection('sellers').doc(user.uid).get();
-      
-      if (sellerDoc.exists) {
-        userDoc = sellerDoc;
-        userType = 'sellers';
-      } else {
-        // If not a seller, assume they are a buyer and get their document
-        userDoc = await FirebaseFirestore.instance.collection('buyers').doc(user.uid).get();
+    try {
+      // Attempt 1: Fetch custom claims
+      IdTokenResult idTokenResult = await user.getIdTokenResult(true); // Forces refresh
+      Map<String, dynamic>? claims = idTokenResult.claims;
+      userRole = claims?['role'];
+
+      // [KEY FIX] If role is still null after first attempt, wait and retry once
+      // This handles the delay in Cloud Function setting claims after registration.
+      if (userRole == null) {
+        print("Role claim not found on first attempt for user ${user.uid}. Waiting and retrying...");
+        await Future.delayed(const Duration(seconds: 3)); // Wait a bit for Cloud Function to set claims
+        idTokenResult = await user.getIdTokenResult(true); // Retry fetching token with refreshed claims
+        claims = idTokenResult.claims;
+        userRole = claims?['role']; // Get role again
+        if (userRole == null) {
+          print("Role claim still not found after retry for user ${user.uid}. Returning null.");
+          // If role is still null after retry, it's genuinely missing or delayed too much.
+          // Returning null will trigger the fallback to RoleSelectPage.
+          return null; 
+        }
       }
 
-      // --- Self-healing logic for email synchronization ---
-      if (userDoc.exists) {
-        final firestoreEmail = (userDoc.data() as Map<String, dynamic>)['email'];
-        final authEmail = user.email;
+      // [KEY FIX] Strictly use userRole from claims to fetch data from the CORRECT collection
+      if (userRole == 'sellers') {
+        userDoc = await FirebaseFirestore.instance.collection('sellers').doc(user.uid).get();
+        if (userDoc.exists) {
+          sellerProfile = SellerProfile.fromJson(userDoc.data() as Map<String, dynamic>);
+          if (sellerProfile.hasStore == true && sellerProfile.storeId != null) {
+            DocumentSnapshot storeDoc = await FirebaseFirestore.instance
+                .collection('stores')
+                .doc(sellerProfile.storeId)
+                .get();
+            if (storeDoc.exists) {
+              storeProfile = Store.fromFirestore(storeDoc);
+            }
+          }
+        } else {
+          // If userRole is 'sellers' but no seller document exists, it's an inconsistency.
+          // This user is claiming to be a seller but has no seller profile data.
+          print("User ${user.uid} claimed 'sellers' role but no seller document found. Logging out.");
+          return null; // This will lead to a null UserData, which AuthWrapper's builder will handle by signing out.
+        }
+      } else if (userRole == 'buyers') {
+        userDoc = await FirebaseFirestore.instance.collection('buyers').doc(user.uid).get();
+        if (!userDoc.exists) {
+          // If userRole is 'buyers' but no buyer document exists, it's an inconsistency.
+          // This user is claiming to be a buyer but has no buyer profile data.
+          print("User ${user.uid} claimed 'buyers' role but no buyer document found. Logging out.");
+          return null; // This will lead to a null UserData, which AuthWrapper's builder will handle by signing out.
+        }
+        // No specific buyer profile model in your code, so just confirm existence.
+      } else {
+        // This case should ideally be caught by the initial userRole == null check.
+        // But as a safeguard, if userRole is an unrecognized string.
+        print("User ${user.uid} has an unrecognized role claim: $userRole. Logging out.");
+        return null;
+      }
 
-        // If emails don't match, update Firestore with the latest from Auth
-        if (firestoreEmail != authEmail && authEmail != null) {
+      // --- Self-healing logic for email synchronization (keep this) ---
+      if (userDoc != null && userDoc.exists) {
+        final firestoreEmail = (userDoc.data() as Map<String, dynamic>)['email'];
+        final String? authEmail = user.email;
+
+        // If authEmail is not null, and it's different from firestoreEmail, then sync
+        if (firestoreEmail != authEmail) { // This condition is now correct.
           // ignore: avoid_print
           print('Email mismatch found. Syncing Firestore with Auth email...');
           await userDoc.reference.update({'email': authEmail});
@@ -112,26 +160,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
       }
       // --- End of self-healing logic ---
-
-      // Proceed with fetching profile data using the (potentially updated) document
-      if (userType == 'sellers' && userDoc.exists) {
-         SellerProfile sellerProfile = SellerProfile.fromJson(userDoc.data() as Map<String, dynamic>);
-         Store? storeProfile;
-         if (sellerProfile.hasStore == true && sellerProfile.storeId != null) {
-            DocumentSnapshot storeDoc = await FirebaseFirestore.instance
-                .collection('stores')
-                .doc(sellerProfile.storeId)
-                .get();
-            if (storeDoc.exists) {
-              storeProfile = Store.fromFirestore(storeDoc);
-            }
-         }
-         return UserData(sellerProfile: sellerProfile, storeProfile: storeProfile);
-      } else {
-        // For buyers or if data is somehow missing, return with no seller profile.
-        // The FeedPage is designed to handle this gracefully.
-        return UserData(sellerProfile: null, storeProfile: null);
-      }
+      
+      // Return UserData with the determined role
+      return UserData(sellerProfile: sellerProfile, storeProfile: storeProfile, userRole: userRole);
 
     } catch (e) {
       // ignore: avoid_print
@@ -152,12 +183,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (snapshot.hasData && snapshot.data != null) {
           final User user = snapshot.data!;
           if (!user.emailVerified) {
+            // If email is not verified, always go to VerifyEmailScreen
             return VerifyEmailScreen(user: user, onVerified: _refreshAuthWrapper);
           } else {
-            // User is logged in and verified, show the main app
+            // User is logged in and email is verified
             return FutureBuilder<UserData?>(
               key: _futureBuilderKey,
-              // [KEY CHANGE] Pass the full user object to _fetchUserData
               future: _fetchUserData(user),
               builder: (context, userSnapshot) {
                 if (userSnapshot.connectionState == ConnectionState.waiting) {
@@ -167,19 +198,45 @@ class _AuthWrapperState extends State<AuthWrapper> {
                    return Scaffold(body: Center(child: Text("เกิดข้อผิดพลาด: ${userSnapshot.error}")));
                 }
                 
-                // Even if userSnapshot.data is null (e.g., for a buyer),
-                // we still proceed to FeedPage, which can handle null profiles.
-                SellerProfile? sellerProfile = userSnapshot.data?.sellerProfile;
-                Store? storeProfile = userSnapshot.data?.storeProfile;
-                String initialProvince = sellerProfile?.province ?? 'ทั้งหมด';
+                // Get user data including role from userSnapshot
+                final UserData? userData = userSnapshot.data;
 
-                return FeedPage(
-                  selectedProvince: initialProvince,
-                  selectedCategory: 'ทั้งหมด',
-                  sellerProfile: sellerProfile,
-                  storeProfile: storeProfile,
-                  onRefresh: _refreshData,
-                );
+                // Conditional routing based on role
+                if (userData?.userRole == 'sellers') {
+                  SellerProfile? sellerProfile = userData?.sellerProfile;
+                  Store? storeProfile = userData?.storeProfile;
+                  String initialProvince = sellerProfile?.province ?? 'ทั้งหมด';
+
+                  return FeedPage( // Assuming FeedPage is shared, or navigate to SellerDashboard
+                    selectedProvince: initialProvince,
+                    selectedCategory: 'ทั้งหมด',
+                    sellerProfile: sellerProfile, // Pass seller profile for seller-specific UI
+                    storeProfile: storeProfile,
+                    onRefresh: _refreshData,
+                    isSeller: true, // Explicitly true for sellers
+                  );
+                } else if (userData?.userRole == 'buyers') {
+                  // For buyers, sellerProfile and storeProfile should be null
+                  return FeedPage( // Navigate to Buyer's Feed Page
+                    selectedProvince: 'ทั้งหมด', // Buyers don't have a specific province from profile
+                    selectedCategory: 'ทั้งหมด',
+                    sellerProfile: null, // Ensure sellerProfile is null for buyers
+                    storeProfile: null,
+                    onRefresh: _refreshData,
+                    isSeller: false, // Explicitly false for buyers
+                  );
+                } else {
+                  // Fallback: If no valid role is found in UserData, or UserData is null
+                  // This means either _fetchUserData returned null, or the role claim was missing/invalid.
+                  // Sign out the user and redirect to role selection.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    FirebaseAuth.instance.signOut();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('ไม่พบประเภทบัญชีของคุณ โปรดเข้าสู่ระบบใหม่')),
+                    );
+                  });
+                  return const RoleSelectPage(); // Show role selection after logout
+                }
               },
             );
           }

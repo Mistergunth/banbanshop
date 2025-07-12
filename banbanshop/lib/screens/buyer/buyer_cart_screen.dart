@@ -70,7 +70,6 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
   Widget build(BuildContext context) {
     if (_currentUser == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('ตะกร้าสินค้า')),
         body: const Center(
           child: Text('กรุณาเข้าสู่ระบบเพื่อดูตะกร้าสินค้าของคุณ'),
         ),

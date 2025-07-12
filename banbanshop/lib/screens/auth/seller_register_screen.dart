@@ -75,17 +75,29 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // [KEY CHANGE] Check if email exists BEFORE sending OTP
       final email = _emailController.text.trim();
-      print("[REG] Checking if email '$email' exists...");
-      final List<String> signInMethods = await _auth.fetchSignInMethodsForEmail(email);
+      final phoneNumber = "+66${_phoneController.text.trim()}";
 
+      // [NEW] Check if email is already in use by ANY Firebase Auth user
+      final List<String> signInMethods = await _auth.fetchSignInMethodsForEmail(email);
       if (signInMethods.isNotEmpty) {
+        // If email is already registered, check if it's already a buyer
+        final buyerDoc = await FirebaseFirestore.instance.collection('buyers').where('email', isEqualTo: email).limit(1).get();
+        if (buyerDoc.docs.isNotEmpty) {
+          throw FirebaseAuthException(code: 'email-already-in-use-as-buyer'); // Custom error code
+        }
+        // If it's not a buyer, it must be a seller (or linked to phone auth)
         throw FirebaseAuthException(code: 'email-already-in-use');
       }
-      print("[REG] Email is available. Proceeding with phone verification...");
 
-      final phoneNumber = "+66${_phoneController.text.trim()}";
+      // [NEW] Check if phone number is already registered as a buyer
+      final buyerPhoneDoc = await FirebaseFirestore.instance.collection('buyers').where('phoneNumber', isEqualTo: phoneNumber).limit(1).get();
+      if (buyerPhoneDoc.docs.isNotEmpty) {
+        throw FirebaseAuthException(code: 'phone-already-in-use-as-buyer'); // Custom error code
+      }
+
+      print("[REG] Email and Phone are available for seller registration. Proceeding with phone verification...");
+
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         forceResendingToken: _resendToken,
@@ -112,14 +124,18 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         codeAutoRetrievalTimeout: (String verificationId) {},
       );
     } on FirebaseAuthException catch (e) {
+       String message = 'เกิดข้อผิดพลาดในการส่ง OTP';
        if (e.code == 'email-already-in-use') {
-         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น')),
-        );
+         message = 'อีเมลนี้ถูกใช้งานแล้วในฐานะผู้ขาย กรุณาเข้าสู่ระบบ';
+       } else if (e.code == 'email-already-in-use-as-buyer') { // [NEW] Custom error
+         message = 'อีเมลนี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
+       } else if (e.code == 'phone-already-in-use-as-buyer') { // [NEW] Custom error
+         message = 'เบอร์โทรศัพท์นี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาด: ${e.message}')),
-        );
+          message = 'เกิดข้อผิดพลาด: ${e.message}';
+       }
+       if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
        }
        if (mounted) setState(() => _isLoading = false);
     } catch (e) {
@@ -152,6 +168,14 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
 
       if (user == null) {
         throw Exception("Phone auth failed, user is null.");
+      }
+
+      // [NEW] Check if this UID already exists in 'buyers' collection
+      final existingBuyerDoc = await FirebaseFirestore.instance.collection('buyers').doc(user.uid).get();
+      if (existingBuyerDoc.exists) {
+        // If the UID already has a buyer profile, prevent creating a seller profile
+        await FirebaseAuth.instance.signOut(); // Sign out to prevent mixed state
+        throw FirebaseAuthException(code: 'uid-already-in-use-as-buyer'); // Custom error code
       }
 
       // Step 2: Link with email credential
@@ -187,6 +211,8 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         message = 'ข้อมูลรับรองไม่ถูกต้องหรือถูกใช้งานแล้ว';
       } else if (e.code == 'invalid-verification-code') {
         message = 'รหัส OTP ไม่ถูกต้อง';
+      } else if (e.code == 'uid-already-in-use-as-buyer') { // [NEW] Custom error
+        message = 'บัญชีนี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
       }
       if(mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));

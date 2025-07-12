@@ -54,3 +54,43 @@ exports.updateStoreRating = onDocumentWritten("stores/{storeId}/reviews/{reviewI
     averageRating: averageRating,
   });
 });
+
+// --- [NEW] Cloud Functions for Custom Claims ---
+
+/**
+ * ฟังก์ชันที่จะทำงานเมื่อมีการสร้างเอกสารใหม่ใน collection 'buyers'
+ * เพื่อกำหนด Custom Claim 'role: buyer' ให้กับผู้ใช้งาน Firebase Auth
+ */
+exports.addRoleOnBuyerCreate = onDocumentWritten("buyers/{userId}", async (event) => {
+  // ตรวจสอบว่าเป็นการสร้างเอกสารใหม่เท่านั้น (ไม่ใช่การอัปเดตหรือลบ)
+  if (!event.data.before.exists && event.data.after.exists) {
+    const userId = event.params.userId;
+    logger.log(`Detected new buyer document for user: ${userId}. Setting custom claim 'role: buyer'.`);
+    try {
+      await admin.auth().setCustomUserClaims(userId, { role: 'buyers' }); // ตั้งค่า role เป็น 'buyers'
+      logger.log(`Custom claim 'role: buyers' set successfully for user ${userId}.`);
+    } catch (error) {
+      logger.error(`Error setting custom claim for buyer ${userId}:`, error);
+    }
+  }
+  return null;
+});
+
+/**
+ * ฟังก์ชันที่จะทำงานเมื่อมีการสร้างเอกสารใหม่ใน collection 'sellers'
+ * เพื่อกำหนด Custom Claim 'role: seller' ให้กับผู้ใช้งาน Firebase Auth
+ */
+exports.addRoleOnSellerCreate = onDocumentWritten("sellers/{userId}", async (event) => {
+  // ตรวจสอบว่าเป็นการสร้างเอกสารใหม่เท่านั้น (ไม่ใช่การอัปเดตหรือลบ)
+  if (!event.data.before.exists && event.data.after.exists) {
+    const userId = event.params.userId;
+    logger.log(`Detected new seller document for user: ${userId}. Setting custom claim 'role: seller'.`);
+    try {
+      await admin.auth().setCustomUserClaims(userId, { role: 'sellers' }); // ตั้งค่า role เป็น 'sellers'
+      logger.log(`Custom claim 'role: sellers' set successfully for user ${userId}.`);
+    } catch (error) {
+      logger.error(`Error setting custom claim for seller ${userId}:`, error);
+    }
+  }
+  return null;
+});

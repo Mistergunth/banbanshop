@@ -26,6 +26,7 @@ class FeedPage extends StatefulWidget {
   final SellerProfile? sellerProfile;
   final Store? storeProfile;
   final VoidCallback? onRefresh;
+  final bool isSeller; // [NEW] เพิ่ม parameter นี้เข้ามา
 
   const FeedPage({
     super.key,
@@ -34,6 +35,7 @@ class FeedPage extends StatefulWidget {
     this.sellerProfile,
     this.storeProfile,
     this.onRefresh,
+    this.isSeller = false, // [NEW] กำหนดค่า default เป็น false
   });
 
   @override
@@ -70,8 +72,8 @@ class FilterButton extends StatelessWidget {
             fontSize: 16,
           ),
         ),
-      ),
-    );
+    )
+  );
   }
 }
 
@@ -263,13 +265,15 @@ class _FeedPageState extends State<FeedPage> {
 
   void _onItemTapped(int index) async {
     if (index == 2) {
-      if (widget.sellerProfile != null && widget.storeProfile != null) {
-        _navigateToCreatePost();
-      } else if (widget.sellerProfile != null && widget.storeProfile == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('คุณต้องสร้างร้านค้าก่อนจึงจะสร้างโพสต์ได้')),
-        );
-        Navigator.push(context, MaterialPageRoute(builder: (context) => StoreCreateScreen(onRefresh: widget.onRefresh)));
+      if (widget.isSeller) { // [KEY CHANGE] ใช้ widget.isSeller เพื่อตรวจสอบบทบาท
+        if (widget.sellerProfile != null && widget.storeProfile != null) {
+          _navigateToCreatePost();
+        } else if (widget.sellerProfile != null && widget.storeProfile == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('คุณต้องสร้างร้านค้าก่อนจึงจะสร้างโพสต์ได้')),
+          );
+          Navigator.push(context, MaterialPageRoute(builder: (context) => StoreCreateScreen(onRefresh: widget.onRefresh)));
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เฉพาะผู้ขายเท่านั้นที่สามารถสร้างโพสต์ได้')),
@@ -284,13 +288,15 @@ class _FeedPageState extends State<FeedPage> {
 
   Widget _buildMiddlePage() {
     // --- [KEY CHANGE] ส่ง isEmbedded: true ไปให้ SellerOrdersScreen ---
-    return widget.sellerProfile != null
+    // [KEY CHANGE] ใช้ widget.isSeller เพื่อกำหนดหน้าที่จะแสดง
+    return widget.isSeller
         ? const SellerOrdersScreen(isEmbedded: true)
         : const BuyerCartScreen();
   }
 
   Widget _buildProfilePage() {
-    if (widget.sellerProfile != null) {
+    // [KEY CHANGE] ใช้ widget.isSeller เพื่อกำหนดหน้าที่จะแสดง
+    if (widget.isSeller) {
       return SellerAccountScreen(
         sellerProfile: widget.sellerProfile,
         onRefresh: widget.onRefresh,
@@ -417,7 +423,8 @@ class _FeedPageState extends State<FeedPage> {
                   );
                 },
               ),
-            if (widget.sellerProfile == null)
+            // [KEY CHANGE] แสดงรายการโปรดเฉพาะผู้ซื้อ
+            if (!widget.isSeller) // ถ้าไม่ใช่ผู้ขาย ให้แสดงรายการโปรด
               ListTile(
                 leading: const Icon(Icons.favorite_outline),
                 title: const Text('รายการโปรด'),
@@ -558,7 +565,7 @@ class _FeedPageState extends State<FeedPage> {
       bottomNavigationBar: BottomNavbarWidget(
         selectedIndex: _selectedIndex,
         onItemSelected: _onItemTapped,
-        isSeller: widget.sellerProfile != null,
+        isSeller: widget.isSeller, // [KEY CHANGE] ส่งค่า isSeller ไปยัง BottomNavbarWidget
         hasStore: widget.storeProfile != null,
       ),
     );
@@ -623,11 +630,11 @@ class _FeedPageState extends State<FeedPage> {
       case 0:
         return 'บ้านบ้านช็อป';
       case 1:
-        return widget.sellerProfile != null ? 'รายการออเดอร์' : 'ตะกร้าสินค้า';
+        return widget.isSeller ? 'รายการออเดอร์' : 'ตะกร้าสินค้า'; // [KEY CHANGE] ใช้ widget.isSeller
       case 2:
         return 'สร้างโพสต์';
       case 3:
-        return widget.sellerProfile != null ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ';
+        return widget.isSeller ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ'; // [KEY CHANGE] ใช้ widget.isSeller
       default:
         return 'บ้านบ้านช็อป';
     }
