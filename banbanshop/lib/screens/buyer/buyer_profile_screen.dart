@@ -14,8 +14,10 @@ import 'dart:io';
 import 'package:banbanshop/screens/buyer/favorites_screen.dart';
 import 'package:banbanshop/screens/buyer/shipping_address_screen.dart';
 import 'package:banbanshop/screens/buyer/edit_buyer_profile_screen.dart';
-// --- [NEW] Import the new buyer orders screen ---
 import 'package:banbanshop/screens/buyer/buyer_orders_screen.dart';
+
+// --- [NEW] Import the new Chatbot screen ---
+import 'package:banbanshop/screens/buyer/ai_chatbot_screen.dart';
 
 
 class BuyerProfileScreen extends StatefulWidget {
@@ -195,7 +197,17 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   children: [
-                    // --- [NEW] Button to view my orders ---
+                    // --- [NEW] AI Chatbot Button ---
+                    _buildProfileOptionButton(
+                      icon: Icons.support_agent_outlined,
+                      text: 'AI Chatbot ผู้ช่วยส่วนตัว',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AiChatBotScreen()),
+                        );
+                      },
+                    ),
                     _buildProfileOptionButton(
                       icon: Icons.receipt_long_outlined,
                       text: 'รายการสั่งซื้อของฉัน',

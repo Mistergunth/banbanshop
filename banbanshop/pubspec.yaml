@@ -50,6 +50,7 @@ dependencies:
   flutter_localization: ^0.3.3
   location: ^8.0.1
   flutter_polyline_points: ^2.1.0
+  cloud_functions: ^5.6.1
   
 
   # The following adds the Cupertino Icons font to your application.
