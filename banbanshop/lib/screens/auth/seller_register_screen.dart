@@ -232,7 +232,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('บ้านบ้านช้อป', style: TextStyle(color: Colors.black)),
+        title: const Text('บ้านบ้านช็อป', style: TextStyle(color: Colors.black)),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,

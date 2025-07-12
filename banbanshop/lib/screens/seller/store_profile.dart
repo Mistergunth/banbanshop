@@ -10,9 +10,7 @@ import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/models/post_model.dart';
 import 'package:banbanshop/screens/models/product_model.dart';
 import 'package:banbanshop/screens/seller/add_edit_product_screen.dart';
-// --- [NEW] Import the Product Detail Screen ---
 import 'package:banbanshop/screens/buyer/product_detail_screen.dart';
-import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:banbanshop/screens/reviews/store_reviews_screen.dart';
@@ -44,12 +42,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   bool _isCheckingFavorite = true;
   User? _currentUser;
 
-  final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms',
-    apiKey: '157343641351425',
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU',
-  );
-
   @override
   void initState() {
     super.initState();
@@ -59,7 +51,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
   Future<void> _checkIfFavorited() async {
     if (_currentUser == null || widget.isSellerView) {
-      setState(() => _isCheckingFavorite = false);
+      if (mounted) setState(() => _isCheckingFavorite = false);
       return;
     }
     try {
@@ -167,17 +159,18 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       }
 
       final storeFuture = FirebaseFirestore.instance.collection('stores').doc(widget.storeId).get();
+      
+      // [FIXED] Corrected the orderBy field from 'createdAt' to 'created_at'
       final postsFuture = FirebaseFirestore.instance
           .collection('posts')
           .where('storeId', isEqualTo: widget.storeId)
-          .orderBy('createdAt', descending: true)
+          .orderBy('created_at', descending: true) 
           .get();
+          
       final productsFuture = FirebaseFirestore.instance
           .collection('stores')
           .doc(widget.storeId)
           .collection('products')
-          // --- [KEY CHANGE] Fetch products for both seller and buyer view ---
-          // .where('isAvailable', isEqualTo: true) 
           .orderBy('createdAt', descending: false)
           .get();
 
@@ -192,19 +185,15 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         final fetchedStore = Store.fromFirestore(storeDoc);
         final fetchedPosts = postsSnapshot.docs.map((doc) => Post.fromJson({...doc.data() as Map<String, dynamic>, 'id': doc.id})).toList();
         
-        // --- [KEY CHANGE] Filter products based on view ---
         List<Product> fetchedProducts;
         if (widget.isSellerView) {
-          // Seller sees all products
           fetchedProducts = productsSnapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
         } else {
-          // Buyer only sees available products
           fetchedProducts = productsSnapshot.docs
               .map((doc) => Product.fromFirestore(doc))
               .where((product) => product.isAvailable)
               .toList();
         }
-
 
         if(mounted) {
           setState(() {
@@ -238,8 +227,45 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   }
 
   Future<void> _deletePost(Post post) async {
-    // ... (This function can remain the same)
+    bool? confirmDelete = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+            return AlertDialog(
+                title: const Text('ยืนยันการลบ'),
+                content: const Text('คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?'),
+                actions: <Widget>[
+                    TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        child: const Text('ยกเลิก'),
+                    ),
+                    TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        child: const Text('ลบ'),
+                    ),
+                ],
+            );
+        },
+    );
+
+    if (confirmDelete == true) {
+        try {
+            await FirebaseFirestore.instance.collection('posts').doc(post.id).delete();
+            if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ลบโพสต์สำเร็จ!')),
+                );
+                _fetchStoreData(); // Refresh data after deletion
+            }
+        } catch (e) {
+            if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('เกิดข้อผิดพลาดในการลบโพสต์: $e')),
+                );
+            }
+        }
+    }
   }
+
 
   Widget _buildStoreStatus(Store store) {
     final bool isOpen = store.isOpen;
@@ -344,9 +370,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   Widget _buildProductCard(Product product) {
     return GestureDetector(
       onTap: () {
-        // --- [KEY CHANGE] Navigate to different screens based on view ---
         if (widget.isSellerView) {
-          // Seller navigates to edit product screen
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -361,7 +385,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
             }
           });
         } else {
-          // Buyer navigates to product detail screen
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -374,7 +397,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         width: 140,
         margin: const EdgeInsets.only(right: 12),
         child: Opacity(
-          // --- [KEY CHANGE] Dim the product if unavailable for seller view ---
           opacity: widget.isSellerView && !product.isAvailable ? 0.5 : 1.0,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -663,8 +685,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   }
 }
 
-// PostCard and ActionButton Widgets (You can keep them as they are)
-// ...
 class PostCard extends StatefulWidget {
   final Post post;
   final Function(Post) onDelete;
@@ -712,17 +732,11 @@ class _PostCardState extends State<PostCard> {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 
-    if (difference.inSeconds < 60) {
-      return 'เมื่อสักครู่';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} นาทีที่แล้ว';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} ชั่วโมงที่แล้ว';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} วันที่แล้ว';
-    } else {
-      return '${(difference.inDays / 7).floor()} สัปดาห์ที่แล้ว';
-    }
+    if (difference.inSeconds < 60) return 'เมื่อสักครู่';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} นาทีที่แล้ว';
+    if (difference.inHours < 24) return '${difference.inHours} ชั่วโมงที่แล้ว';
+    if (difference.inDays < 7) return '${difference.inDays} วันที่แล้ว';
+    return '${(difference.inDays / 7).floor()} สัปดาห์ที่แล้ว';
   }
 
   @override
@@ -855,27 +869,14 @@ class _PostCardState extends State<PostCard> {
             child: Row(
               children: [
                 ActionButton(text: 'สั่งเลย', onTap: () {
+                  // This should be updated to use the "Buy Now" logic from feed_page
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ฟังก์ชันสั่งเลยยังไม่พร้อมใช้งาน')),
+                    const SnackBar(content: Text('ฟังก์ชันสั่งเลยยังไม่พร้อมใช้งานในหน้านี้')),
                   );
                 }),
                 const SizedBox(width: 10),
                 ActionButton(text: 'ดูหน้าร้าน', onTap: () {
-                  if (widget.post.storeId.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => StoreProfileScreen(
-                          storeId: widget.post.storeId,
-                          isSellerView: false,
-                        ),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('ไม่พบ ID ร้านค้าสำหรับโพสต์นี้')),
-                    );
-                  }
+                  // This button might not be necessary on this screen
                 }),
               ],
             ),

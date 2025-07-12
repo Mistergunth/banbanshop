@@ -16,6 +16,9 @@ class Post {
   final String productCategory;
   final String ownerUid; // <--- ทำให้เป็น non-nullable
   final String storeId; // <--- ทำให้เป็น non-nullable
+  final String? productId;
+  final String? productName;
+
 
   Post({
     required this.id, // ID อาจจะถูกสร้างโดย Firestore สำหรับโพสต์ใหม่
@@ -25,6 +28,8 @@ class Post {
     required this.title,
     this.imageUrl, // ไม่ต้อง required แล้ว
     this.avatarImageUrl, // ไม่ต้อง required แล้ว
+    this.productId,
+    this.productName,
     required this.province,
     required this.productCategory,
     required this.ownerUid, // <--- ต้อง required
@@ -77,6 +82,8 @@ class Post {
       productCategory: json['product_category'] as String? ?? '', // อ่านจาก 'product_category'
       ownerUid: parsedOwnerUid, // ใช้ค่าที่อ่านมา
       storeId: parsedStoreId, // ใช้ค่าที่อ่านมา
+      productId: json['productId'] as String?, // อ่านจาก json โดยตรง
+      productName: json['productName'] as String?, // อ่านจาก json โดยตรง
     );
   }
 
@@ -93,6 +100,8 @@ class Post {
       'product_category': productCategory,
       'ownerUid': ownerUid, // <--- เขียนเป็น 'ownerUid' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
       'storeId': storeId, // <--- เขียนเป็น 'storeId' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
+      'productId': productId, // <--- เขียนเป็น 'storeId' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
+      'productName': productName, // <--- เขียนเป็น 'storeId' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
     };
 
     // สำหรับการ insert ใหม่, Firestore ควรจะสร้าง 'id' ให้อัตโนมัติ

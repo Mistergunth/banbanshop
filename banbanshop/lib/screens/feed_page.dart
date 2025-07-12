@@ -1,5 +1,5 @@
 // lib/screens/feed_page.dart
-// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_structures, unused_field, unnecessary_non_null_assertion, unused_import
+// ignore_for_file: deprecated_member_use, library_private_types_in_public_api, avoid_print, curly_braces_in_flow_control_structures, unused_field, unnecessary_non_null_assertion, unused_import, use_build_context_synchronously
 
 import 'package:banbanshop/screens/seller/seller_order_screen.dart';
 import 'package:banbanshop/screens/seller/store_create.dart';
@@ -10,15 +10,17 @@ import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/seller/seller_account_screen.dart';
 import 'package:banbanshop/screens/buyer/buyer_profile_screen.dart';
 import 'package:banbanshop/screens/store_screen_content.dart';
-import 'package:banbanshop/screens/create_post.dart';
+import 'package:banbanshop/screens/models/create_post.dart';
 import 'package:banbanshop/screens/models/post_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
-import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:banbanshop/screens/seller/store_profile.dart';
 import 'package:banbanshop/screens/role_select.dart';
 import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart';
+import 'package:banbanshop/screens/buyer/checkout_screen.dart';
+import 'package:banbanshop/screens/models/cart_model.dart';
+
 
 class FeedPage extends StatefulWidget {
   final String selectedProvince;
@@ -26,7 +28,7 @@ class FeedPage extends StatefulWidget {
   final SellerProfile? sellerProfile;
   final Store? storeProfile;
   final VoidCallback? onRefresh;
-  final bool isSeller; // [NEW] เพิ่ม parameter นี้เข้ามา
+  final bool isSeller;
 
   const FeedPage({
     super.key,
@@ -35,7 +37,7 @@ class FeedPage extends StatefulWidget {
     this.sellerProfile,
     this.storeProfile,
     this.onRefresh,
-    this.isSeller = false, // [NEW] กำหนดค่า default เป็น false
+    this.isSeller = false,
   });
 
   @override
@@ -77,6 +79,7 @@ class FilterButton extends StatelessWidget {
   }
 }
 
+
 class _FeedPageState extends State<FeedPage> {
   final TextEditingController searchController = TextEditingController();
   String _selectedTopFilter = 'ฟีดโพสต์';
@@ -84,47 +87,12 @@ class _FeedPageState extends State<FeedPage> {
   String? _drawerSelectedProvince;
   String? _drawerSelectedCategory;
 
-  final List<String> _provinces = [
-    'ทั้งหมด', 'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
-    'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร',
-    'เชียงราย', 'เชียงใหม่', 'ตรัง', 'ตราด', 'ตาก', 'นครนายก',
-    'นครปฐม', 'นครพนม', 'นครราชสีมา', 'นครศรีธรรมราช', 'นครสวรรค์', 'นนทบุรี',
-    'นราธิวาส', 'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์',
-    'ปราจีนบุรี', 'ปัตตานี', 'พระนครศรีอยุธยา', 'พังงา', 'พัทลุง', 'พิจิตร',
-    'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์', 'แพร่', 'พะเยา', 'ภูเก็ต',
-    'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน', 'ยะลา', 'ยโสธร', 'ร้อยเอ็ด',
-    'ระนอง', 'ระยอง', 'ราชบุรี', 'ลพบุรี', 'ลำปาง', 'ลำพูน', 'เลย',
-    'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ', 'สมุทรสงคราม',
-    'สมุทรสาคร', 'สระแก้ว',
-    'สระบุรี',
-    'สิงห์บุรี',
-    'สุโขทัย',
-    'สุพรรณบุรี',
-    'สุราษฎร์ธานี',
-    'สุรินทร์',
-    'หนองคาย',
-    'หนองบัวลำภู',
-    'อ่างทอง',
-    'อุดรธานี',
-    'อุทัยธานี',
-    'อุตรดิตถ์',
-    'อุบลราชธานี',
-    'อำนาจเจริญ',
-  ];
-
-  final List<String> _categories = [
-    'ทั้งหมด', 'OTOP', 'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'สิ่งของเครื่องใช้',
-  ];
+  final List<String> _provinces = [ 'ทั้งหมด', 'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น', 'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร', 'เชียงราย', 'เชียงใหม่', 'ตรัง', 'ตราด', 'ตาก', 'นครนายก', 'นครปฐม', 'นครพนม', 'นครราชสีมา', 'นครศรีธรรมราช', 'นครสวรรค์', 'นนทบุรี', 'นราธิวาส', 'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์', 'ปราจีนบุรี', 'ปัตตานี', 'พระนครศรีอยุธยา', 'พังงา', 'พัทลุง', 'พิจิตร', 'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์', 'แพร่', 'พะเยา', 'ภูเก็ต', 'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน', 'ยะลา', 'ยโสธร', 'ร้อยเอ็ด', 'ระนอง', 'ระยอง', 'ราชบุรี', 'ลพบุรี', 'ลำปาง', 'ลำพูน', 'เลย', 'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ', 'สมุทรสงคราม', 'สมุทรสาคร', 'สระแก้ว', 'สระบุรี', 'สิงห์บุรี', 'สุโขทัย', 'สุพรรณบุรี', 'สุราษฎร์ธานี', 'สุรินทร์', 'หนองคาย', 'หนองบัวลำภู', 'อ่างทอง', 'อุดรธานี', 'อุทัยธานี', 'อุตรดิตถ์', 'อุบลราชธานี', 'อำนาจเจริญ', ];
+  final List<String> _categories = [ 'ทั้งหมด', 'OTOP', 'เสื้อผ้า', 'อาหาร & เครื่องดื่ม', 'สิ่งของเครื่องใช้', ];
 
   List<Post> _allPosts = [];
   bool _isLoadingPosts = true;
   StreamSubscription? _postsSubscription;
-
-  final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms',
-    apiKey: '157343641351425',
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU',
-  );
 
   @override
   void initState() {
@@ -138,15 +106,6 @@ class _FeedPageState extends State<FeedPage> {
     }
 
     _fetchPostsFromFirestore();
-  }
-
-  @override
-  void didUpdateWidget(covariant FeedPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.selectedProvince != oldWidget.selectedProvince ||
-        widget.selectedCategory != oldWidget.selectedCategory) {
-      _fetchPostsFromFirestore();
-    }
   }
 
   @override
@@ -183,7 +142,7 @@ class _FeedPageState extends State<FeedPage> {
     _postsSubscription = query.snapshots().listen((snapshot) {
       if (!mounted) return;
       final fetchedPosts = snapshot.docs.map((doc) {
-        return Post.fromJson({...doc.data()!, 'id': doc.id});
+        return Post.fromJson({...doc.data(), 'id': doc.id});
       }).toList();
 
       setState(() {
@@ -238,7 +197,9 @@ class _FeedPageState extends State<FeedPage> {
       } catch (e) {
         // Error handling...
       } finally {
-        setState(() => _isLoadingPosts = false);
+        if (mounted) {
+          setState(() => _isLoadingPosts = false);
+        }
       }
     }
   }
@@ -265,7 +226,7 @@ class _FeedPageState extends State<FeedPage> {
 
   void _onItemTapped(int index) async {
     if (index == 2) {
-      if (widget.isSeller) { // [KEY CHANGE] ใช้ widget.isSeller เพื่อตรวจสอบบทบาท
+      if (widget.isSeller) {
         if (widget.sellerProfile != null && widget.storeProfile != null) {
           _navigateToCreatePost();
         } else if (widget.sellerProfile != null && widget.storeProfile == null) {
@@ -287,15 +248,12 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Widget _buildMiddlePage() {
-    // --- [KEY CHANGE] ส่ง isEmbedded: true ไปให้ SellerOrdersScreen ---
-    // [KEY CHANGE] ใช้ widget.isSeller เพื่อกำหนดหน้าที่จะแสดง
     return widget.isSeller
         ? const SellerOrdersScreen(isEmbedded: true)
         : const BuyerCartScreen();
   }
 
   Widget _buildProfilePage() {
-    // [KEY CHANGE] ใช้ widget.isSeller เพื่อกำหนดหน้าที่จะแสดง
     if (widget.isSeller) {
       return SellerAccountScreen(
         sellerProfile: widget.sellerProfile,
@@ -337,7 +295,6 @@ class _FeedPageState extends State<FeedPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFE8F4FD),
-      // --- [KEY CHANGE] Reverted this change. The main AppBar is now always visible. ---
       appBar: AppBar(
         backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
@@ -366,7 +323,8 @@ class _FeedPageState extends State<FeedPage> {
         ],
       ),
       endDrawer: Drawer(
-        child: Column(
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
               decoration: const BoxDecoration(color: Color(0xFF9C6ADE)),
@@ -423,8 +381,7 @@ class _FeedPageState extends State<FeedPage> {
                   );
                 },
               ),
-            // [KEY CHANGE] แสดงรายการโปรดเฉพาะผู้ซื้อ
-            if (!widget.isSeller) // ถ้าไม่ใช่ผู้ขาย ให้แสดงรายการโปรด
+            if (!widget.isSeller)
               ListTile(
                 leading: const Icon(Icons.favorite_outline),
                 title: const Text('รายการโปรด'),
@@ -565,7 +522,7 @@ class _FeedPageState extends State<FeedPage> {
       bottomNavigationBar: BottomNavbarWidget(
         selectedIndex: _selectedIndex,
         onItemSelected: _onItemTapped,
-        isSeller: widget.isSeller, // [KEY CHANGE] ส่งค่า isSeller ไปยัง BottomNavbarWidget
+        isSeller: widget.isSeller,
         hasStore: widget.storeProfile != null,
       ),
     );
@@ -612,6 +569,7 @@ class _FeedPageState extends State<FeedPage> {
                             post: post,
                             onDelete: _deletePost,
                             currentUserId: FirebaseAuth.instance.currentUser?.uid,
+                            isSeller: widget.isSeller,
                           );
                         },
                       ))
@@ -630,11 +588,11 @@ class _FeedPageState extends State<FeedPage> {
       case 0:
         return 'บ้านบ้านช็อป';
       case 1:
-        return widget.isSeller ? 'รายการออเดอร์' : 'ตะกร้าสินค้า'; // [KEY CHANGE] ใช้ widget.isSeller
+        return widget.isSeller ? 'รายการออเดอร์' : 'ตะกร้าสินค้า';
       case 2:
         return 'สร้างโพสต์';
       case 3:
-        return widget.isSeller ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ'; // [KEY CHANGE] ใช้ widget.isSeller
+        return widget.isSeller ? 'บัญชีผู้ขาย' : 'โปรไฟล์ผู้ซื้อ';
       default:
         return 'บ้านบ้านช็อป';
     }
@@ -645,12 +603,14 @@ class PostCard extends StatefulWidget {
   final Post post;
   final Function(Post) onDelete;
   final String? currentUserId;
+  final bool isSeller;
 
   const PostCard({
     super.key,
     required this.post,
     required this.onDelete,
     this.currentUserId,
+    required this.isSeller,
   });
 
   @override
@@ -660,6 +620,7 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> {
   late String _timeAgoString;
   Timer? _timer;
+  bool _isProcessingOrder = false;
 
   @override
   void initState() {
@@ -688,16 +649,127 @@ class _PostCardState extends State<PostCard> {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 
-    if (difference.inSeconds < 60) {
-      return 'เมื่อสักครู่';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} นาทีที่แล้ว';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} ชั่วโมงที่แล้ว';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} วันที่แล้ว';
-    } else {
-      return '${(difference.inDays / 7).floor()} สัปดาห์ที่แล้ว';
+    if (difference.inSeconds < 60) return 'เมื่อสักครู่';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} นาทีที่แล้ว';
+    if (difference.inHours < 24) return '${difference.inHours} ชั่วโมงที่แล้ว';
+    if (difference.inDays < 7) return '${difference.inDays} วันที่แล้ว';
+    return '${(difference.inDays / 7).floor()} สัปดาห์ที่แล้ว';
+  }
+
+  // [NEW] Function to show a quantity selection dialog
+  Future<int?> _showQuantityDialog(BuildContext context) {
+    return showDialog<int>(
+      context: context,
+      builder: (BuildContext context) {
+        int quantity = 1;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('เลือกจำนวนสินค้า'),
+              content: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline),
+                    onPressed: () {
+                      if (quantity > 1) {
+                        setState(() => quantity--);
+                      }
+                    },
+                  ),
+                  Text('$quantity', style: Theme.of(context).textTheme.headlineMedium),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    onPressed: () {
+                      // In a real app, you might check against available stock here
+                      setState(() => quantity++);
+                    },
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('ยกเลิก'),
+                  onPressed: () => Navigator.of(context).pop(), // Returns null
+                ),
+                ElevatedButton(
+                  child: const Text('ตกลง'),
+                  onPressed: () => Navigator.of(context).pop(quantity), // Returns selected quantity
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // [MODIFIED] This function now shows the quantity dialog first
+  Future<void> _handleBuyNow() async {
+    if (widget.post.productId == null || widget.post.productId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('โพสต์นี้ไม่ได้ผูกกับสินค้า')),
+      );
+      return;
+    }
+    if (widget.post.storeId.isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ไม่พบข้อมูลร้านค้าของโพสต์นี้')),
+      );
+      return;
+    }
+
+    // Show the quantity dialog and wait for the result
+    final int? selectedQuantity = await _showQuantityDialog(context);
+
+    // If the user cancelled the dialog, do nothing
+    if (selectedQuantity == null || selectedQuantity == 0) {
+      return;
+    }
+
+    setState(() => _isProcessingOrder = true);
+
+    try {
+      final productDoc = await FirebaseFirestore.instance
+          .collection('stores')
+          .doc(widget.post.storeId)
+          .collection('products')
+          .doc(widget.post.productId)
+          .get();
+
+      if (!productDoc.exists) {
+        throw Exception('ไม่พบสินค้าชิ้นนี้ในระบบ');
+      }
+      
+      final productData = productDoc.data() as Map<String, dynamic>;
+
+      final singleCartItem = CartItem(
+        productId: productDoc.id,
+        name: productData['name'] ?? 'ไม่มีชื่อ',
+        price: (productData['price'] as num).toDouble(),
+        quantity: selectedQuantity, // Use the quantity from the dialog
+        imageUrl: productData['imageUrl'] ?? '',
+        storeId: widget.post.storeId,
+        addedAt: Timestamp.now(), 
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CheckoutScreen(
+            cartItems: [singleCartItem],
+          ),
+        ),
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessingOrder = false);
+      }
     }
   }
 
@@ -739,50 +811,26 @@ class _PostCardState extends State<PostCard> {
                     children: [
                       Text(
                         widget.post.shopName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
+                      Text(
+                        _timeAgoString,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF9C6ADE),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${widget.post.category} | ${widget.post.province}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
                         ),
                       ),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _timeAgoString,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          const SizedBox(width: 0, height: 25,),
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF9C6ADE),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '${widget.post.category} | ${widget.post.province}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
                     ],
-                    
                   ),
                 ),
                 if (isMyPost)
@@ -797,10 +845,7 @@ class _PostCardState extends State<PostCard> {
             padding: const EdgeInsets.symmetric(horizontal: 15),
             child: Text(
               widget.post.title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ),
           const SizedBox(height: 10),
@@ -822,42 +867,43 @@ class _PostCardState extends State<PostCard> {
               width: double.infinity,
               height: 200,
               margin: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(
-                child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
-              ),
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(12)),
+              child: const Center(child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey)),
             ),
           const SizedBox(height: 15),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
             child: Row(
               children: [
-                ActionButton(text: 'สั่งเลย', onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ฟังก์ชันสั่งเลยยังไม่พร้อมใช้งาน')),
-                  );
-                }),
-                const SizedBox(width: 10),
-                ActionButton(text: 'ดูหน้าร้าน', onTap: () {
-                  if (widget.post.storeId.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => StoreProfileScreen(
-                          storeId: widget.post.storeId,
-                          isSellerView: false,
+                if (!widget.isSeller)
+                  ActionButton(
+                    text: 'สั่งเลย',
+                    onTap: _handleBuyNow,
+                    isLoading: _isProcessingOrder,
+                  ),
+                
+                if (!widget.isSeller) const SizedBox(width: 10),
+
+                ActionButton(
+                  text: 'ดูหน้าร้าน',
+                  onTap: () {
+                    if (widget.post.storeId.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => StoreProfileScreen(
+                            storeId: widget.post.storeId,
+                            isSellerView: false,
+                          ),
                         ),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('ไม่พบ ID ร้านค้าสำหรับโพสต์นี้')),
-                    );
-                  }
-                }),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('ไม่พบ ID ร้านค้าสำหรับโพสต์นี้')),
+                      );
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -870,18 +916,20 @@ class _PostCardState extends State<PostCard> {
 class ActionButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
+  final bool isLoading;
 
   const ActionButton({
     super.key,
     required this.text,
     required this.onTap,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: ElevatedButton(
-        onPressed: onTap,
+        onPressed: isLoading ? null : onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF9C6ADE),
           foregroundColor: Colors.white,
@@ -890,10 +938,19 @@ class ActionButton extends StatelessWidget {
           ),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        child: isLoading 
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                text,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }
