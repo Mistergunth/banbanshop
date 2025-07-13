@@ -142,9 +142,9 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('บ้านบ้านช็อป', style: TextStyle(color: Colors.black)),
+        title: const Text('บ้านบ้านช็อป', style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold)),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: Color(0xFFE8F4FD),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),

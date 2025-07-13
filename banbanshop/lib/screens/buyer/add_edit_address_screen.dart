@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:banbanshop/screens/models/address_model.dart';
-import 'package:flutter/services.dart'; // เพิ่ม Import สำหรับ FilteringTextInputFormatter
+import 'package:flutter/services.dart';
 
 class AddEditAddressScreen extends StatefulWidget {
   final Address? address;
@@ -223,7 +223,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     List<TextInputFormatter>? inputFormatters,
-    String? prefixText, // เพิ่มพารามิเตอร์นี้
+    String? prefixText,
   }) {
     return TextFormField(
       controller: controller,
@@ -231,7 +231,7 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
       inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
-        prefixText: prefixText, // นำไปใช้งาน
+        prefixText: prefixText, 
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
       ),
       validator: validator,
