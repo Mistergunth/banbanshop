@@ -22,8 +22,6 @@ class Store {
   final int reviewCount;
   final bool isManuallyClosed; 
   final Map<String, dynamic> operatingHours;
-
-  // --- [NEW] เพิ่มฟิลด์สำหรับข้อมูลการชำระเงิน ---
   final Map<String, dynamic>? paymentInfo;
 
   Store({
@@ -44,7 +42,6 @@ class Store {
     this.reviewCount = 0,
     this.isManuallyClosed = false,
     Map<String, dynamic>? operatingHours,
-    // --- [NEW] เพิ่ม paymentInfo ใน constructor ---
     this.paymentInfo,
   }) : operatingHours = operatingHours ?? Store.defaultHours();
 
@@ -112,7 +109,6 @@ class Store {
       reviewCount: data['reviewCount'] ?? 0,
       isManuallyClosed: data['isManuallyClosed'] ?? false,
       operatingHours: data['operatingHours'] != null ? Map<String, dynamic>.from(data['operatingHours']) : Store.defaultHours(),
-      // --- [NEW] อ่านข้อมูล paymentInfo จาก Firestore ---
       paymentInfo: data['paymentInfo'] != null ? Map<String, dynamic>.from(data['paymentInfo']) : null,
     );
   }
@@ -135,7 +131,6 @@ class Store {
       'reviewCount': reviewCount,
       'isManuallyClosed': isManuallyClosed,
       'operatingHours': operatingHours,
-      // --- [NEW] เขียนข้อมูล paymentInfo ลง Firestore ---
       'paymentInfo': paymentInfo,
     };
   }

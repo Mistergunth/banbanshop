@@ -6,9 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-// --- Helper Models ---
-// You might already have these models. If so, you can remove these
-// and import your existing ones.
 
 class Product {
   final String id;
@@ -64,7 +61,6 @@ class Address {
   }
 }
 
-// --- Main Screen Widget ---
 
 class ConfirmOrderScreen extends StatefulWidget {
   final String productId;
@@ -90,7 +86,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
 
   bool _isLoading = true;
   bool _isPlacingOrder = false;
-  final double _shippingFee = 10.00; // Example shipping fee
+  final double _shippingFee = 10.00; 
 
   @override
   void initState() {
@@ -101,14 +97,12 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   Future<void> _fetchData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Handle user not logged in
       setState(() => _isLoading = false);
       _showErrorDialog("Error", "Please log in to continue.");
       return;
     }
 
     try {
-      // Fetch Product
       final productDoc = await FirebaseFirestore.instance
           .collection('products')
           .doc(widget.productId)
@@ -119,7 +113,6 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
       }
       final product = Product.fromFirestore(productDoc);
 
-      // Fetch Addresses
       final addressSnapshot = await FirebaseFirestore.instance
           .collection('buyers')
           .doc(user.uid)
@@ -130,7 +123,6 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
       setState(() {
         _product = product;
         _addresses = addresses;
-        // Set default selected address if available
         if (_addresses.isNotEmpty) {
           _selectedAddress = _addresses.first;
         }
@@ -162,7 +154,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
             'buyerId': user.uid,
             'buyerName': user.displayName ?? 'N/A',
             'storeId': _product!.storeId,
-            'orderStatus': 'pending_payment', // Initial status
+            'orderStatus': 'pending_payment',
             'paymentMethod': _paymentMethod == PaymentMethod.transfer ? 'transfer' : 'cod',
             'shippingAddress': {
                 'name': _selectedAddress!.name,
@@ -184,14 +176,12 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
             'createdAt': FieldValue.serverTimestamp(),
         };
 
-        // Add order to the store's sub-collection for the seller to see
         await FirebaseFirestore.instance
             .collection('stores')
             .doc(_product!.storeId)
             .collection('orders')
             .add(orderData);
 
-        // Add order to the buyer's sub-collection for their history
         await FirebaseFirestore.instance
             .collection('buyers')
             .doc(user.uid)
@@ -217,9 +207,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
             actions: [
                 TextButton(
                     onPressed: () {
-                        // Pop the dialog
                         Navigator.of(context).pop();
-                        // Pop the confirm order screen to go back to the feed
                         Navigator.of(context).pop();
                     },
                     child: const Text('OK'),
@@ -327,7 +315,6 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                 icon: Icons.store,
                 isSelected: _shippingMethod == ShippingMethod.pickup,
                 onSelected: (selected) {
-                  // Logic for pickup
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('การรับที่ร้านยังไม่พร้อมใช้งาน')));
                 },
@@ -357,7 +344,6 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
         subtitle: Text(_selectedAddress?.fullAddress ?? 'กรุณาเลือกที่อยู่สำหรับจัดส่ง'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
-          // TODO: Implement address selection dialog
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('ฟังก์ชันเลือกที่อยู่ยังไม่พร้อมใช้งาน')));
         },

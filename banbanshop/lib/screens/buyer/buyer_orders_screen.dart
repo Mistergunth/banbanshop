@@ -84,7 +84,6 @@ class BuyerOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final DateFormat formatter = DateFormat('dd MMMM yyyy, HH:mm', 'th');
-    // --- [KEY CHANGE] เปลี่ยนชื่อตัวแปรให้สื่อความหมายมากขึ้น ---
     final bool isReadyForAction = order.status == OrderStatus.shipped;
 
     return Card(
@@ -122,20 +121,17 @@ class BuyerOrderCard extends StatelessWidget {
             const SizedBox(height: 8),
             _buildInfoRow(Icons.receipt_long_outlined, 'ยอดรวม:', '฿${order.totalAmount.toStringAsFixed(2)}'),
             const SizedBox(height: 8),
-            // --- [NEW] แสดงวิธีจัดส่ง ---
             _buildInfoRow(
               order.deliveryMethod == 'pickup' ? Icons.store_mall_directory_outlined : Icons.local_shipping_outlined,
               'วิธีจัดส่ง:',
               order.deliveryMethod == 'pickup' ? 'รับที่ร้าน' : 'จัดส่ง',
             ),
             
-            // --- [KEY CHANGE] ตรวจสอบ deliveryMethod เพื่อแสดงปุ่มที่ถูกต้อง ---
             if (isReadyForAction) ...[
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: order.deliveryMethod == 'pickup'
-                    // ปุ่มสำหรับ "รับที่ร้าน"
                     ? ElevatedButton.icon(
                         icon: const Icon(Icons.pin_drop_outlined),
                         label: const Text('เริ่มแชร์ตำแหน่งเพื่อไปรับสินค้า'),
@@ -152,7 +148,6 @@ class BuyerOrderCard extends StatelessWidget {
                           foregroundColor: Colors.white,
                         ),
                       )
-                    // ปุ่มสำหรับ "จัดส่ง" (เหมือนเดิม)
                     : ElevatedButton.icon(
                         icon: const Icon(Icons.track_changes_rounded),
                         label: const Text('ติดตามการจัดส่ง'),

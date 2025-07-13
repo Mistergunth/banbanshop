@@ -13,7 +13,6 @@ import 'package:banbanshop/screens/map_picker_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/models/seller_profile.dart';
-// --- [NEW] Import the new screen for setting hours ---
 import 'package:banbanshop/screens/seller/edit_store_hours_screen.dart';
 
 class StoreCreateScreen extends StatefulWidget {
@@ -33,7 +32,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _locationAddressController = TextEditingController();
-  // final TextEditingController _openingHoursController = TextEditingController(); // [REMOVED]
   final TextEditingController _phoneNumberController = TextEditingController();
   String? _selectedStoreType;
   File? _shopImageFile;
@@ -44,7 +42,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   double? _selectedLongitude;
   SellerProfile? _currentSellerProfile;
 
-  // --- [NEW] State variable to hold the operating hours map ---
   late Map<String, dynamic> _operatingHours;
 
   final Cloudinary cloudinary = Cloudinary.full(
@@ -64,7 +61,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   @override
   void initState() {
     super.initState();
-    // --- [NEW] Initialize with default hours ---
     _operatingHours = Store.defaultHours();
     _fetchSellerData();
   }
@@ -74,7 +70,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _locationAddressController.dispose();
-    // _openingHoursController.dispose(); // [REMOVED]
     _phoneNumberController.dispose();
     super.dispose();
   }
@@ -132,7 +127,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
     }
   }
 
-  // --- [NEW] Function to navigate to the hours editor screen ---
   Future<void> _editOpeningHours() async {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -204,13 +198,11 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
         locationAddress: _locationAddressController.text.trim(),
         latitude: _selectedLatitude,
         longitude: _selectedLongitude,
-        // openingHours: _openingHoursController.text.trim(), // [REMOVED]
         phoneNumber: _phoneNumberController.text.trim(),
         createdAt: DateTime.now(),
         province: _currentSellerProfile!.province,
-        // --- [NEW] Add new fields when creating a store ---
         operatingHours: _operatingHours,
-        isManuallyClosed: false, // Default to open
+        isManuallyClosed: false, 
       );
 
       await FirebaseFirestore.instance
@@ -386,7 +378,6 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // --- [NEW] Replaced the old text field with a button ---
                     InkWell(
                       onTap: _editOpeningHours,
                       child: InputDecorator(

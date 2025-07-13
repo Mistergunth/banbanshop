@@ -16,7 +16,6 @@ import 'package:banbanshop/screens/reviews/store_reviews_screen.dart';
 import 'package:banbanshop/screens/seller/edit_seller_profile_screen.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/seller/product_management_screen.dart';
-// --- [NEW] Import the new payment screen ---
 import 'package:banbanshop/screens/seller/edit_payment_screen.dart';
 
 
@@ -90,7 +89,6 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
           .update({'isManuallyClosed': isManuallyClosed});
           
       if (mounted) {
-        // Optimistically update the local state
         setState(() {
           _store = Store(
             id: _store!.id,
@@ -110,7 +108,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             reviewCount: _store!.reviewCount,
             isManuallyClosed: isManuallyClosed,
             operatingHours: _store!.operatingHours,
-            paymentInfo: _store!.paymentInfo, // Keep existing payment info
+            paymentInfo: _store!.paymentInfo,
           );
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -351,7 +349,6 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                         },
                       ),
                       const SizedBox(height: 15),
-                      // --- [NEW] Button for managing payment info ---
                       _buildActionButton(
                         icon: Icons.payment_outlined,
                         text: 'จัดการช่องทางชำระเงิน',
@@ -364,7 +361,6 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                                 builder: (context) => EditPaymentScreen(store: _store!),
                               ),
                             ).then((value) {
-                              // Refresh store data if payment info was updated
                               if (value == true) {
                                 _fetchStoreData();
                               }

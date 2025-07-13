@@ -25,7 +25,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isLoading = true;
   bool _isPlacingOrder = false;
   
-  // --- [NEW] State variables for delivery and payment methods ---
   app_order.DeliveryMethod _selectedDeliveryMethod = app_order.DeliveryMethod.delivery;
   app_order.PaymentMethod _selectedPaymentMethod = app_order.PaymentMethod.transfer;
   
@@ -124,8 +123,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         totalAmount: totalAmount,
         orderDate: Timestamp.now(),
         status: _selectedPaymentMethod == app_order.PaymentMethod.cod 
-            ? app_order.OrderStatus.processing // For COD, go directly to processing
-            : app_order.OrderStatus.pending,    // For transfer, wait for payment
+            ? app_order.OrderStatus.processing 
+            : app_order.OrderStatus.pending,   
         deliveryMethod: _selectedDeliveryMethod.toString().split('.').last,
         paymentMethod: _selectedPaymentMethod.toString().split('.').last,
       );
@@ -147,8 +146,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               builder: (context) => PaymentScreen(orderId: orderRef.id, storeId: storeId),
             ),
           );
-        } else { // Cash on Delivery
-          // For COD, we still need to clear the cart
+        } else {
           final cartCollection = FirebaseFirestore.instance.collection('buyers').doc(user.uid).collection('cart');
           WriteBatch batch = FirebaseFirestore.instance.batch();
           for (var item in widget.cartItems) {

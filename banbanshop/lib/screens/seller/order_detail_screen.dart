@@ -6,7 +6,6 @@ import 'package:banbanshop/screens/models/order_model.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:banbanshop/screens/seller/seller_live_tracking_screen.dart';
-// --- [KEY CHANGE] Import the new screen for seller to track buyer pickup ---
 import 'package:banbanshop/screens/seller/seller_pickup_tracking_screen.dart';
 
 
@@ -262,11 +261,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                },
                color: Colors.blue,
              )
-           else // deliveryMethod is 'pickup'
+           else
              _buildActionButton(
                text: 'ติดตามลูกค้าที่มารับสินค้า',
                onPressed: () {
-                 // --- [KEY CHANGE] เปิดใช้งานการนำทางไปยังหน้าจอใหม่ ---
                  Navigator.push(
                    context,
                    MaterialPageRoute(

@@ -42,10 +42,8 @@ class Order {
   final Timestamp orderDate;
   final String? paymentSlipUrl;
   
-  // --- Fields for IN-APP Live Tracking ---
   final GeoPoint? delivererLocation; 
   final Timestamp? lastLocationUpdate; 
-  // --- [NEW] Field for the destination address coordinates ---
   final GeoPoint? shippingLocation; 
 
   final String deliveryMethod;
@@ -65,7 +63,6 @@ class Order {
     this.paymentSlipUrl,
     this.delivererLocation,
     this.lastLocationUpdate,
-    // --- [NEW] Add to constructor ---
     this.shippingLocation,
     this.deliveryMethod = 'delivery',
     this.paymentMethod = 'transfer',
@@ -90,7 +87,6 @@ class Order {
       paymentSlipUrl: data['paymentSlipUrl'],
       delivererLocation: data['delivererLocation'] as GeoPoint?,
       lastLocationUpdate: data['lastLocationUpdate'] as Timestamp?,
-      // --- [NEW] Read from Firestore ---
       shippingLocation: data['shippingLocation'] as GeoPoint?,
       deliveryMethod: data['deliveryMethod'] ?? 'delivery',
       paymentMethod: data['paymentMethod'] ?? 'transfer',
@@ -111,7 +107,6 @@ class Order {
       'paymentSlipUrl': paymentSlipUrl,
       'delivererLocation': delivererLocation,
       'lastLocationUpdate': lastLocationUpdate,
-      // --- [NEW] Write to Firestore ---
       'shippingLocation': shippingLocation,
       'deliveryMethod': deliveryMethod,
       'paymentMethod': paymentMethod,

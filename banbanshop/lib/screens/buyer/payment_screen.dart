@@ -4,8 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-// --- [KEY FIX] Removed unused import for firebase_auth ---
-// import 'package:firebase_auth/firebase_auth.dart'; 
 import 'package:image_picker/image_picker.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
@@ -33,9 +31,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   File? _slipImageFile;
 
   final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // Your Cloudinary cloud name
-    apiKey: '157343641351425', // Your Cloudinary API key
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // Your Cloudinary API secret
+    cloudName: 'dbgybkvms', 
+    apiKey: '157343641351425', 
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', 
   );
   final String uploadPreset = 'flutter_unsigned_upload';
 
@@ -103,7 +101,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _isConfirming = true);
 
     try {
-      // 1. Upload slip image
       final response = await cloudinary.uploadResource(
         CloudinaryUploadResource(
           filePath: _slipImageFile!.path,
@@ -118,7 +115,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
       final slipUrl = response.secureUrl!;
 
-      // 2. Update order status and add slip URL
       await FirebaseFirestore.instance
           .collection('stores')
           .doc(widget.storeId)
@@ -129,16 +125,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
             'paymentSlipUrl': slipUrl,
           });
 
-      // 3. Clear the user's cart now that payment is confirmed
       final cartCollection = FirebaseFirestore.instance
           .collection('buyers')
           .doc(_order!.buyerId)
           .collection('cart');
       
       WriteBatch batch = FirebaseFirestore.instance.batch();
-      // Iterate through the items in the order, not the whole cart
       for (final orderItem in _order!.items) {
-        // Use the productId from the order item to delete the corresponding document in the cart
         final cartItemRef = cartCollection.doc(orderItem.productId);
         batch.delete(cartItemRef);
       }

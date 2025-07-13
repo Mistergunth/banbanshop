@@ -114,7 +114,6 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
                   },
                 ),
               ),
-              // --- [KEY CHANGE] Pass cartItems to the summary widget ---
               _buildSummary(totalPrice, cartItems),
             ],
           );
@@ -172,7 +171,6 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
     );
   }
 
-  // --- [KEY CHANGE] Method now accepts the list of cart items ---
   Widget _buildSummary(double totalPrice, List<CartItem> cartItems) {
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -202,7 +200,6 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              // --- [KEY CHANGE] Navigate to CheckoutScreen on press ---
               onPressed: () {
                 if (cartItems.isNotEmpty) {
                   Navigator.push(

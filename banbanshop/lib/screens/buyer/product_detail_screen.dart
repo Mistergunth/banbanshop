@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/models/product_model.dart';
 import 'package:banbanshop/screens/models/cart_model.dart';
-import 'package:banbanshop/screens/models/store_model.dart'; // --- [NEW] Import Store model
+import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -21,7 +21,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
   bool _isLoading = false;
 
-  // --- [NEW] Add state to hold the store data ---
   Store? _store;
   bool _isStoreLoading = true;
 
@@ -31,7 +30,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _fetchStoreStatus();
   }
 
-  // --- [NEW] Function to fetch store data ---
   Future<void> _fetchStoreStatus() async {
     try {
       final storeDoc = await FirebaseFirestore.instance
@@ -65,9 +63,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return widget.product.stock <= 0 && widget.product.stock != -1;
   }
 
-  // --- [NEW] Check if the store is open ---
   bool get isStoreOpen {
-    // If store data is not loaded yet, or store is null, assume it's closed.
     if (_store == null) return false;
     return _store!.isOpen;
   }
@@ -147,7 +143,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // --- [NEW] Determine if the add to cart button should be disabled ---
     final bool canAddToCart = !isOutOfStock && isStoreOpen && !_isLoading;
 
     return Scaffold(
@@ -234,7 +229,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // --- [NEW] Show store status message ---
             if (_isStoreLoading)
               const Padding(
                 padding: EdgeInsets.only(bottom: 8.0),
@@ -269,7 +263,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline),
-                      // Disable if cannot add to cart
                       onPressed: !canAddToCart ? null : _decrementQuantity,
                       iconSize: 30,
                     ),
@@ -279,14 +272,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
-                      // Disable if cannot add to cart
                       onPressed: !canAddToCart ? null : _incrementQuantity,
                       iconSize: 30,
                     ),
                   ],
                 ),
                 ElevatedButton.icon(
-                  onPressed: canAddToCart ? _addToCart : null, // Use the combined check
+                  onPressed: canAddToCart ? _addToCart : null,
                   icon: (isOutOfStock || !isStoreOpen || _isLoading)
                       ? const SizedBox.shrink()
                       : const Icon(Icons.add_shopping_cart),

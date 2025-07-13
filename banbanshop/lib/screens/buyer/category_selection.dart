@@ -55,7 +55,7 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'บ้านบ้านช้อป',
+          'บ้านบ้านช็อป',
           style: TextStyle(
             color: Colors.black87,
             fontSize: 18,
@@ -116,15 +116,12 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                   final category = filteredCategories[index];
                   return GestureDetector(
                     onTap: () {
-                      // แก้ไข: นำทางไปยัง FeedPage โดยตรง
-                      // เนื่องจาก onRefresh เป็น optional แล้ว เราจึงไม่จำเป็นต้องส่งไปสำหรับ guest
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => FeedPage(
                             selectedCategory: category.title,
                             selectedProvince: widget.selectedProvince ?? 'ทั้งหมด',
-                            // sellerProfile และ onRefresh จะเป็น null สำหรับ guest
                           ),
                         ),
                       );

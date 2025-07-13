@@ -160,7 +160,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
       final storeFuture = FirebaseFirestore.instance.collection('stores').doc(widget.storeId).get();
       
-      // [FIXED] Corrected the orderBy field from 'createdAt' to 'created_at'
       final postsFuture = FirebaseFirestore.instance
           .collection('posts')
           .where('storeId', isEqualTo: widget.storeId)
@@ -254,7 +253,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('ลบโพสต์สำเร็จ!')),
                 );
-                _fetchStoreData(); // Refresh data after deletion
+                _fetchStoreData();
             }
         } catch (e) {
             if (mounted) {
@@ -869,14 +868,12 @@ class _PostCardState extends State<PostCard> {
             child: Row(
               children: [
                 ActionButton(text: 'สั่งเลย', onTap: () {
-                  // This should be updated to use the "Buy Now" logic from feed_page
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('ฟังก์ชันสั่งเลยยังไม่พร้อมใช้งานในหน้านี้')),
                   );
                 }),
                 const SizedBox(width: 10),
                 ActionButton(text: 'ดูหน้าร้าน', onTap: () {
-                  // This button might not be necessary on this screen
                 }),
               ],
             ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:banbanshop/screens/buyer/category_selection.dart'; // import path ใหม่
+import 'package:banbanshop/screens/buyer/category_selection.dart';
 
 class ProvinceSelectionPage extends StatefulWidget {
   const ProvinceSelectionPage({super.key});
@@ -105,7 +105,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'บ้านบ้านช้อป',
+          'บ้านบ้านช็อป',
           style: TextStyle(
             color: Colors.black87,
             fontSize: 18,

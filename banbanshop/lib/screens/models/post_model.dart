@@ -91,21 +91,19 @@ class Post {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> jsonMap = {
       'shop_name': shopName,
-      'created_at': createdAt.toIso8601String(), // เขียนเป็น 'created_at' (snake_case)
+      'created_at': createdAt.toIso8601String(), 
       'category': category,
       'title': title,
-      'image_url': imageUrl, // เขียนเป็น 'image_url' (snake_case)
-      'avatar_image_url': avatarImageUrl, // เขียนเป็น 'avatar_image_url' (snake_case)
+      'image_url': imageUrl,
+      'avatar_image_url': avatarImageUrl,
       'province': province,
       'product_category': productCategory,
-      'ownerUid': ownerUid, // <--- เขียนเป็น 'ownerUid' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
-      'storeId': storeId, // <--- เขียนเป็น 'storeId' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
-      'productId': productId, // <--- เขียนเป็น 'storeId' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
-      'productName': productName, // <--- เขียนเป็น 'storeId' (camelCase) เพื่อให้ตรงกับกฎความปลอดภัย
+      'ownerUid': ownerUid, 
+      'storeId': storeId, 
+      'productId': productId, 
+      'productName': productName, 
     };
 
-    // สำหรับการ insert ใหม่, Firestore ควรจะสร้าง 'id' ให้อัตโนมัติ
-    // ดังนั้น, เราจะส่ง 'id' ไปก็ต่อเมื่อมันมีค่า (เช่น สำหรับการ update)
     if (id.isNotEmpty) {
       jsonMap['id'] = id;
     }

@@ -372,7 +372,7 @@ class _BuyerPickupTrackingScreenState extends State<BuyerPickupTrackingScreen> {
     }
   }
 
-  // --- [NEW] Function to recenter map on the buyer's location ---
+
   void _recenterMap() {
     if (_previousLocation != null && _mapController != null) {
       _mapController!.animateCamera(
@@ -384,7 +384,6 @@ class _BuyerPickupTrackingScreenState extends State<BuyerPickupTrackingScreen> {
     }
   }
 
-  // --- [NEW] Function to force redraw the route ---
   void _forceRedrawRoute() {
     if (_previousLocation != null && _store?.latitude != null && _store?.longitude != null) {
       _debounce?.cancel();
@@ -412,7 +411,6 @@ class _BuyerPickupTrackingScreenState extends State<BuyerPickupTrackingScreen> {
                   myLocationEnabled: false,
                   zoomControlsEnabled: false,
                 ),
-                // --- [NEW] Add map control buttons ---
                 Positioned(
                   top: 16,
                   right: 16,

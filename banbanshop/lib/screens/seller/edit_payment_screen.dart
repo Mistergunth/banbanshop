@@ -29,11 +29,11 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
   bool _isLoading = false;
 
   final Cloudinary cloudinary = Cloudinary.full(
-    cloudName: 'dbgybkvms', // Your Cloudinary cloud name
-    apiKey: '157343641351425', // Your Cloudinary API key
-    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', // Your Cloudinary API secret
+    cloudName: 'dbgybkvms', 
+    apiKey: '157343641351425', 
+    apiSecret: 'uXRJ6lo7O24Qqdi_kqANJisGZgU', 
   );
-  final String uploadPreset = 'flutter_unsigned_upload'; // Your unsigned upload preset
+  final String uploadPreset = 'flutter_unsigned_upload'; 
 
   final List<String> _thaiBanks = [
     'ธนาคารกรุงเทพ',
@@ -75,7 +75,7 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
     if (pickedFile != null) {
       setState(() {
         _qrImageFile = File(pickedFile.path);
-        _currentQrImageUrl = null; // Clear current image URL when a new file is picked
+        _currentQrImageUrl = null; 
       });
     }
   }
@@ -95,7 +95,6 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
 
     try {
       String? finalImageUrl = _currentQrImageUrl;
-      // Upload new image if one was selected
       if (_qrImageFile != null) {
         final response = await cloudinary.uploadResource(
           CloudinaryUploadResource(
@@ -119,7 +118,6 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
         'qrCodeImageUrl': finalImageUrl,
       };
 
-      // Update the store document in Firestore
       await FirebaseFirestore.instance
           .collection('stores')
           .doc(widget.store.id)
@@ -129,7 +127,7 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('บันทึกข้อมูลการชำระเงินสำเร็จ')),
         );
-        Navigator.pop(context, true); // Pop with a result to indicate success
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -160,7 +158,6 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // QR Code Image Picker
               GestureDetector(
                 onTap: _pickQrImage,
                 child: Container(
@@ -188,7 +185,6 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Account Name
               TextFormField(
                 controller: _accountNameController,
                 decoration: InputDecoration(
@@ -200,7 +196,6 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกชื่อบัญชี' : null,
               ),
               const SizedBox(height: 16),
-              // Account Number
               TextFormField(
                 controller: _accountNumberController,
                 keyboardType: TextInputType.number,
@@ -213,7 +208,6 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกเลขที่บัญชี' : null,
               ),
               const SizedBox(height: 16),
-              // Bank Name Dropdown
               DropdownButtonFormField<String>(
                 value: _selectedBank,
                 decoration: InputDecoration(
@@ -229,7 +223,6 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
                 validator: (v) => v == null ? 'กรุณาเลือกธนาคาร' : null,
               ),
               const SizedBox(height: 32),
-              // Save Button
               _isLoading
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
                   : ElevatedButton.icon(

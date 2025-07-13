@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'dart:async';
 
-// ใช้ ChatMessage Model เดิมได้เลย
+
 class ChatMessage {
   final String text;
   final bool isUser;
@@ -25,7 +25,7 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
   bool _isLoading = false;
 
   // สร้าง instance ของ Cloud Functions
-  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(region: 'us-central1'); // หรือ region ที่คุณเลือก
+  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(region: 'us-central1'); 
 
   @override
   void initState() {
@@ -59,7 +59,7 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
   }
 
   // --- [อัปเดตแล้ว] ---
-  // ฟังก์ชันนี้จะเรียกใช้ Cloud Function ที่เราสร้างไว้แทน n8n
+  // ฟังก์ชันนี้จะเรียกใช้ Cloud Function ที่สร้างไว้แทน n8n
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -95,7 +95,6 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
         ));
       });
     } catch (e) {
-      // จัดการกับ Error อื่นๆ
       print("Generic Error: $e");
       setState(() {
         _messages.add(ChatMessage(

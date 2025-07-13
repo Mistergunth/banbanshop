@@ -15,7 +15,6 @@ class OrderItem {
     this.imageUrl,
   });
 
-  // Convert an OrderItem instance to a Map
   Map<String, dynamic> toMap() {
     return {
       'productId': productId,
@@ -26,7 +25,6 @@ class OrderItem {
     };
   }
 
-  // Create an OrderItem instance from a Map
   factory OrderItem.fromMap(Map<String, dynamic> map) {
     return OrderItem(
       productId: map['productId'] ?? '',

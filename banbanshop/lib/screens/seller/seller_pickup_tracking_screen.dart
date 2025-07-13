@@ -120,7 +120,6 @@ class _SellerPickupTrackingScreenState extends State<SellerPickupTrackingScreen>
         return;
       }
 
-      // --- [KEY CHANGE] Check for 'buyerLocation' field ---
       if (data.containsKey('buyerLocation') && data['buyerLocation'] is GeoPoint) {
         final geoPoint = data['buyerLocation'] as GeoPoint;
         _buyerLocation = LatLng(geoPoint.latitude, geoPoint.longitude);
@@ -170,7 +169,7 @@ class _SellerPickupTrackingScreenState extends State<SellerPickupTrackingScreen>
             List<LatLng> polylineCoordinates = points.map((p) => LatLng(p.latitude, p.longitude)).toList();
             if (mounted) {
               setState(() {
-                 _polylines.clear(); // Clear old polylines before adding new one
+                 _polylines.clear();
                  _polylines.add(Polyline(
                   polylineId: const PolylineId('route'),
                   color: Colors.teal,
@@ -190,7 +189,6 @@ class _SellerPickupTrackingScreenState extends State<SellerPickupTrackingScreen>
     }
   }
 
-  // --- [KEY FIX] Correctly implemented fitBounds method ---
   void _fitBounds() {
     if (_mapController == null || _markers.isEmpty) return;
 
@@ -243,7 +241,6 @@ class _SellerPickupTrackingScreenState extends State<SellerPickupTrackingScreen>
     return const CameraPosition(target: LatLng(13.7563, 100.5018), zoom: 12);
   }
 
-  // --- [KEY FIX] Correctly implemented custom marker function ---
   Future<BitmapDescriptor> _createCustomMarkerBitmap(String? imageUrl, Color borderColor) async {
     try {
       const int size = 150;

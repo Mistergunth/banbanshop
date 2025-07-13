@@ -656,7 +656,6 @@ class _PostCardState extends State<PostCard> {
     return '${(difference.inDays / 7).floor()} สัปดาห์ที่แล้ว';
   }
 
-  // [NEW] Function to show a quantity selection dialog
   Future<int?> _showQuantityDialog(BuildContext context) {
     return showDialog<int>(
       context: context,
@@ -681,7 +680,6 @@ class _PostCardState extends State<PostCard> {
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline),
                     onPressed: () {
-                      // In a real app, you might check against available stock here
                       setState(() => quantity++);
                     },
                   ),
@@ -690,11 +688,11 @@ class _PostCardState extends State<PostCard> {
               actions: <Widget>[
                 TextButton(
                   child: const Text('ยกเลิก'),
-                  onPressed: () => Navigator.of(context).pop(), // Returns null
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
                   child: const Text('ตกลง'),
-                  onPressed: () => Navigator.of(context).pop(quantity), // Returns selected quantity
+                  onPressed: () => Navigator.of(context).pop(quantity),
                 ),
               ],
             );
@@ -704,7 +702,7 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  // [MODIFIED] This function now shows the quantity dialog first
+
   Future<void> _handleBuyNow() async {
     if (widget.post.productId == null || widget.post.productId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -719,10 +717,7 @@ class _PostCardState extends State<PostCard> {
       return;
     }
 
-    // Show the quantity dialog and wait for the result
     final int? selectedQuantity = await _showQuantityDialog(context);
-
-    // If the user cancelled the dialog, do nothing
     if (selectedQuantity == null || selectedQuantity == 0) {
       return;
     }
@@ -747,7 +742,7 @@ class _PostCardState extends State<PostCard> {
         productId: productDoc.id,
         name: productData['name'] ?? 'ไม่มีชื่อ',
         price: (productData['price'] as num).toDouble(),
-        quantity: selectedQuantity, // Use the quantity from the dialog
+        quantity: selectedQuantity,
         imageUrl: productData['imageUrl'] ?? '',
         storeId: widget.post.storeId,
         addedAt: Timestamp.now(), 

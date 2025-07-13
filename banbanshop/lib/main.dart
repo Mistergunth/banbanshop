@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'บ้านบ้านช้อป',
+      title: 'บ้านบ้านช็อป',
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9B7DD9)),
@@ -89,27 +89,24 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     try {
       // Attempt 1: Fetch custom claims
-      IdTokenResult idTokenResult = await user.getIdTokenResult(true); // Forces refresh
+      IdTokenResult idTokenResult = await user.getIdTokenResult(true); 
       Map<String, dynamic>? claims = idTokenResult.claims;
       userRole = claims?['role'];
 
-      // [KEY FIX] If role is still null after first attempt, wait and retry once
-      // This handles the delay in Cloud Function setting claims after registration.
       if (userRole == null) {
         print("Role claim not found on first attempt for user ${user.uid}. Waiting and retrying...");
-        await Future.delayed(const Duration(seconds: 3)); // Wait a bit for Cloud Function to set claims
-        idTokenResult = await user.getIdTokenResult(true); // Retry fetching token with refreshed claims
+        await Future.delayed(const Duration(seconds: 3)); 
+        idTokenResult = await user.getIdTokenResult(true); 
         claims = idTokenResult.claims;
-        userRole = claims?['role']; // Get role again
+        userRole = claims?['role']; 
         if (userRole == null) {
           print("Role claim still not found after retry for user ${user.uid}. Returning null.");
-          // If role is still null after retry, it's genuinely missing or delayed too much.
-          // Returning null will trigger the fallback to RoleSelectPage.
+          
           return null; 
         }
       }
 
-      // [KEY FIX] Strictly use userRole from claims to fetch data from the CORRECT collection
+
       if (userRole == 'sellers') {
         userDoc = await FirebaseFirestore.instance.collection('sellers').doc(user.uid).get();
         if (userDoc.exists) {
@@ -124,44 +121,32 @@ class _AuthWrapperState extends State<AuthWrapper> {
             }
           }
         } else {
-          // If userRole is 'sellers' but no seller document exists, it's an inconsistency.
-          // This user is claiming to be a seller but has no seller profile data.
           print("User ${user.uid} claimed 'sellers' role but no seller document found. Logging out.");
-          return null; // This will lead to a null UserData, which AuthWrapper's builder will handle by signing out.
+          return null; 
         }
       } else if (userRole == 'buyers') {
         userDoc = await FirebaseFirestore.instance.collection('buyers').doc(user.uid).get();
         if (!userDoc.exists) {
-          // If userRole is 'buyers' but no buyer document exists, it's an inconsistency.
-          // This user is claiming to be a buyer but has no buyer profile data.
           print("User ${user.uid} claimed 'buyers' role but no buyer document found. Logging out.");
-          return null; // This will lead to a null UserData, which AuthWrapper's builder will handle by signing out.
+          return null;
         }
-        // No specific buyer profile model in your code, so just confirm existence.
       } else {
-        // This case should ideally be caught by the initial userRole == null check.
-        // But as a safeguard, if userRole is an unrecognized string.
         print("User ${user.uid} has an unrecognized role claim: $userRole. Logging out.");
         return null;
       }
 
-      // --- Self-healing logic for email synchronization (keep this) ---
       if (userDoc != null && userDoc.exists) {
         final firestoreEmail = (userDoc.data() as Map<String, dynamic>)['email'];
         final String? authEmail = user.email;
 
-        // If authEmail is not null, and it's different from firestoreEmail, then sync
-        if (firestoreEmail != authEmail) { // This condition is now correct.
+        if (firestoreEmail != authEmail) {
           // ignore: avoid_print
           print('Email mismatch found. Syncing Firestore with Auth email...');
           await userDoc.reference.update({'email': authEmail});
-          // Re-fetch the document to get the updated data for this session
           userDoc = await userDoc.reference.get();
         }
       }
-      // --- End of self-healing logic ---
-      
-      // Return UserData with the determined role
+
       return UserData(sellerProfile: sellerProfile, storeProfile: storeProfile, userRole: userRole);
 
     } catch (e) {
@@ -183,10 +168,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (snapshot.hasData && snapshot.data != null) {
           final User user = snapshot.data!;
           if (!user.emailVerified) {
-            // If email is not verified, always go to VerifyEmailScreen
             return VerifyEmailScreen(user: user, onVerified: _refreshAuthWrapper);
           } else {
-            // User is logged in and email is verified
             return FutureBuilder<UserData?>(
               key: _futureBuilderKey,
               future: _fetchUserData(user),
@@ -198,50 +181,44 @@ class _AuthWrapperState extends State<AuthWrapper> {
                    return Scaffold(body: Center(child: Text("เกิดข้อผิดพลาด: ${userSnapshot.error}")));
                 }
                 
-                // Get user data including role from userSnapshot
                 final UserData? userData = userSnapshot.data;
 
-                // Conditional routing based on role
                 if (userData?.userRole == 'sellers') {
                   SellerProfile? sellerProfile = userData?.sellerProfile;
                   Store? storeProfile = userData?.storeProfile;
                   String initialProvince = sellerProfile?.province ?? 'ทั้งหมด';
 
-                  return FeedPage( // Assuming FeedPage is shared, or navigate to SellerDashboard
+                  return FeedPage(
                     selectedProvince: initialProvince,
                     selectedCategory: 'ทั้งหมด',
-                    sellerProfile: sellerProfile, // Pass seller profile for seller-specific UI
+                    sellerProfile: sellerProfile,
                     storeProfile: storeProfile,
                     onRefresh: _refreshData,
-                    isSeller: true, // Explicitly true for sellers
+                    isSeller: true,
                   );
                 } else if (userData?.userRole == 'buyers') {
-                  // For buyers, sellerProfile and storeProfile should be null
-                  return FeedPage( // Navigate to Buyer's Feed Page
-                    selectedProvince: 'ทั้งหมด', // Buyers don't have a specific province from profile
+                  return FeedPage(
+                    selectedProvince: 'ทั้งหมด', 
                     selectedCategory: 'ทั้งหมด',
-                    sellerProfile: null, // Ensure sellerProfile is null for buyers
+                    sellerProfile: null,
                     storeProfile: null,
                     onRefresh: _refreshData,
-                    isSeller: false, // Explicitly false for buyers
+                    isSeller: false,
                   );
                 } else {
-                  // Fallback: If no valid role is found in UserData, or UserData is null
-                  // This means either _fetchUserData returned null, or the role claim was missing/invalid.
-                  // Sign out the user and redirect to role selection.
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     FirebaseAuth.instance.signOut();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('ไม่พบประเภทบัญชีของคุณ โปรดเข้าสู่ระบบใหม่')),
                     );
                   });
-                  return const RoleSelectPage(); // Show role selection after logout
+                  return const RoleSelectPage(); 
                 }
               },
             );
           }
         } else {
-          // User is not logged in
+          // ผู้ใช้ไม่ได้ล็อคอิน/ออกจากระบบ
           return const RoleSelectPage();
         }
       },

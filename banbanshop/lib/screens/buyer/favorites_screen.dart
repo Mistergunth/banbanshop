@@ -18,11 +18,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Future<List<Store>> _fetchFavoriteStores() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // คืนค่า list ว่าง ถ้าผู้ใช้ยังไม่ได้ล็อคอิน
       return [];
     }
 
-    // 1. ดึง ID ของร้านค้าโปรดทั้งหมด
     final favoritesSnapshot = await FirebaseFirestore.instance
         .collection('buyers')
         .doc(user.uid)
@@ -31,13 +29,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         .get();
 
     if (favoritesSnapshot.docs.isEmpty) {
-      // คืนค่า list ว่าง ถ้ายังไม่มีร้านค้าโปรด
       return [];
     }
 
     final storeIds = favoritesSnapshot.docs.map((doc) => doc.id).toList();
 
-    // 2. ดึงข้อมูลของร้านค้าแต่ละร้านจาก ID ที่ได้มา
     List<Store> favoriteStores = [];
     for (String storeId in storeIds) {
       try {
@@ -108,7 +104,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                 ),
-                clipBehavior: Clip.antiAlias, // เพื่อให้ขอบมนมีผลกับ ListTile
+                clipBehavior: Clip.antiAlias,
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
                   leading: CircleAvatar(

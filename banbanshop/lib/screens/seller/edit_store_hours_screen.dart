@@ -27,7 +27,6 @@ class _EditStoreHoursScreenState extends State<EditStoreHoursScreen> {
   @override
   void initState() {
     super.initState();
-    // Create a deep copy to avoid modifying the original map directly
     _operatingHours = Map<String, dynamic>.from(
       widget.initialHours.map(
         (key, value) => MapEntry(key, Map<String, dynamic>.from(value)),
@@ -67,7 +66,6 @@ class _EditStoreHoursScreenState extends State<EditStoreHoursScreen> {
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: () {
-              // Return the updated map to the previous screen
               Navigator.pop(context, _operatingHours);
             },
           ),

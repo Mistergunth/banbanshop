@@ -9,7 +9,6 @@ class Address {
   final String phoneNumber;
   final String addressLine;
   final GeoPoint location; // สำหรับเก็บพิกัด Lat, Lng
-  // --- [NEW] Added isDefault to mark the primary address ---
   final bool isDefault;
 
   Address({
@@ -19,7 +18,7 @@ class Address {
     required this.phoneNumber,
     required this.addressLine,
     required this.location,
-    this.isDefault = false, // --- [NEW]
+    this.isDefault = false,
   });
 
   factory Address.fromFirestore(DocumentSnapshot doc) {
@@ -31,7 +30,7 @@ class Address {
       phoneNumber: data['phoneNumber'] ?? '',
       addressLine: data['addressLine'] ?? '',
       location: data['location'] ?? const GeoPoint(0, 0),
-      isDefault: data['isDefault'] ?? false, // --- [NEW]
+      isDefault: data['isDefault'] ?? false,
     );
   }
 
@@ -42,7 +41,7 @@ class Address {
       'phoneNumber': phoneNumber,
       'addressLine': addressLine,
       'location': location,
-      'isDefault': isDefault, // --- [NEW]
+      'isDefault': isDefault,
     };
   }
 }

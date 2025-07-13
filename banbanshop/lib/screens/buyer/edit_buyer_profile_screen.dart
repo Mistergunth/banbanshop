@@ -74,14 +74,12 @@ class _EditBuyerProfileScreenState extends State<EditBuyerProfileScreen> {
       bool hasChanges = false;
       bool emailChanged = false;
 
-      // --- Update Full Name ---
       if (newFullName != widget.buyerProfile.fullName) {
         await user.updateDisplayName(newFullName);
         await FirebaseFirestore.instance.collection('buyers').doc(user.uid).update({'fullName': newFullName});
         hasChanges = true;
       }
 
-      // --- Update Email ---
       if (newEmail != widget.buyerProfile.email) {
         await user.verifyBeforeUpdateEmail(newEmail);
         emailChanged = true;

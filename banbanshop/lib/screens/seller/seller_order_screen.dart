@@ -24,11 +24,10 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
   String? _storeId;
   bool _isLoading = true;
 
-  // --- [KEY CHANGE] Add the 'Shipped' tab ---
   final List<Tab> _tabs = const [
     Tab(text: 'ใหม่'),
     Tab(text: 'กำลังดำเนินการ'),
-    Tab(text: 'จัดส่งแล้ว'), // New tab
+    Tab(text: 'จัดส่งแล้ว'), 
     Tab(text: 'สำเร็จ'),
     Tab(text: 'ยกเลิก'),
   ];
@@ -36,7 +35,6 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
   @override
   void initState() {
     super.initState();
-    // --- [KEY CHANGE] Update TabController length ---
     _tabController = TabController(length: _tabs.length, vsync: this);
     _fetchUserStoreId();
   }
@@ -83,7 +81,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
                     child: TabBar(
                       controller: _tabController,
                       tabs: _tabs,
-                      isScrollable: true, // Allow tabs to scroll if they don't fit
+                      isScrollable: true,
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white.withOpacity(0.7),
                       indicatorColor: Colors.white,
@@ -96,7 +94,6 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
                       children: [
                         _buildOrdersList(OrderStatus.pending),
                         _buildOrdersList(OrderStatus.processing),
-                        // --- [KEY CHANGE] Add the view for 'Shipped' orders ---
                         _buildOrdersList(OrderStatus.shipped),
                         _buildOrdersList(OrderStatus.delivered),
                         _buildOrdersList(OrderStatus.cancelled),
@@ -205,9 +202,7 @@ class OrderCard extends StatelessWidget {
               builder: (context) => OrderDetailScreen(order: order),
             ),
           ).then((value) {
-            // This is a simple way to refresh, though not strictly necessary with streams
             if (value == true) {
-              // The stream will handle the update automatically
             }
           });
         },

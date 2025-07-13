@@ -444,7 +444,6 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
     return (math.atan2(y, x) * 180 / math.pi + 360) % 360;
   }
 
-  // --- [KEY CHANGE] Improved phone number handling ---
   Future<void> _callBuyer() async {
     if (_buyerProfile?.phoneNumber == null || _buyerProfile!.phoneNumber!.isEmpty) {
        ScaffoldMessenger.of(context).showSnackBar(
@@ -454,8 +453,6 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
     }
 
     String phoneNumber = _buyerProfile!.phoneNumber!;
-    // Automatically add a leading '0' if the number is 9 digits long.
-    // This handles cases where numbers are stored without the leading zero.
     if (phoneNumber.length == 9 && !phoneNumber.startsWith('0')) {
       phoneNumber = '0$phoneNumber';
     }

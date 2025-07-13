@@ -8,7 +8,6 @@ import 'package:geolocator/geolocator.dart'; // สำหรับตำแห�
 import 'package:geocoding/geocoding.dart'; // สำหรับ reverse geocoding
 
 class MapPickerScreen extends StatefulWidget {
-  // เพิ่ม initialLatLng parameter เพื่อให้สามารถกำหนดตำแหน่งเริ่มต้นได้
   final LatLng? initialLatLng;
   const MapPickerScreen({super.key, this.initialLatLng});
 
@@ -17,21 +16,20 @@ class MapPickerScreen extends StatefulWidget {
 }
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
-  GoogleMapController? _mapController; // ประกาศตัวแปร _mapController
-  LatLng? _pickedLocation; // ตำแหน่งที่ผู้ใช้เลือก
-  bool _isLoadingLocation = true; // สถานะการโหลดตำแหน่งเริ่มต้น
-  String _currentAddress = 'กำลังโหลดตำแหน่ง...'; // ที่อยู่ปัจจุบันที่แสดง
+  GoogleMapController? _mapController; 
+  LatLng? _pickedLocation; 
+  bool _isLoadingLocation = true; 
+  String _currentAddress = 'กำลังโหลดตำแหน่ง...'; 
 
   @override
   void initState() {
     super.initState();
-    // ถ้ามี initialLatLng มาให้ใช้ค่านั้นเป็นตำแหน่งเริ่มต้น
     if (widget.initialLatLng != null) {
       _pickedLocation = widget.initialLatLng;
       _updateAddress(_pickedLocation!);
       _isLoadingLocation = false;
     } else {
-      _determinePosition(); // เริ่มต้นด้วยการดึงตำแหน่งปัจจุบันของผู้ใช้
+      _determinePosition(); 
     }
   }
 
@@ -62,7 +60,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     Navigator.of(dialogContext).pop();
                     setState(() {
                       _isLoadingLocation = false;
-                      _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok, Thailand
+                      _pickedLocation = const LatLng(13.7563, 100.5018); // ตั้งเริ่มต้นที่กรุงเทพ
                       _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
                     });
                   },

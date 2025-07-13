@@ -27,7 +27,6 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
 
   Future<void> _deleteAddress(String addressId) async {
      if (user == null) return;
-     // เพิ่มกล่องข้อความยืนยัน
      bool? confirm = await showDialog(
         context: context,
         builder: (context) => AlertDialog(

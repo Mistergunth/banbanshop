@@ -11,7 +11,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:banbanshop/screens/map_picker_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-// --- [NEW] Import the new screen for setting hours ---
 import 'package:banbanshop/screens/seller/edit_store_hours_screen.dart';
 
 
@@ -29,7 +28,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
   late TextEditingController _locationAddressController;
-  // late TextEditingController _openingHoursController; // [REMOVED]
   late TextEditingController _phoneNumberController;
 
   String? _selectedStoreType;
@@ -41,7 +39,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   double? _selectedLatitude;
   double? _selectedLongitude;
 
-  // --- [NEW] State variable to hold the operating hours map ---
   late Map<String, dynamic> _operatingHours;
 
 
@@ -81,14 +78,12 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     _nameController = TextEditingController(text: widget.store.name);
     _descriptionController = TextEditingController(text: widget.store.description);
     _locationAddressController = TextEditingController(text: widget.store.locationAddress);
-    // _openingHoursController = TextEditingController(text: widget.store.openingHours); // [REMOVED]
     _phoneNumberController = TextEditingController(text: widget.store.phoneNumber);
     _selectedStoreType = widget.store.category;
     _selectedProvince = widget.store.province;
     _currentImageUrl = widget.store.imageUrl;
     _selectedLatitude = widget.store.latitude;
     _selectedLongitude = widget.store.longitude;
-    // --- [NEW] Initialize operating hours from the store object ---
     _operatingHours = Map<String, dynamic>.from(widget.store.operatingHours);
   }
 
@@ -97,7 +92,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _locationAddressController.dispose();
-    // _openingHoursController.dispose(); // [REMOVED]
     _phoneNumberController.dispose();
     super.dispose();
   }
@@ -134,7 +128,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     }
   }
 
-  // --- [NEW] Function to navigate to the hours editor screen ---
   Future<void> _editOpeningHours() async {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -145,7 +138,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       ),
     );
 
-    // If the user saved their changes, update the state
     if (result != null) {
       setState(() {
         _operatingHours = result;
@@ -212,9 +204,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'locationAddress': _locationAddressController.text.trim(),
         'latitude': _selectedLatitude,
         'longitude': _selectedLongitude,
-        // 'openingHours': _openingHoursController.text.trim(), // [REMOVED]
         'phoneNumber': _phoneNumberController.text.trim(),
-        // --- [NEW] Add the new operatingHours map to the update ---
         'operatingHours': _operatingHours,
       };
 
@@ -223,7 +213,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
           .doc(widget.store.id)
           .update(updatedStoreData);
 
-      // This part for updating other collections seems fine, but let's keep it for now.
       await FirebaseFirestore.instance
           .collection('sellers')
           .doc(currentUser.uid)
@@ -252,7 +241,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       }
 
       if (mounted) {
-        Navigator.pop(context, true); // Pop with a result to indicate success
+        Navigator.pop(context, true); 
       }
     } catch (e) {
       if (mounted) {
@@ -399,7 +388,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณาปักหมุดตำแหน่งร้าน' : null,
               ),
               const SizedBox(height: 16),
-              // --- [NEW] Replaced the old text field with a button ---
               InkWell(
                 onTap: _editOpeningHours,
                 child: InputDecorator(

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-// Model for chat messages, keeping our original styled UI in mind.
 class ChatMessage {
   final String text;
   final bool isUser;
@@ -24,13 +23,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
 
-  // Using the confirmed working Webhook URL.
   static const String n8nWebhookUrl = 'https://mistergunth.app.n8n.cloud/webhook/chatbot';
 
   @override
   void initState() {
     super.initState();
-    // Add the initial welcome message from the AI.
     _messages.add(
       ChatMessage(
         text: 'สวัสดีครับ! ผมคือผู้ช่วย AI ของ BanBanShop มีอะไรให้ผมช่วยไหมครับ? สามารถสอบถามเกี่ยวกับสินค้าหรือข้อมูลร้านค้าได้เลยครับ',
@@ -47,7 +44,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   void _scrollToBottom() {
-    // This is a reliable way to scroll down after the UI has been updated.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -59,13 +55,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
-  // --- [FIXED] ---
-  // This function now uses the working logic from your teammate's file.
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    // Add user message to UI and clear input field
     setState(() {
       _messages.add(ChatMessage(text: text, isUser: true));
       _isLoading = true;
@@ -74,28 +67,23 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _scrollToBottom();
 
     try {
-      // Send the message to the n8n webhook with the correct JSON format.
       final response = await http.post(
         Uri.parse(n8nWebhookUrl),
         headers: {'Content-Type': 'application/json'},
-        // The key is 'message', as confirmed by your teammate's working code.
         body: json.encode({'message': text}),
       );
 
       if (response.statusCode == 200) {
         final responseBody = json.decode(utf8.decode(response.bodyBytes));
-        // The key for the reply is also 'message'.
         final reply = responseBody['message']?.toString() ?? 'ขออภัยค่ะ ไม่สามารถประมวลผลคำตอบได้';
         
         setState(() {
           _messages.add(ChatMessage(text: reply, isUser: false));
         });
       } else {
-        // Handle server errors
         throw Exception('n8n returned an error: ${response.statusCode}');
       }
     } catch (e) {
-      // Handle connection errors or other exceptions
       setState(() {
         _messages.add(ChatMessage(
           text: 'ขออภัยค่ะ ไม่สามารถเชื่อมต่อกับผู้ช่วย AI ได้ในขณะนี้',
@@ -104,7 +92,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       });
     } finally {
       setState(() {
-        _isLoading = false; // Hide typing indicator
+        _isLoading = false;
       });
       _scrollToBottom();
     }

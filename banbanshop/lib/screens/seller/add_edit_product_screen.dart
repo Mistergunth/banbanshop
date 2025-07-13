@@ -10,7 +10,7 @@ import 'package:banbanshop/screens/models/product_model.dart';
 
 class AddEditProductScreen extends StatefulWidget {
   final String storeId;
-  final Product? product; // If null, it's a new product. Otherwise, editing.
+  final Product? product; 
 
   const AddEditProductScreen({
     super.key,
@@ -39,7 +39,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   void initState() {
     super.initState();
     if (widget.product != null) {
-      // Editing existing product
       _nameController = TextEditingController(text: widget.product!.name);
       _descriptionController = TextEditingController(text: widget.product!.description);
       _priceController = TextEditingController(text: widget.product!.price.toString());
@@ -50,7 +49,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         text: _isUnlimitedStock ? '' : widget.product!.stock.toString(),
       );
     } else {
-      // Creating new product
       _nameController = TextEditingController();
       _descriptionController = TextEditingController();
       _priceController = TextEditingController();
@@ -111,24 +109,19 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         }
       }
 
-      // --- [KEY FIX] ---
-      // Create a Map directly instead of creating a Product instance,
-      // to avoid constructor errors when creating a new product.
       final Map<String, dynamic> productData = {
         'storeId': widget.storeId,
         'name': _nameController.text.trim(),
         'description': _descriptionController.text.trim(),
         'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
         'imageUrl': imageUrl,
-        'category': 'Default', // Placeholder, can be expanded later
+        'category': 'Default', 
         'isAvailable': _isAvailable,
         'stock': _isUnlimitedStock ? -1 : int.tryParse(_stockController.text.trim()) ?? 0,
       };
 
 
       if (widget.product == null) {
-        // Create new product
-        // Add createdAt timestamp for new products
         productData['createdAt'] = FieldValue.serverTimestamp();
         await FirebaseFirestore.instance
             .collection('stores')
@@ -136,8 +129,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             .collection('products')
             .add(productData);
       } else {
-        // Update existing product
-        // No need to update createdAt
         await FirebaseFirestore.instance
             .collection('stores')
             .doc(widget.storeId)
@@ -150,7 +141,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('บันทึกข้อมูลสินค้าสำเร็จ!')),
         );
-        Navigator.pop(context, true); // Pop with a result to indicate success
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {

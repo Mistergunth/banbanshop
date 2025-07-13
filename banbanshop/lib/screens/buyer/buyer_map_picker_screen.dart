@@ -129,7 +129,6 @@ class _BuyerMapPickerScreenState extends State<BuyerMapPickerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // --- ส่วนที่แก้ไข ---
         title: const Text('ปักหมุดที่อยู่จัดส่ง'),
         backgroundColor: const Color(0xFF9C6ADE),
         foregroundColor: Colors.white,

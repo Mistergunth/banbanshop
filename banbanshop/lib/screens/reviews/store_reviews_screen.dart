@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/reviews/add_reviews_screen.dart';
 
-// Model สำหรับ Review
+
 class Review {
   final String id;
   final String buyerName;
@@ -41,13 +41,13 @@ class Review {
 class StoreReviewsScreen extends StatefulWidget {
   final String storeId;
   final String storeName;
-  final bool isSellerView; // <-- 1. เพิ่มพารามิเตอร์ใหม่
+  final bool isSellerView; 
 
   const StoreReviewsScreen({
     super.key,
     required this.storeId,
     required this.storeName,
-    this.isSellerView = false, // <-- 2. กำหนดค่าเริ่มต้น
+    this.isSellerView = false, 
   });
 
   @override
@@ -128,9 +128,9 @@ class _StoreReviewsScreenState extends State<StoreReviewsScreen> {
           );
         },
       ),
-      // --- 3. เพิ่มเงื่อนไขในการแสดงผลปุ่ม ---
+
       floatingActionButton: (widget.isSellerView || user == null)
-          ? null // ถ้าเป็นผู้ขาย หรือยังไม่ได้ล็อคอิน -> ไม่ต้องแสดงปุ่ม
+          ? null 
           : FloatingActionButton.extended(
               onPressed: _navigateToAddReview,
               label: const Text('เขียนรีวิว'),

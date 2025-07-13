@@ -6,7 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/seller/store_profile.dart';
 
-// Helper class to store store data along with its distance
+
 class StoreWithDistance {
   final Store store;
   final double distanceInKm;
@@ -45,7 +45,6 @@ class _StoreScreenContentState extends State<StoreScreenContent> {
   @override
   void didUpdateWidget(covariant StoreScreenContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-apply filters if the selected province or category changes
     if (widget.selectedProvince != oldWidget.selectedProvince ||
         widget.selectedCategory != oldWidget.selectedCategory) {
       _applyFilters();
@@ -238,7 +237,6 @@ class StoreCard extends StatelessWidget {
 
   const StoreCard({super.key, required this.storeData});
 
-  // Helper widget for the status badge
   Widget _buildStatusBadge(bool isOpen) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -260,7 +258,6 @@ class StoreCard extends StatelessWidget {
     );
   }
 
-  // Helper widget for info rows
   Widget _buildInfoRow(IconData icon, String text) {
     return Row(
       children: [
@@ -342,7 +339,6 @@ class StoreCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      // [KEY CHANGE] New layout for category and province
                       _buildInfoRow(Icons.category_outlined, store.category ?? 'ไม่มีหมวดหมู่'),
                       const SizedBox(height: 4),
                       _buildInfoRow(Icons.location_city_outlined, store.province),

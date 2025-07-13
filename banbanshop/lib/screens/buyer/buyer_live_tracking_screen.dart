@@ -1,7 +1,7 @@
 // lib/screens/buyer/buyer_live_tracking_screen.dart
 
 import 'dart:async';
-import 'dart:convert'; // --- [KEY FIX] Add this import ---
+import 'dart:convert'; 
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -35,8 +35,6 @@ class _BuyerLiveTrackingScreenState extends State<BuyerLiveTrackingScreen> {
   Store? _store;
   BuyerProfile? _buyerProfile;
 
-  // IMPORTANT: Replace with your own Google Maps API Key for Directions API
-  // สำคัญ: กรุณาแทนที่ด้วย Google Maps API Key ของคุณ
   final String _googleApiKey = "AIzaSyCPW7zj9TLXyCtiZGMPOxIeWnIeAL7njKY";
 
   @override
@@ -166,7 +164,6 @@ class _BuyerLiveTrackingScreenState extends State<BuyerLiveTrackingScreen> {
     }
   }
 
-  // --- [KEY FIX] Replaced method to call Directions API directly ---
   Future<void> _drawRoute(LatLng origin, LatLng destination) async {
     final String url = 'https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=$_googleApiKey';
     

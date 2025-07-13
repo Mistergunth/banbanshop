@@ -9,8 +9,6 @@ import 'package:cloudinary_sdk/cloudinary_sdk.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// คุณสามารถใช้ Product Model ที่คุณมีอยู่แล้วได้
-// หากยังไม่มี สามารถใช้ Model ชั่วคราวนี้ไปก่อน
 class Product {
   final String id;
   final String name;
@@ -67,10 +65,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     _fetchSellerProducts();
   }
 
-  // --- [FINAL & CORRECTED FIX] ---
-  // This function now fetches products from the correct sub-collection.
   Future<void> _fetchSellerProducts() async {
-    // We don't need currentUser check here because we have the storeId
     if (widget.storeId.isEmpty) {
       print("Error: storeId is empty. Cannot fetch products.");
       if (mounted) setState(() => _isLoadingProducts = false);
@@ -78,7 +73,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
 
     try {
-      // This is the correct path to fetch products for a specific store.
       final productSnapshot = await FirebaseFirestore.instance
           .collection('stores')
           .doc(widget.storeId)
@@ -198,7 +192,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       await FirebaseFirestore.instance.collection('posts').add(newPost.toJson());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('โพสต์สำเร็จ!')));
-        Navigator.pop(context); // Pop without returning data
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {

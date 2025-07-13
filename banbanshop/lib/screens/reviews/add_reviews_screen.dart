@@ -70,18 +70,12 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
         'storeId': widget.storeId,
       };
 
-      // --- ส่วนที่แก้ไข ---
-      // ทำการบันทึกรีวิวลงใน sub-collection ของร้านค้าเท่านั้น
       await FirebaseFirestore.instance
           .collection('stores')
           .doc(widget.storeId)
           .collection('reviews')
           .add(reviewData);
-      
-      // เราได้นำส่วนที่พยายามอัปเดตเอกสารร้านค้า (runTransaction) ออกไปแล้ว
-      // เพื่อแก้ปัญหา permission-denied
-      // การคำนวณคะแนนเฉลี่ยควรทำผ่าน Cloud Function ในอนาคต
-      // --- จบส่วนที่แก้ไข ---
+    
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

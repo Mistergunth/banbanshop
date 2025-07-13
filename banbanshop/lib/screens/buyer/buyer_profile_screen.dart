@@ -16,7 +16,7 @@ import 'package:banbanshop/screens/buyer/shipping_address_screen.dart';
 import 'package:banbanshop/screens/buyer/edit_buyer_profile_screen.dart';
 import 'package:banbanshop/screens/buyer/buyer_orders_screen.dart';
 
-// --- [NEW] Import the new Chatbot screen ---
+
 import 'package:banbanshop/screens/buyer/ai_chatbot_screen.dart';
 
 
@@ -197,7 +197,6 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   children: [
-                    // --- [NEW] AI Chatbot Button ---
                     _buildProfileOptionButton(
                       icon: Icons.support_agent_outlined,
                       text: 'AI Chatbot ผู้ช่วยส่วนตัว',

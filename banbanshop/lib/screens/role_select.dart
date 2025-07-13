@@ -10,7 +10,7 @@ class RoleSelectPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'บ้านบ้านช้อป',
+      title: 'บ้านบ้านช็อป',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         fontFamily: GoogleFonts.kanit().fontFamily,
