@@ -8,7 +8,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
-
 import 'package:banbanshop/screens/feed_page.dart';
 import 'package:banbanshop/screens/role_select.dart';
 import 'package:banbanshop/screens/models/seller_profile.dart';
