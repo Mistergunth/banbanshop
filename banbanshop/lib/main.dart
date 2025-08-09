@@ -14,6 +14,7 @@ import 'package:banbanshop/screens/models/seller_profile.dart';
 import 'package:banbanshop/screens/models/store_model.dart';
 import 'package:banbanshop/screens/auth/verify_email_screen.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(

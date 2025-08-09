@@ -49,5 +49,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>แอปพลิเคชันนี้ต้องการเข้าถึงกล้องเพื่อสแกนบัตรประชาชน</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>แอปพลิเคชันนี้ต้องการเข้าถึงคลังภาพเพื่อเลือกรูปบัตรประชาชน</string>
 </dict>
 </plist>
