@@ -1,16 +1,17 @@
 // lib/screens/auth/seller_register_screen.dart
 
-// ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
-import 'dart:async';
-import 'dart:io';
+// ignore_for_file: avoid_print, use_build_context_synchronously
+
 import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:uuid/uuid.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
+// [NEW] Import the Tesseract OCR package
+import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
+
 
 class SellerRegisterScreen extends StatefulWidget {
   const SellerRegisterScreen({super.key});
@@ -43,15 +44,16 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   String? _verificationId;
   int? _resendToken;
 
-  StreamSubscription<DocumentSnapshot>? _scanSubscription;
-  String? _scanId;
+  // [REMOVED] Cloud Function related variables are no longer needed
+  // StreamSubscription<DocumentSnapshot>? _scanSubscription;
+  // String? _scanId;
 
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
     'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร',
     'เชียงราย', 'เชียงใหม่', 'ตรัง', 'ตราด', 'ตาก', 'นครนายก',
     'นครปฐม', 'นครพนม', 'นครราชสีมา', 'นครศรีธรรมราช', 'นครสวรรค์', 'นนทบุรี',
-    'นราธิวาส', 'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์',
+    'นราธิวาส', 'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจบคีรีขันธ์',
     'ปราจีนบุรี', 'ปัตตานี', 'พระนครศรีอยุธยา', 'พังงา', 'พัทลุง', 'พิจิตร',
     'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์', 'แพร่', 'พะเยา', 'ภูเก็ต',
     'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน', 'ยะลา', 'ยโสธร', 'ร้อยเอ็ด',
@@ -71,7 +73,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _otpController.dispose();
-    _scanSubscription?.cancel();
     super.dispose();
   }
 
@@ -99,11 +100,8 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     );
   }
 
-  // [REWRITTEN] This function now uploads the image and listens for results from Firestore.
+  // [REWRITTEN] This function now uses Tesseract OCR to process the image on-device.
   Future<void> _scanIdCard() async {
-    // Cancel any previous listener
-    await _scanSubscription?.cancel();
-
     final ImageSource? source = await _showImageSourceDialog();
     if (source == null) return;
 
@@ -116,77 +114,62 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
 
     setState(() {
       _isLoading = true;
-      _scanStatusMessage = 'กำลังอัปโหลด...';
+      _scanStatusMessage = 'กำลังประมวลผลภาพ...';
     });
 
-    // 1. Generate a unique ID for this scan session
-    _scanId = const Uuid().v4();
-    final imageFile = File(image.path);
-    final storagePath = 'id_card_images/$_scanId.jpg';
-
     try {
-      // 2. Upload the image to Firebase Storage
-      final storageRef = FirebaseStorage.instance.ref().child(storagePath);
-      await storageRef.putFile(imageFile);
-      print('Image uploaded successfully to: $storagePath');
+      // 1. Call Tesseract to extract text. Specify Thai language.
+      final String fullText = await FlutterTesseractOcr.extractText(image.path, language: 'tha');
 
-      setState(() {
-        _scanStatusMessage = 'กำลังประมวลผลภาพ...';
-      });
+      // 2. Use Regular Expressions to find the ID number and name from the extracted text.
+      // This logic is similar to the one used in the Cloud Function.
+      final idCardRegex = RegExp(r'\b(\d[\s-]?){12}\d\b');
+      final nameRegex = /(นาย|นางสาว|นาง)\s*([\u0E00-\u0E7F]+)\s+([\u0E00-\u0E7F]+)/;
 
-      // 3. Listen for the result from the Cloud Function in Firestore
-      final docRef = FirebaseFirestore.instance.collection('idCardScans').doc(_scanId);
-      _scanSubscription = docRef.snapshots().timeout(const Duration(seconds: 60), onTimeout: (sink) {
-        sink.addError('หมดเวลาในการประมวลผล กรุณาลองอีกครั้ง');
-      }).listen(
-        (snapshot) {
-          if (snapshot.exists && snapshot.data() != null) {
-            final data = snapshot.data()!;
-            final status = data['status'];
+      String foundIdNumber = "";
+      String foundFullName = "";
 
-            if (status == 'completed') {
-              setState(() {
-                _fullNameController.text = data['fullName'] ?? '';
-                _idCardController.text = data['idNumber'] ?? '';
-                _isLoading = false;
-                _scanStatusMessage = 'สแกนข้อมูลสำเร็จ!';
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('สแกนข้อมูลสำเร็จ กรุณาตรวจสอบความถูกต้อง')),
-              );
-              _scanSubscription?.cancel();
-            } else if (status == 'error') {
-              final errorMessage = data['errorMessage'] ?? 'เกิดข้อผิดพลาดในการประมวลผล';
-              throw Exception(errorMessage);
-            }
-          }
-        },
-        onError: (error) {
-          setState(() {
-            _isLoading = false;
-            _scanStatusMessage = 'เกิดข้อผิดพลาด ลองอีกครั้ง';
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('ข้อผิดพลาด: ${error.toString()}')),
-          );
-          _scanSubscription?.cancel();
-        }
-      );
+      final idMatch = idCardRegex.firstMatch(fullText.replaceAll('\n', ' '));
+      if (idMatch != null) {
+        foundIdNumber = idMatch.group(0)!.replaceAll(RegExp(r'[\s-]'), '');
+      }
+
+      final nameMatch = nameRegex.firstMatch(fullText);
+      if (nameMatch != null) {
+        foundFullName = nameMatch.group(0)!.trim();
+      }
+      
+      // 3. Update the text fields with the found data.
+      if (foundIdNumber.isNotEmpty || foundFullName.isNotEmpty) {
+        setState(() {
+          if (foundIdNumber.isNotEmpty) _idCardController.text = foundIdNumber;
+          if (foundFullName.isNotEmpty) _fullNameController.text = foundFullName;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(
+            'สแกนสำเร็จ: ${foundFullName.isNotEmpty ? "พบชื่อ" : "ไม่พบชื่อ"}, ${foundIdNumber.isNotEmpty ? "พบเลขบัตร" : "ไม่พบเลขบัตร"} | กรุณาตรวจสอบความถูกต้อง'
+          )),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ไม่พบข้อมูลที่อ่านได้ในภาพ กรุณาลองใหม่')),
+        );
+      }
 
     } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการสแกน: ${e.toString()}')),
+      );
+    } finally {
       setState(() {
         _isLoading = false;
-        _scanStatusMessage = 'อัปโหลดล้มเหลว ลองอีกครั้ง';
+        _scanStatusMessage = 'สแกน/อัปโหลดบัตรประชาชน';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลด: $e')),
-      );
     }
   }
 
 
   Future<void> _sendOtp() async {
-    // Validate email and phone fields first
     if (!_emailFieldKey.currentState!.validate() || !_phoneFieldKey.currentState!.validate()) {
       return;
     }
@@ -197,22 +180,18 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
       final email = _emailController.text.trim();
       final phoneNumber = "+66${_phoneController.text.trim()}";
 
-      // [NEW] Check if email is already in use by ANY Firebase Auth user
       final List<String> signInMethods = await _auth.fetchSignInMethodsForEmail(email);
       if (signInMethods.isNotEmpty) {
-        // If email is already registered, check if it's already a buyer
         final buyerDoc = await FirebaseFirestore.instance.collection('buyers').where('email', isEqualTo: email).limit(1).get();
         if (buyerDoc.docs.isNotEmpty) {
-          throw FirebaseAuthException(code: 'email-already-in-use-as-buyer'); // Custom error code
+          throw FirebaseAuthException(code: 'email-already-in-use-as-buyer');
         }
-        // If it's not a buyer, it must be a seller (or linked to phone auth)
         throw FirebaseAuthException(code: 'email-already-in-use');
       }
 
-      // [NEW] Check if phone number is already registered as a buyer
       final buyerPhoneDoc = await FirebaseFirestore.instance.collection('buyers').where('phoneNumber', isEqualTo: phoneNumber).limit(1).get();
       if (buyerPhoneDoc.docs.isNotEmpty) {
-        throw FirebaseAuthException(code: 'phone-already-in-use-as-buyer'); // Custom error code
+        throw FirebaseAuthException(code: 'phone-already-in-use-as-buyer');
       }
 
       print("[REG] Email and Phone are available for seller registration. Proceeding with phone verification...");
@@ -246,9 +225,9 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
        String message = 'เกิดข้อผิดพลาดในการส่ง OTP';
        if (e.code == 'email-already-in-use') {
          message = 'อีเมลนี้ถูกใช้งานแล้วในฐานะผู้ขาย กรุณาเข้าสู่ระบบ';
-       } else if (e.code == 'email-already-in-use-as-buyer') { // [NEW] Custom error
+       } else if (e.code == 'email-already-in-use-as-buyer') {
          message = 'อีเมลนี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
-       } else if (e.code == 'phone-already-in-use-as-buyer') { // [NEW] Custom error
+       } else if (e.code == 'phone-already-in-use-as-buyer') {
          message = 'เบอร์โทรศัพท์นี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
        } else {
           message = 'เกิดข้อผิดพลาด: ${e.message}';
@@ -277,7 +256,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     setState(() => _isLoading = true);
     
     try {
-      // Step 1: Sign in with phone credential
       PhoneAuthCredential credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: _otpController.text.trim(),
@@ -288,29 +266,22 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
       if (user == null) {
         throw Exception("Phone auth failed, user is null.");
       }
-
-      // [NEW] Check if this UID already exists in 'buyers' collection
+      
       final existingBuyerDoc = await FirebaseFirestore.instance.collection('buyers').doc(user.uid).get();
       if (existingBuyerDoc.exists) {
-        // If the UID already has a buyer profile, prevent creating a seller profile
-        await FirebaseAuth.instance.signOut(); // Sign out to prevent mixed state
-        throw FirebaseAuthException(code: 'uid-already-in-use-as-buyer'); // Custom error code
+        await FirebaseAuth.instance.signOut();
+        throw FirebaseAuthException(code: 'uid-already-in-use-as-buyer');
       }
 
-      // Step 2: Link with email credential
       final emailCredential = EmailAuthProvider.credential(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
       await user.linkWithCredential(emailCredential);
       
-      // Step 3: Update profile
       await user.updateProfile(displayName: _fullNameController.text.trim());
-      
-      // Step 4: Send verification email
       await user.sendEmailVerification();
 
-      // Step 5: Save user data to Firestore
       await FirebaseFirestore.instance.collection('sellers').doc(user.uid).set({
         'uid': user.uid,
         'fullName': _fullNameController.text.trim(),
@@ -320,8 +291,29 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         'province': _selectedProvince,
         'hasStore': false,
         'createdAt': Timestamp.now(),
-        'idCardScanId': _scanId,
       });
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('สมัครสมาชิกสำเร็จ'),
+              content: const Text('ระบบได้ส่งอีเมลยืนยันไปยังบัญชีของคุณแล้ว กรุณาตรวจสอบและยืนยันอีเมลเพื่อเข้าสู่ระบบ'),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('ตกลง'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const SellerLoginScreen()));
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
 
     } on FirebaseAuthException catch (e) {
       String message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
@@ -331,7 +323,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         message = 'ข้อมูลรับรองไม่ถูกต้องหรือถูกใช้งานแล้ว';
       } else if (e.code == 'invalid-verification-code') {
         message = 'รหัส OTP ไม่ถูกต้อง';
-      } else if (e.code == 'uid-already-in-use-as-buyer') { // [NEW] Custom error
+      } else if (e.code == 'uid-already-in-use-as-buyer') {
         message = 'บัญชีนี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
       }
       if(mounted) {
@@ -355,7 +347,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         title: const Text('บ้านบ้านช็อป', style: 
         TextStyle(color: Colors.black,fontWeight: FontWeight.bold)),
         centerTitle: true,
-        backgroundColor: Color(0xFFE8F4FD),
+        backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
@@ -414,13 +406,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                     return null;
                   }
                 ),
-
-                const SizedBox(height: 20),
-                _buildInputField(label: 'ชื่อ - นามสกุล', controller: _fullNameController, validator: (v) {
-                  if (v == null || v.isEmpty) return 'กรุณากรอกชื่อ';
-                  if (!RegExp(r'^[a-zA-Z\u0E00-\u0E7F\s]+$').hasMatch(v)) return 'ชื่อต้องเป็นตัวอักษรเท่านั้น';
-                  return null;
-                }),
                 const SizedBox(height: 15),
                 _buildInputField(
                   fieldKey: _emailFieldKey,
@@ -484,12 +469,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                 _buildPasswordField(label: 'ยืนยันรหัสผ่าน', controller: _confirmPasswordController, isVisible: _isConfirmPasswordVisible, onToggleVisibility: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible), validator: (v) {
                   if (v == null || v.isEmpty) return 'กรุณายืนยันรหัสผ่าน';
                   if (v != _passwordController.text) return 'รหัสผ่านไม่ตรงกัน';
-                  return null;
-                }),
-                const SizedBox(height: 15),
-                _buildInputField(label: 'บัตรประชาชน', controller: _idCardController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)], validator: (v) {
-                  if (v == null || v.isEmpty) return 'กรุณากรอกเลขบัตรประชาชน';
-                  if (v.length != 13) return 'เลขบัตรประชาชนต้องมี 13 หลัก';
                   return null;
                 }),
                 const SizedBox(height: 30),
@@ -605,6 +584,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
           hint: const Text('เลือกจังหวัด'),
+          isExpanded: true,
           icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
           items: _provinces.map((String province) => DropdownMenuItem<String>(value: province, child: Text(province))).toList(),
           onChanged: (String? newValue) => setState(() => _selectedProvince = newValue),
