@@ -94,9 +94,11 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
   assets: 
     - assets/images/
     - assets/images/gunth.jpg
+    - assets/tessdata_config.json
     - assets/tessdata/
 
 
