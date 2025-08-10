@@ -1,12 +1,16 @@
 // lib/screens/auth/seller_register_screen.dart
 
 // ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
-
+import 'dart:async';
+import 'dart:io';
 import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class SellerRegisterScreen extends StatefulWidget {
   const SellerRegisterScreen({super.key});
@@ -33,10 +37,14 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
+  String _scanStatusMessage = 'สแกน/อัปโหลดบัตรประชาชน';
 
   bool _isOtpSent = false;
   String? _verificationId;
   int? _resendToken;
+
+  StreamSubscription<DocumentSnapshot>? _scanSubscription;
+  String? _scanId;
 
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
@@ -63,8 +71,129 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _otpController.dispose();
+    _scanSubscription?.cancel();
     super.dispose();
   }
+
+
+  Future<ImageSource?> _showImageSourceDialog() async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('ถ่ายรูปใหม่'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('เลือกจากคลังภาพ'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // [REWRITTEN] This function now uploads the image and listens for results from Firestore.
+  Future<void> _scanIdCard() async {
+    // Cancel any previous listener
+    await _scanSubscription?.cancel();
+
+    final ImageSource? source = await _showImageSourceDialog();
+    if (source == null) return;
+
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: source);
+    if (image == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ไม่ได้เลือกรูปภาพ')));
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _scanStatusMessage = 'กำลังอัปโหลด...';
+      _fullNameController.clear(); // Clear previous values
+      _idCardController.clear();    // Clear previous values
+    });
+
+    // 1. Generate a unique ID for this scan session
+    _scanId = const Uuid().v4();
+    final imageFile = File(image.path);
+    // [แก้ไข] เปลี่ยนชื่อไฟล์ให้ตรงกับที่ Cloud Function คาดหวัง
+    final storagePath = 'id_card_images/$_scanId.jpg'; 
+
+    try {
+      // 2. Upload the image to Firebase Storage
+      final storageRef = FirebaseStorage.instance.ref().child(storagePath);
+      await storageRef.putFile(imageFile);
+      print('Image uploaded successfully to: $storagePath');
+
+      setState(() {
+        _scanStatusMessage = 'กำลังประมวลผลภาพ...';
+      });
+
+      // 3. Listen for the result from the Cloud Function in Firestore
+      final docRef = FirebaseFirestore.instance.collection('idCardScans').doc(_scanId);
+      _scanSubscription = docRef.snapshots().timeout(const Duration(seconds: 60), onTimeout: (sink) {
+        sink.addError('หมดเวลาในการประมวลผล กรุณาลองอีกครั้ง');
+      }).listen(
+        (snapshot) {
+          if (snapshot.exists && snapshot.data() != null) {
+            final data = snapshot.data()!;
+            final status = data['status'];
+
+            if (status == 'completed') {
+              setState(() {
+                _fullNameController.text = data['fullName'] ?? '';
+                _idCardController.text = data['idNumber'] ?? '';
+                _isLoading = false;
+                _scanStatusMessage = 'สแกนข้อมูลสำเร็จ!';
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('สแกนข้อมูลสำเร็จ กรุณาตรวจสอบความถูกต้อง')),
+              );
+              _scanSubscription?.cancel(); // Stop listening once completed
+            } else if (status == 'error') {
+              final errorMessage = data['errorMessage'] ?? 'เกิดข้อผิดพลาดในการประมวลผล';
+              setState(() {
+                _isLoading = false;
+                _scanStatusMessage = 'สแกนผิดพลาด: $errorMessage';
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('สแกนผิดพลาด: $errorMessage')),
+              );
+              _scanSubscription?.cancel(); // Stop listening on error
+            }
+          }
+        },
+        onError: (error) {
+          setState(() {
+            _isLoading = false;
+            _scanStatusMessage = 'เกิดข้อผิดพลาด ลองอีกครั้ง';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('เกิดข้อผิดพลาด: ${error.toString()}')),
+          );
+          _scanSubscription?.cancel();
+        }
+      );
+
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _scanStatusMessage = 'อัปโหลดล้มเหลว ลองอีกครั้ง';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลด: $e')),
+      );
+    }
+  }
+
 
   Future<void> _sendOtp() async {
     // Validate email and phone fields first
@@ -148,6 +277,17 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
 
   void _registerSeller() async {
     if (!_formKey.currentState!.validate()) return;
+    // [แก้ไข] ตรวจสอบว่าข้อมูลจากการสแกนมีอยู่หรือไม่ ถ้าไม่ ให้บังคับกรอกเอง
+    if (_idCardController.text.isEmpty) { // idCardNumber should always be present after scan or manual entry
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรุณาสแกนหรือกรอกเลขบัตรประชาชน')));
+      return;
+    }
+    if (_fullNameController.text.isEmpty) { // If fullName is still empty after scan, require manual entry
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรุณากรอกชื่อ-นามสกุล')));
+      return;
+    }
+
+
     if (!_isOtpSent || _verificationId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณากดส่งและยืนยัน OTP ก่อน')),
@@ -201,6 +341,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         'province': _selectedProvince,
         'hasStore': false,
         'createdAt': Timestamp.now(),
+        'idCardScanId': _scanId,
       });
 
     } on FirebaseAuthException catch (e) {
@@ -257,13 +398,60 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('ผู้ขาย - สมัครสมาชิก', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+
+              const SizedBox(height: 20),
+
+                // [แก้ไข] เปลี่ยนจาก ElevatedButton.icon เป็น OutlinedButton.icon เพื่อให้ดูเป็นปุ่ม secondary
+                // และปรับสถานะข้อความตามการทำงาน
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.camera_alt_outlined),
+                    label: Text(_scanStatusMessage),
+                    onPressed: _isLoading ? null : _scanIdCard,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: Color(0xFF7aa5d2)), // [แก้ไข] เปลี่ยนสีขอบให้เข้ากับธีม
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+                      foregroundColor: const Color(0xFF7aa5d2), // [เพิ่ม] สีข้อความและไอคอน
+                    ),
+                  ),
+                ),
+
                 const SizedBox(height: 20),
-                _buildInputField(label: 'ชื่อ - นามสกุล', controller: _fullNameController, validator: (v) {
-                  if (v == null || v.isEmpty) return 'กรุณากรอกชื่อ';
-                  if (!RegExp(r'^[a-zA-Z\u0E00-\u0E7F\s]+$').hasMatch(v)) return 'ชื่อต้องเป็นตัวอักษรเท่านั้น';
-                  return null;
-                }),
+                // [แก้ไข] เปลี่ยนช่อง ชื่อ-นามสกุล และ บัตรประชาชน ให้สามารถแก้ไขได้ หากสแกนไม่สำเร็จ
+                _buildInputField(
+                  label: 'ชื่อ - นามสกุล', // [แก้ไข] ลบ (จากการสแกน)
+                  controller: _fullNameController,
+                  // readOnly: true, // [แก้ไข] เอา readOnly ออก เพื่อให้ผู้ใช้กรอกเองได้ถ้าสแกนไม่สำเร็จ
+                  validator: (v) => (v == null || v.isEmpty) ? 'กรุณากรอกชื่อ-นามสกุล' : null, // [แก้ไข] เปลี่ยน validator
+                ),
                 const SizedBox(height: 15),
+                 _buildInputField(
+                  label: 'เลขบัตรประชาชน', // [แก้ไข] ลบ (จากการสแกน)
+                  controller: _idCardController, 
+                  // readOnly: true, // [แก้ไข] เอา readOnly ออก เพื่อให้ผู้ใช้กรอกเองได้ถ้าสแกนไม่สำเร็จ
+                  keyboardType: TextInputType.number, 
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)], 
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'กรุณากรอกเลขบัตรประชาชน'; // [แก้ไข] เปลี่ยน validator
+                    if (v.length != 13) return 'เลขบัตรประชาชนต้องมี 13 หลัก';
+                    return null;
+                  }
+                ),
+
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 20),
+
+                // [แก้ไข] ลบช่องกรอกข้อมูลชื่อ-นามสกุล และบัตรประชาชนที่ซ้ำซ้อนออก
+                // _buildInputField(label: 'ชื่อ - นามสกุล', controller: _fullNameController, validator: (v) {
+                //   if (v == null || v.isEmpty) return 'กรุณากรอกชื่อ';
+                //   if (!RegExp(r'^[a-zA-Z\u0E00-\u0E7F\s]+$').hasMatch(v)) return 'ชื่อต้องเป็นตัวอักษรเท่านั้น';
+                //   return null;
+                // }),
+                // const SizedBox(height: 15),
+
                 _buildInputField(
                   fieldKey: _emailFieldKey,
                   label: 'อีเมล', 
@@ -328,12 +516,13 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   if (v != _passwordController.text) return 'รหัสผ่านไม่ตรงกัน';
                   return null;
                 }),
-                const SizedBox(height: 15),
-                _buildInputField(label: 'บัตรประชาชน', controller: _idCardController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)], validator: (v) {
-                  if (v == null || v.isEmpty) return 'กรุณากรอกเลขบัตรประชาชน';
-                  if (v.length != 13) return 'เลขบัตรประชาชนต้องมี 13 หลัก';
-                  return null;
-                }),
+                // [แก้ไข] ลบช่องกรอกบัตรประชาชนที่ซ้ำซ้อนออก
+                // const SizedBox(height: 15),
+                // _buildInputField(label: 'บัตรประชาชน', controller: _idCardController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)], validator: (v) {
+                //   if (v == null || v.isEmpty) return 'กรุณากรอกเลขบัตรประชาชน';
+                //   if (v.length != 13) return 'เลขบัตรประชาชนต้องมี 13 หลัก';
+                //   return null;
+                // }),
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
@@ -377,6 +566,8 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     List<TextInputFormatter>? inputFormatters,
     String? prefixText,
     Key? fieldKey,
+    bool readOnly = false,
+    String? hintText, // เพิ่ม parameter สำหรับ hintText
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,7 +583,9 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
           controller: controller,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
+          readOnly: readOnly,
           decoration: InputDecoration(
+            hintText: hintText, // ใช้ hintText
             prefixText: prefixText,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0), borderSide: BorderSide.none),
             filled: true,

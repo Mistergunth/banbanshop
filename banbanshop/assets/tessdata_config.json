@@ -1,3 +1,6 @@
 {
-  "tessdata_path": "assets/tessdata"
+  "files": [
+    "tha.traineddata",
+    "eng.traineddata"
+  ]
 }

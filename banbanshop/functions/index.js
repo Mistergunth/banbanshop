@@ -1,12 +1,18 @@
 // File: functions/index.js
-// --- [ฉบับแก้ไขสมบูรณ์] ---
 
 const functions = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { logger } = require("firebase-functions");
 const admin = require("firebase-admin");
+const { onObjectFinalized } = require("firebase-functions/v2/storage");
+const vision = require("@google-cloud/vision");
 
+// [แก้ไข] ย้ายการสร้าง VisionClient มาไว้ที่ Global Scope
+// การสร้าง client นี้ควรเกิดขึ้นเพียงครั้งเดียวเมื่อฟังก์ชันถูกโหลด
+const visionClient = new vision.ImageAnnotatorClient();
+
+// [แก้ไข] เริ่มต้น Firebase Admin SDK เพียงครั้งเดียว
 admin.initializeApp();
 
 // --- โค้ดเดิมของคุณ (ไม่เปลี่ยนแปลง) ---
@@ -86,8 +92,6 @@ exports.chatWithGemini = onCall({
   }
 
   try {
-    // --- [การแก้ไขที่สำคัญ] ---
-    // เปลี่ยนชื่อโมเดลเป็น "gemini-1.5-flash-latest" ซึ่งเป็นเวอร์ชันที่ถูกต้องและพร้อมใช้งาน
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
     
     const chat = model.startChat({
@@ -107,101 +111,123 @@ exports.chatWithGemini = onCall({
   }
 });
 
-// --- [เพิ่มใหม่] ฟังก์ชันสำหรับประมวลผลภาพบัตรประชาชน ---
-const { onObjectFinalized } = require("firebase-functions/v2/storage");
-const vision = require("@google-cloud/vision");
-
-// สร้าง Client สำหรับเรียกใช้ Vision API
-const visionClient = new vision.ImageAnnotatorClient();
-
+// --- [แก้ไขใหม่] ฟังก์ชันสำหรับประมวลผลภาพบัตรประชาชนด้วย Cloud Vision API ---
 exports.processIdCardImage = onObjectFinalized({
-    bucket: "banbanshop",
-    region: "asia-southeast1", // แนะนำให้เปลี่ยน Region ให้ใกล้ไทยมากขึ้น
-    timeoutSeconds: 120,    // ขยายเวลาเป็น 2 นาที
-    memory: "1GiB",         // เพิ่มหน่วยความจำเป็น 1GiB (v2 syntax)
+    // [แก้ไข: สำคัญมาก!] เปลี่ยนกลับเป็นชื่อสั้นของ Bucket เท่านั้น
+    // เนื่องจาก Cloud Functions (2nd Gen) สำหรับ Storage Trigger ต้องการชื่อสั้น
+    bucket: "banbanshop", 
+    region: "asia-southeast1",
+    timeoutSeconds: 300, // เพิ่ม timeout เป็น 5 นาที (300 วินาที)
+    memory: "2GiB",      // เพิ่ม memory เป็น 2GiB (ถ้ามีให้เลือก)
 }, async (event) => {
     logger.log(">>>>>> DIAGNOSTIC TEST: Function triggered successfully! <<<<<<");
     const fileBucket = event.data.bucket;
-
     const filePath = event.data.name;
-    if (!filePath.startsWith("id_card_images/")) {
-        return logger.log("Not an ID card image, skipping.");
-    }
     const contentType = event.data.contentType;
 
-    // 1. ตรวจสอบว่าเป็นไฟล์รูปภาพที่ถูกอัปโหลดมาในโฟลเดอร์ที่ถูกต้องหรือไม่
+    // ตรวจสอบว่าเป็นไฟล์รูปภาพที่ถูกอัปโหลดมาในโฟลเดอร์ที่ถูกต้องหรือไม่
     if (!contentType.startsWith("image/") || !filePath.startsWith("id_card_images/")) {
-        return logger.log("This is not an image or not in the correct folder.");
+        // ถ้าไม่ใช่รูปภาพบัตรประชาชน หรือไม่ได้อยู่ในโฟลเดอร์ที่กำหนด ให้ข้ามการประมวลผล
+        return logger.log("This is not an ID card image or not in the correct folder, skipping.");
     }
 
-    // 2. ดึง User ID ออกมาจากชื่อไฟล์ (เช่น "id_card_images/USER_ID.jpg")
+    // ดึง User ID ออกมาจากชื่อไฟล์ (เช่น "id_card_images/USER_ID.jpg")
     const fileName = filePath.split("/").pop();
     const userId = fileName.split(".")[0];
     if (!userId) {
+        // ถ้าไม่สามารถดึง User ID ได้ ให้บันทึกข้อผิดพลาด
         return logger.error("Could not extract user ID from file path.", { filePath });
     }
 
     logger.log(`Processing ID card for user: ${userId}`);
-
-    // [IMPROVEMENT] Initialize client inside the function to avoid deployment timeouts.
-    const visionClient = new vision.ImageAnnotatorClient();
+    const db = admin.firestore(); // สร้าง Firestore instance ภายในฟังก์ชัน
 
     try {
-        // 3. เรียกใช้ Cloud Vision API เพื่ออ่านข้อความจากภาพ
-        const [result] = await visionClient.textDetection(`gs://${fileBucket}/${filePath}`);
+        // เรียกใช้ Cloud Vision API เพื่ออ่านข้อความจากภาพ (ระบุภาษาเป็น THAI และ English)
+        const [result] = await visionClient.textDetection(`gs://${fileBucket}/${filePath}`, {
+            imageContext: {
+                languageHints: ['th', 'en'] // แนะนำให้ใช้ภาษาไทยและอังกฤษ
+            }
+        });
         const detections = result.textAnnotations;
 
         if (!detections || detections.length === 0) {
+            // ถ้าไม่พบข้อความในภาพ ให้บันทึกสถานะข้อผิดพลาดลง Firestore
             logger.log(`No text found in image for user: ${userId}`);
-            const db = admin.firestore();
             await db.collection("idCardScans").doc(userId).set({
                 status: "error",
                 errorMessage: "No text found in image.",
-            });
+                processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
             return null;
         }
 
-        // นำข้อความทั้งหมดมารวมกัน
-        const fullText = detections[0].description.replace(/\n/g, " ");
+        const fullText = detections[0].description;
+        logger.log("Full text from Vision API:", fullText);
 
-        // 4. ใช้ Regular Expression เพื่อค้นหาข้อมูล
-        const idCardRegex = /\b(\d[\s-]?){12}\d\b/;
-        const nameRegex = /(นาย|นางสาว|นาง)\s*([\u0E00-\u0E7F]+)\s+([\u0E00-\u0E7F]+)/;
+        const idCardRegex = /(\d[\s-]?){13}/;
+        const nameRegex = /(นาย|นางสาว|นาง|เด็กชาย|เด็กหญิง)\s*([ก-๙]+(?:\s[ก-๙]+)?)\s+([ก-๙]+)/;
+        const fallbackNameRegex = /(?:ชื่อตัวและชื่อสกุล|ชื่อ)\s*([ก-๙\s]+)/;
+        const engNameRegex = /Name\s*([a-zA-Z\s.]+)\s*Last name\s*([a-zA-Z\s.]+)/;
 
         let foundIdNumber = "";
         let foundFullName = "";
+        let foundEngName = "";
 
-        // [FIXED] Use JavaScript's .match() method, not Dart's .firstMatch()
+        // ค้นหาเลขบัตรประชาชน
         const idMatch = fullText.match(idCardRegex);
         if (idMatch) {
-            foundIdNumber = idMatch[0].replace(/[\s-]/g, "");
+            foundIdNumber = idMatch[0].replace(/[\s-]/g, ""); // ลบช่องว่างและขีดกลาง
+            // ตรวจสอบความยาวเลขบัตรประชาชน 13 หลักสุดท้าย (เผื่อมีตัวเลขอื่น ๆ ติดมา)
+            if (foundIdNumber.length > 13) {
+                foundIdNumber = foundIdNumber.substring(foundIdNumber.length - 13);
+            }
         }
 
-        // [FIXED] Use JavaScript's .match() method
-        const nameMatch = fullText.match(nameRegex);
-        if (nameMatch) {
-            foundFullName = nameMatch[0].trim();
+        // ค้นหาชื่อ-นามสกุลไทย
+        let nameMatch = fullText.match(nameRegex);
+        if (nameMatch && nameMatch[2] && nameMatch[3]) {
+            foundFullName = `${nameMatch[2].trim()} ${nameMatch[3].trim()}`;
+        } else {
+            nameMatch = fullText.match(fallbackNameRegex);
+            if (nameMatch && nameMatch[1]) {
+                foundFullName = nameMatch[1].trim().replace(/[a-zA-Z0-9]/g, '');
+                const nameParts = foundFullName.split(/\s+/).filter(part => part.length > 0);
+                if (nameParts.length >= 2) {
+                    foundFullName = `${nameParts[0]} ${nameParts[1]}`;
+                } else {
+                    foundFullName = nameParts.length > 0 ? nameParts[0] : "";
+                }
+            }
         }
 
-        // 5. นำข้อมูลที่ได้ไปบันทึกไว้ใน Firestore
-        const db = admin.firestore();
+        // ค้นหาชื่อภาษาอังกฤษ
+        const engNameMatch = fullText.match(engNameRegex);
+        if (engNameMatch && engNameMatch[1] && engNameMatch[2]) {
+            foundEngName = `${engNameMatch[1].trim()} ${engNameMatch[2].trim()}`;
+        }
+
+        // นำข้อมูลที่ได้ไปบันทึกไว้ใน Firestore ใน Collection "idCardScans"
         await db.collection("idCardScans").doc(userId).set({
             idNumber: foundIdNumber,
             fullName: foundFullName,
-            status: "completed",
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+            englishName: foundEngName,
+            status: "completed", // ตั้งสถานะเป็น "completed" หากประมวลผลสำเร็จ
+            processedAt: admin.firestore.FieldValue.serverTimestamp(), // บันทึกเวลาที่ประมวลผล
+        }, { merge: true }); // ใช้ merge: true เพื่อไม่ให้เขียนทับข้อมูลอื่น ๆ ใน document
 
-        return logger.log(`Successfully processed ID for user ${userId}. Name: ${foundFullName}, ID: ${foundIdNumber}`);
+        logger.log(`Successfully processed ID for user ${userId}. Name: ${foundFullName}, ID: ${foundIdNumber}, Eng Name: ${foundEngName}`);
+        return null;
 
     } catch (error) {
+        // หากเกิดข้อผิดพลาดในการประมวลผล ให้บันทึกสถานะข้อผิดพลาดลง Firestore
         logger.error(`Error processing image for user ${userId}:`, error);
-        const db = admin.firestore();
         await db.collection("idCardScans").doc(userId).set({
             status: "error",
-            errorMessage: "An error occurred during processing.",
-            errorDetails: error.message,
-        });
+            errorMessage: "An error occurred during processing: " + error.message,
+            errorDetails: error.stack,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
         return null;
     }
 });
