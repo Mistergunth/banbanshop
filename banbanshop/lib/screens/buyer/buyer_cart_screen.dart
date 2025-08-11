@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/models/cart_model.dart';
-// --- [NEW] Import the checkout screen ---
 import 'package:banbanshop/screens/buyer/checkout_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -81,7 +80,7 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
         stream: _getCartItemsStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))); // Blue loading
           }
           if (snapshot.hasError) {
             return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
@@ -125,8 +124,10 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
   Widget _buildCartItemCard(CartItem item) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      elevation: 3, // Added elevation
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Rounded corners
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(12.0), // Increased padding
         child: Row(
           children: [
             Container(
@@ -146,23 +147,23 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
                   ? const Icon(Icons.image_not_supported, color: Colors.grey)
                   : null,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 15), // Increased spacing
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text('฿${item.price.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF9C6ADE), fontSize: 14)),
+                  Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.black87)), // Larger, darker text
+                  const SizedBox(height: 6),
+                  Text('฿${item.price.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF4A00E0), fontSize: 15, fontWeight: FontWeight.bold)), // Dark Purple price
                 ],
               ),
             ),
             Row(
               children: [
-                IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _updateQuantity(item.productId, -1)),
-                Text('${item.quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _updateQuantity(item.productId, 1)),
-                IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _removeItem(item.productId)),
+                IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent), onPressed: () => _updateQuantity(item.productId, -1)), // Red icon
+                Text('${item.quantity}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87)), // Larger, darker text
+                IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.green), onPressed: () => _updateQuantity(item.productId, 1)), // Green icon
+                IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _removeItem(item.productId)), // Red icon
               ],
             ),
           ],
@@ -189,10 +190,10 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('ยอดรวม:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('ยอดรวม:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
               Text(
                 '฿${totalPrice.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF9C6ADE)),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF4A00E0)), // Dark Purple total price
               ),
             ],
           ),
@@ -215,7 +216,7 @@ class _BuyerCartScreenState extends State<BuyerCartScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF66BB6A),
+                backgroundColor: const Color(0xFF0288D1), // Blue checkout button
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

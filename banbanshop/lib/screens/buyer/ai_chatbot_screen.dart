@@ -115,9 +115,17 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
     // UI ทั้งหมดเหมือนเดิมทุกประการ
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Chatbot (Firebase)'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        title: const Text('AI Chatbot'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: Column(
         children: [
@@ -142,11 +150,11 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.0,
-                      color: Colors.grey[400],
+                      color: const Color(0xFF0288D1), // Blue loading indicator
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text("AI กำลังพิมพ์..."),
+                  Text("AI กำลังพิมพ์...", style: TextStyle(color: Colors.grey[700])), // Darker text
                 ],
               ),
             ),
@@ -163,7 +171,7 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
         margin: const EdgeInsets.symmetric(vertical: 5.0),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
         decoration: BoxDecoration(
-          color: message.isUser ? const Color(0xFF9C6ADE) : Colors.grey[200],
+          color: message.isUser ? const Color(0xFF0288D1) : const Color(0xFFE0F7FA), // Blue for user, Light Blue for AI
           borderRadius: BorderRadius.circular(20.0).copyWith(
             bottomRight: message.isUser ? const Radius.circular(5) : const Radius.circular(20),
             bottomLeft: message.isUser ? const Radius.circular(20) : const Radius.circular(5),
@@ -221,7 +229,7 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
               icon: const Icon(Icons.send),
               onPressed: _sendMessage,
               style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFF9C6ADE),
+                backgroundColor: const Color(0xFF4A00E0), // Dark Purple send button
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.all(12),
               ),

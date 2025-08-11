@@ -1,0 +1,6 @@
+FIREBASE_CONFIG: '{"projectId":"banbanshop","storageBucket":"banbanshop.firebasestorage.app"}'
+GCLOUD_PROJECT: "banbanshop"
+EVENTARC_CLOUD_EVENT_SOURCE: "projects/banbanshop/locations/asia-southeast1/services/processIdCardImage"
+FUNCTION_SIGNATURE_TYPE: "cloudevent"
+FUNCTION_TARGET: "processIdCardImage"
+LOG_EXECUTION_ID: "true"

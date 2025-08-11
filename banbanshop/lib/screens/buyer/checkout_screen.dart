@@ -9,6 +9,7 @@ import 'package:banbanshop/screens/models/order_model.dart' as app_order;
 import 'package:banbanshop/screens/models/order_item_model.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:banbanshop/screens/buyer/payment_screen.dart';
+import 'package:banbanshop/screens/buyer/add_edit_address_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final List<CartItem> cartItems;
@@ -206,15 +207,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       elevation: isSelected ? 4 : 1,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: isSelected ? const BorderSide(color: Color(0xFF9C6ADE), width: 2) : BorderSide.none,
+                        side: isSelected ? const BorderSide(color: Color(0xFF0288D1), width: 2) : BorderSide.none, // Blue border for selected
                       ),
                       child: ListTile(
                         leading: Icon(
                           isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                          color: isSelected ? const Color(0xFF9C6ADE) : Colors.grey,
+                          color: isSelected ? const Color(0xFF0288D1) : Colors.grey, // Blue icon for selected
                         ),
-                        title: Text(address.contactName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(address.addressLine),
+                        title: Text(address.contactName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
+                        subtitle: Text(address.addressLine, style: TextStyle(color: Colors.grey[700])), // Darker subtitle
                         onTap: () {
                           setState(() {
                             _selectedAddress = address;
@@ -242,11 +243,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ยืนยันคำสั่งซื้อ'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -282,7 +291,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
-      child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)), // Darker title
     );
   }
 
@@ -304,6 +313,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _selectedDeliveryMethod = newSelection.first;
         });
       },
+      style: SegmentedButton.styleFrom(
+        selectedBackgroundColor: const Color(0xFF0288D1), // Blue selected background
+        selectedForegroundColor: Colors.white, // White selected text/icon
+        foregroundColor: Colors.grey[700], // Darker grey for unselected
+        side: BorderSide(color: Colors.grey.shade300), // Light grey border
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Rounded corners
+      ),
     );
   }
 
@@ -325,44 +341,102 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _selectedPaymentMethod = newSelection.first;
         });
       },
+      style: SegmentedButton.styleFrom(
+        selectedBackgroundColor: const Color(0xFF4A00E0), // Dark Purple selected background
+        selectedForegroundColor: Colors.white, // White selected text/icon
+        foregroundColor: Colors.grey[700], // Darker grey for unselected
+        side: BorderSide(color: Colors.grey.shade300), // Light grey border
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Rounded corners
+      ),
     );
   }
 
   Widget _buildAddressSection() {
     if (_addresses.isEmpty) {
-      return Card(child: ListTile(title: Text('กรุณาเพิ่มที่อยู่ในโปรไฟล์ของคุณ'), onTap: (){/* TODO: Navigate to add address screen */},));
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: ListTile(
+          title: const Text('กรุณาเพิ่มที่อยู่ในโปรไฟล์ของคุณ', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), // Red text
+          subtitle: const Text('แตะเพื่อเพิ่มที่อยู่ใหม่'),
+          trailing: const Icon(Icons.add_location_alt_outlined, color: Colors.redAccent), // Red icon
+          onTap: () async{
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddEditAddressScreen()),
+            );
+            _fetchUserAddresses();
+          },
+        ),
+      );
     }
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: const Icon(Icons.location_on_outlined, color: Color(0xFF9C6ADE)),
-        title: Text(_selectedAddress?.contactName ?? 'เลือกที่อยู่', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(_selectedAddress?.addressLine ?? 'ยังไม่ได้เลือกที่อยู่'),
-        trailing: const Icon(Icons.arrow_forward_ios),
+        leading: const Icon(Icons.location_on_outlined, color: Color(0xFF0288D1)), // Blue icon
+        title: Text(_selectedAddress?.contactName ?? 'เลือกที่อยู่', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
+        subtitle: Text(_selectedAddress?.addressLine ?? 'ยังไม่ได้เลือกที่อยู่', style: TextStyle(color: Colors.grey[700])), // Darker subtitle
+        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey), // Grey arrow
         onTap: _showAddressSelectionDialog,
       ),
     );
   }
 
   Widget _buildItemsList() {
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: widget.cartItems.length,
-      separatorBuilder: (context, index) => const Divider(),
-      itemBuilder: (context, index) {
-        final item = widget.cartItems[index];
-        return ListTile(
-          leading: Image.network(item.imageUrl ?? '', width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(width: 50, height: 50, color: Colors.grey[200])),
-          title: Text(item.name),
-          subtitle: Text('จำนวน: ${item.quantity}'),
-          trailing: Text('฿${(item.price * item.quantity).toStringAsFixed(2)}'),
-        );
-      },
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12.0), // Padding inside card
+        itemCount: widget.cartItems.length,
+        separatorBuilder: (context, index) => const Divider(height: 20), // Spacing between items
+        itemBuilder: (context, index) {
+          final item = widget.cartItems[index];
+          return Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey[200],
+                  image: item.imageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(item.imageUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: item.imageUrl == null
+                    ? const Icon(Icons.image_not_supported, color: Colors.grey)
+                    : null,
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)), // Darker text
+                    const SizedBox(height: 4),
+                    Text('จำนวน: ${item.quantity}', style: TextStyle(color: Colors.grey[700], fontSize: 14)), // Darker text
+                  ],
+                ),
+              ),
+              Text('฿${(item.price * item.quantity).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF4A00E0))), // Dark Purple price
+            ],
+          );
+        },
+      ),
     );
   }
 
   Widget _buildPriceSummary(double subtotal, double totalAmount) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -382,8 +456,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: isTotal ? 18 : 16, fontWeight: isTotal ? FontWeight.bold : FontWeight.normal)),
-        Text('฿${amount.toStringAsFixed(2)}', style: TextStyle(fontSize: isTotal ? 18 : 16, fontWeight: isTotal ? FontWeight.bold : FontWeight.normal)),
+        Text(label, style: TextStyle(fontSize: isTotal ? 18 : 16, fontWeight: isTotal ? FontWeight.bold : FontWeight.normal, color: isTotal ? Colors.black87 : Colors.grey[800])), // Darker text
+        Text('฿${amount.toStringAsFixed(2)}', style: TextStyle(fontSize: isTotal ? 18 : 16, fontWeight: isTotal ? FontWeight.bold : FontWeight.normal, color: isTotal ? const Color(0xFF4A00E0) : Colors.black87)), // Dark Purple for total
       ],
     );
   }
@@ -400,9 +474,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: ElevatedButton(
           onPressed: _isPlacingOrder ? null : _placeOrder,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF66BB6A),
+            backgroundColor: const Color(0xFF0288D1), // Blue confirm button
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 15),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: GoogleFonts.kanit().fontFamily ),
           ),
           child: _isPlacingOrder

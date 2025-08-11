@@ -36,6 +36,16 @@ class _BuyerOrdersScreenState extends State<BuyerOrdersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('รายการสั่งซื้อของฉัน'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: _currentUser == null
           ? const Center(child: Text('กรุณาเข้าสู่ระบบเพื่อดูรายการสั่งซื้อ'))
@@ -43,7 +53,7 @@ class _BuyerOrdersScreenState extends State<BuyerOrdersScreen> {
               stream: _getBuyerOrdersStream(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))); // Blue loading
                 }
                 if (snapshot.hasError) {
                   return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
@@ -88,9 +98,9 @@ class BuyerOrderCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
-      elevation: 2,
+      elevation: 3, // Added elevation
       shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Rounded corners
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -101,7 +111,7 @@ class BuyerOrderCard extends StatelessWidget {
               children: [
                 Text(
                   'ออเดอร์ #${order.id.substring(0, 8).toUpperCase()}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.black87), // Larger, darker text
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -144,7 +154,7 @@ class BuyerOrderCard extends StatelessWidget {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
+                          backgroundColor: const Color(0xFF0288D1), // Blue button
                           foregroundColor: Colors.white,
                         ),
                       )
@@ -160,7 +170,7 @@ class BuyerOrderCard extends StatelessWidget {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
+                          backgroundColor: const Color(0xFF4A00E0), // Dark Purple button
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -177,7 +187,7 @@ class BuyerOrderCard extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: Colors.grey[700]),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)), // Darker text
         const SizedBox(width: 4),
         Expanded(child: Text(value, style: TextStyle(color: Colors.grey[800]))),
       ],
@@ -191,7 +201,7 @@ class BuyerOrderCard extends StatelessWidget {
       case OrderStatus.processing:
         return Colors.blue;
       case OrderStatus.shipped:
-        return Colors.deepPurple;
+        return const Color(0xFF4A00E0); // Dark Purple for shipped
       case OrderStatus.delivered:
         return Colors.green;
       case OrderStatus.cancelled:

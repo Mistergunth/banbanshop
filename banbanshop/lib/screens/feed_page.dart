@@ -13,8 +13,9 @@ import 'package:banbanshop/screens/store_screen_content.dart';
 import 'package:banbanshop/screens/models/create_post.dart';
 import 'package:banbanshop/screens/models/post_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:banbanshop/screens/buyer/favorites_screen.dart';
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:banbanshop/screens/seller/store_profile.dart';
 import 'package:banbanshop/screens/role_select.dart';
 import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart';
@@ -61,21 +62,28 @@ class FilterButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), // Increased padding
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF9C6ADE) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? const Color(0xFF9C6ADE) : Colors.blue, width: 1),
+          color: isSelected ? const Color(0xFF0288D1) : Colors.white, // Deeper blue for selected, matching icon
+          borderRadius: BorderRadius.circular(25), // More rounded corners
+          boxShadow: [ // Subtle shadow
+            BoxShadow(
+              color: isSelected ? const Color.fromARGB(255, 19, 117, 255).withOpacity(0.4) : Colors.grey.withOpacity(0.2),
+              blurRadius: 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.blue,
+            color: isSelected ? Colors.white : const Color(0xFF0288D1), // Text color for selected/unselected, matching icon
             fontSize: 16,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
-    )
-  );
+      ),
+    );
   }
 }
 
@@ -294,26 +302,34 @@ class _FeedPageState extends State<FeedPage> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F4FD),
+      backgroundColor: const Color(0xFFF0F4F8), // Lighter background color
       appBar: AppBar(
-        backgroundColor: const Color(0xFFE8F4FD),
+        flexibleSpace: Container( // Added flexibleSpace for gradient
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Purple to dark purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         elevation: 0,
         leading: Navigator.of(context).canPop()
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios, size: 20),
+                icon: const Icon(Icons.arrow_back_ios, size: 20, color: Colors.white), // White icon color
                 onPressed: () => Navigator.pop(context),
               )
             : null,
         title: Text(
           _getAppBarTitle(),
-          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), // White text color
         ),
         centerTitle: true,
         actions: [
           Builder(
             builder: (BuildContext innerContext) {
               return IconButton(
-                icon: const Icon(Icons.menu, size: 24),
+                icon: const Icon(Icons.menu, size: 24, color: Colors.white), // White icon color
                 onPressed: () {
                   Scaffold.of(innerContext).openEndDrawer();
                 },
@@ -327,7 +343,13 @@ class _FeedPageState extends State<FeedPage> {
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: const BoxDecoration(color: Color(0xFF9C6ADE)),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient( // Vibrant gradient for drawer header
+                  colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Purple to dark purple
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -346,7 +368,7 @@ class _FeedPageState extends State<FeedPage> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.home_outlined),
+              leading: Icon(Icons.home_outlined, color: Colors.purple.shade700),
               title: const Text('หน้าแรก (ฟีดโพสต์)'),
               onTap: () {
                 _onItemTapped(0);
@@ -354,7 +376,7 @@ class _FeedPageState extends State<FeedPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.storefront_outlined),
+              leading: Icon(Icons.storefront_outlined, color: Colors.deepOrange.shade700),
               title: const Text('ร้านค้าทั้งหมด'),
               onTap: () {
                 setState(() {
@@ -366,7 +388,7 @@ class _FeedPageState extends State<FeedPage> {
             ),
             if (widget.storeProfile != null)
               ListTile(
-                leading: const Icon(Icons.settings_outlined),
+                leading: Icon(Icons.settings_outlined, color: Colors.blue.shade700),
                 title: const Text('จัดการร้านค้าของฉัน'),
                 onTap: () {
                   Navigator.pop(context);
@@ -383,13 +405,15 @@ class _FeedPageState extends State<FeedPage> {
               ),
             if (!widget.isSeller)
               ListTile(
-                leading: const Icon(Icons.favorite_outline),
+                leading: Icon(Icons.favorite_outline, color: Colors.pink.shade700),
                 title: const Text('รายการโปรด'),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ฟังก์ชันรายการโปรดยังไม่พร้อมใช้งาน')),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const FavoritesScreen(),
+                    ),
                   );
-                  if (mounted) Navigator.pop(context);
                 },
               ),
             Padding(
@@ -398,9 +422,13 @@ class _FeedPageState extends State<FeedPage> {
                 value: _drawerSelectedProvince,
                 decoration: InputDecoration(
                   labelText: 'เลือกจังหวัด',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  labelStyle: TextStyle(color: Colors.grey[700]),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: Colors.white,
                 ),
                 items: _provinces.map((String province) {
                   return DropdownMenuItem<String>(
@@ -422,9 +450,13 @@ class _FeedPageState extends State<FeedPage> {
                 value: _drawerSelectedCategory,
                 decoration: InputDecoration(
                   labelText: 'เลือกหมวดหมู่',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  labelStyle: TextStyle(color: Colors.grey[700]),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: Colors.white,
                 ),
                 items: _categories.map((String category) {
                   return DropdownMenuItem<String>(
@@ -442,7 +474,7 @@ class _FeedPageState extends State<FeedPage> {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.logout),
+              leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('ออกจากระบบ'),
               onTap: () async {
                 await FirebaseAuth.instance.signOut();
@@ -460,28 +492,35 @@ class _FeedPageState extends State<FeedPage> {
                 child: Column(
                   children: [
                     Container(
-                      height: 40,
+                      height: 50, // Slightly taller search bar
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(25), // More rounded
+                        boxShadow: [ // Subtle shadow
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            blurRadius: 5,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: TextField(
                         controller: searchController,
                         decoration: InputDecoration(
-                          hintText: 'ค้นหา',
+                          hintText: 'ค้นหาโพสต์ หรือ ร้านค้า...', // More descriptive hint
                           hintStyle: TextStyle(color: Colors.grey[500]),
-                          prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
+                          prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 22), // Larger icon
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
                         ),
                         onChanged: (query) {
                           setState(() {});
                         },
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 15), // Increased spacing
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Distribute evenly
                       children: [
                         FilterButton(
                           text: 'ฟีดโพสต์',
@@ -493,7 +532,6 @@ class _FeedPageState extends State<FeedPage> {
                             });
                           },
                         ),
-                        const SizedBox(width: 10),
                         FilterButton(
                           text: 'ร้านค้า',
                           isSelected: _selectedTopFilter == 'ร้านค้า',
@@ -510,7 +548,7 @@ class _FeedPageState extends State<FeedPage> {
               ),
             Expanded(
               child: _isLoadingPosts && _selectedTopFilter == 'ฟีดโพสต์'
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF6A1B9A))) // Darker purple loading
                   : IndexedStack(
                       index: _selectedIndex,
                       children: pages,
@@ -529,57 +567,80 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Widget _buildFeedContent() {
-    return Column(
-      children: [
-        Expanded(
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
+    // Wrap the Container with ClipRRect to ensure content is clipped to rounded corners
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(30), // More rounded
+        topRight: Radius.circular(30), // More rounded
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          // Removed borderRadius from here as it's now handled by ClipRRect
+          boxShadow: [ // Subtle shadow
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -5), // Shadow at the top
             ),
-            child: _selectedTopFilter == 'ฟีดโพสต์'
-                ? (filteredPosts.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.shopping_bag_outlined, size: 50, color: Colors.grey),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'ไม่มีโพสต์ที่ตรงกับเงื่อนไข',
-                              style: TextStyle(fontSize: 18, color: Colors.grey),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              '${_drawerSelectedCategory ?? 'ทั้งหมด'} ใน ${_drawerSelectedProvince ?? 'ทั้งหมด'}',
-                              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(15),
-                        itemCount: filteredPosts.length,
-                        itemBuilder: (context, index) {
-                          final post = filteredPosts[index];
-                          return PostCard(
-                            post: post,
-                            onDelete: _deletePost,
-                            currentUserId: FirebaseAuth.instance.currentUser?.uid,
-                            isSeller: widget.isSeller,
-                          );
-                        },
-                      ))
-                : StoreScreenContent(
-                    selectedProvince: _drawerSelectedProvince ?? 'ทั้งหมด',
-                    selectedCategory: _drawerSelectedCategory ?? 'ทั้งหมด',
-                  ),
-          ),
+          ],
         ),
-      ],
+        child: _selectedTopFilter == 'ฟีดโพสต์'
+            ? (filteredPosts.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.info_outline, size: 60, color: Colors.grey), // Changed icon
+                        const SizedBox(height: 15),
+                        const Text(
+                          'ไม่พบโพสต์ที่ตรงกับเงื่อนไข',
+                          style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${_drawerSelectedCategory ?? 'ทั้งหมด'} ใน ${_drawerSelectedProvince ?? 'ทั้งหมด'}',
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon( // Added refresh button
+                          onPressed: () {
+                            searchController.clear();
+                            _drawerSelectedProvince = 'ทั้งหมด';
+                            _drawerSelectedCategory = 'ทั้งหมด';
+                            _fetchPostsFromFirestore();
+                          },
+                          icon: const Icon(Icons.refresh, color: Colors.white),
+                          label: const Text('รีเซ็ตการค้นหา', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4A00E0), // Dark purple button
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(15),
+                    itemCount: filteredPosts.length,
+                    itemBuilder: (context, index) {
+                      final post = filteredPosts[index];
+                      return PostCard(
+                        post: post,
+                        onDelete: _deletePost,
+                        currentUserId: FirebaseAuth.instance.currentUser?.uid,
+                        isSeller: widget.isSeller,
+                      );
+                    },
+                  ))
+            : StoreScreenContent(
+                selectedProvince: _drawerSelectedProvince ?? 'ทั้งหมด',
+                selectedCategory: _drawerSelectedCategory ?? 'ทั้งหมด',
+              ),
+      ),
     );
   }
 
@@ -669,7 +730,7 @@ class _PostCardState extends State<PostCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline),
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent), // Red icon
                     onPressed: () {
                       if (quantity > 1) {
                         setState(() => quantity--);
@@ -678,7 +739,7 @@ class _PostCardState extends State<PostCard> {
                   ),
                   Text('$quantity', style: Theme.of(context).textTheme.headlineMedium),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline),
+                    icon: const Icon(Icons.add_circle_outline, color: Colors.green), // Green icon
                     onPressed: () {
                       setState(() => quantity++);
                     },
@@ -687,10 +748,14 @@ class _PostCardState extends State<PostCard> {
               ),
               actions: <Widget>[
                 TextButton(
-                  child: const Text('ยกเลิก'),
+                  child: const Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6A1B9A), // Purple button
+                    foregroundColor: Colors.white,
+                  ),
                   child: const Text('ตกลง'),
                   onPressed: () => Navigator.of(context).pop(quantity),
                 ),
@@ -776,12 +841,12 @@ class _PostCardState extends State<PostCard> {
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(20), // More rounded corners
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.grey.withOpacity(0.15), // Stronger shadow
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -789,40 +854,44 @@ class _PostCardState extends State<PostCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.all(18), // Increased padding
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.grey[200],
+                  radius: 20, // Larger avatar
+                  backgroundColor: Colors.blue.shade100, // Light blue default
                   backgroundImage: widget.post.avatarImageUrl != null && widget.post.avatarImageUrl!.startsWith('http')
                       ? NetworkImage(widget.post.avatarImageUrl!)
-                      : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+                      : null, // No background image if using default icon
+                  child: widget.post.avatarImageUrl == null || !widget.post.avatarImageUrl!.startsWith('http')
+                      ? Icon(Icons.person, size: 30, color: Colors.blue.shade700) // Default avatar icon
+                      : null,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 15), // Increased spacing
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         widget.post.shopName,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87), // Bolder, larger
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         _timeAgoString,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 10),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Increased padding
                         decoration: BoxDecoration(
-                          color: const Color(0xFF9C6ADE),
-                          borderRadius: BorderRadius.circular(10),
+                          color: const Color(0xFF0288D1), // Deeper purple for badge
+                          borderRadius: BorderRadius.circular(15), // More rounded
                         ),
                         child: Text(
                           '${widget.post.category} | ${widget.post.province}',
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -830,27 +899,27 @@ class _PostCardState extends State<PostCard> {
                 ),
                 if (isMyPost)
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: const Icon(Icons.delete, color: Colors.redAccent, size: 24), // Brighter red, larger icon
                     onPressed: () => widget.onDelete(widget.post),
                   ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Text(
               widget.post.title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87), // Larger, bolder text
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 18),
           if (widget.post.imageUrl != null && widget.post.imageUrl!.isNotEmpty)
             Container(
               width: double.infinity,
-              height: 200,
-              margin: const EdgeInsets.symmetric(horizontal: 15),
+              height: 200, // Taller image container
+              margin: const EdgeInsets.symmetric(horizontal: 18),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(15), // More rounded image corners
                 image: DecorationImage(
                   image: NetworkImage(widget.post.imageUrl!),
                   fit: BoxFit.cover,
@@ -861,43 +930,49 @@ class _PostCardState extends State<PostCard> {
             Container(
               width: double.infinity,
               height: 200,
-              margin: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(12)),
-              child: const Center(child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey)),
+              margin: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(15)),
+              child: const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)), // Larger icon
             ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 18), // Increased spacing
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
             child: Row(
               children: [
                 if (!widget.isSeller)
-                  ActionButton(
-                    text: 'สั่งเลย',
-                    onTap: _handleBuyNow,
-                    isLoading: _isProcessingOrder,
+                  Expanded( // Use Expanded for both buttons
+                    child: ActionButton(
+                      text: 'สั่งเลย',
+                      onTap: _handleBuyNow,
+                      isLoading: _isProcessingOrder,
+                      buttonColor: const Color(0xFF6A1B9A), // Deep purple for "Buy Now"
+                    ),
                   ),
                 
-                if (!widget.isSeller) const SizedBox(width: 10),
+                if (!widget.isSeller) const SizedBox(width: 15), // Increased spacing
 
-                ActionButton(
-                  text: 'ดูหน้าร้าน',
-                  onTap: () {
-                    if (widget.post.storeId.isNotEmpty) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => StoreProfileScreen(
-                            storeId: widget.post.storeId,
-                            isSellerView: false,
+                Expanded( // Use Expanded for both buttons
+                  child: ActionButton(
+                    text: 'ดูหน้าร้าน',
+                    onTap: () {
+                      if (widget.post.storeId.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => StoreProfileScreen(
+                              storeId: widget.post.storeId,
+                              isSellerView: false,
+                            ),
                           ),
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('ไม่พบ ID ร้านค้าสำหรับโพสต์นี้')),
-                      );
-                    }
-                  },
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ไม่พบ ID ร้านค้าสำหรับโพสต์นี้')),
+                        );
+                      }
+                    },
+                    buttonColor: Colors.deepOrange.shade400, // Vibrant orange for "View Store"
+                  ),
                 ),
               ],
             ),
@@ -912,41 +987,43 @@ class ActionButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
   final bool isLoading;
+  final Color buttonColor; // Added custom color parameter
 
   const ActionButton({
     super.key,
     required this.text,
     required this.onTap,
     this.isLoading = false,
+    this.buttonColor = const Color(0xFF9C6ADE), // Default color
   });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF9C6ADE),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+    return ElevatedButton(
+      onPressed: isLoading ? null : onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: buttonColor, // Use custom color
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12), // More rounded corners
         ),
-        child: isLoading 
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
-              )
-            : Text(
-                text,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+        padding: const EdgeInsets.symmetric(vertical: 5), // Increased padding
+        elevation: 5, // Added elevation
+        shadowColor: buttonColor.withOpacity(0.4), // Shadow matching button color
       ),
+      child: isLoading
+          ? const SizedBox(
+              height: 22, // Slightly larger loading indicator
+              width: 22,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2.8, // Thicker stroke
+              ),
+            )
+          : Text(
+              text,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold), // Larger, bolder text
+            ),
     );
   }
 }

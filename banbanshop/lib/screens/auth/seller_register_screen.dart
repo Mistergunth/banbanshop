@@ -1,16 +1,19 @@
 // lib/screens/auth/seller_register_screen.dart
 
 // ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
-import 'dart:async';
+
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:banbanshop/screens/auth/seller_login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:uuid/uuid.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
+import 'package:http_parser/http_parser.dart';
 
 class SellerRegisterScreen extends StatefulWidget {
   const SellerRegisterScreen({super.key});
@@ -20,6 +23,10 @@ class SellerRegisterScreen extends StatefulWidget {
 }
 
 class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
+  // --- NEW API Configuration (Visai.ai) ---
+  final String _apiKey = '1704b23b84937d7be4a1a7e82839e010'; 
+  final String _apiUrl = 'https://ocridcard.infer.visai.ai/predict';
+
   final _formKey = GlobalKey<FormState>();
   final _emailFieldKey = GlobalKey<FormFieldState>();
   final _phoneFieldKey = GlobalKey<FormFieldState>();
@@ -33,18 +40,19 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   final _otpController = TextEditingController();
 
+  // --- OCR State Variables ---
+  String? _extractedFullName;
+  String? _extractedIdNumber;
+  bool _isScanning = false;
+
   String? _selectedProvince;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
-  String _scanStatusMessage = 'สแกน/อัปโหลดบัตรประชาชน';
 
   bool _isOtpSent = false;
   String? _verificationId;
   int? _resendToken;
-
-  StreamSubscription<DocumentSnapshot>? _scanSubscription;
-  String? _scanId;
 
   final List<String> _provinces = [
     'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น',
@@ -71,12 +79,102 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _otpController.dispose();
-    _scanSubscription?.cancel();
     super.dispose();
   }
 
+  Future<void> _scanAndProcessIdCard() async {
+    final source = await _showImageSourceActionSheet();
+    if (source == null) return;
 
-  Future<ImageSource?> _showImageSourceDialog() async {
+    final imagePicker = ImagePicker();
+    final pickedFile = await imagePicker.pickImage(source: source, imageQuality: 100);
+
+    if (pickedFile == null) return;
+
+    setState(() => _isScanning = true);
+
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(_apiUrl));
+      request.headers['X-API-Key'] = _apiKey;
+      
+      final mimeTypeData = lookupMimeType(pickedFile.path, headerBytes: [0xFF, 0xD8])?.split('/');
+      final imageFile = await http.MultipartFile.fromPath(
+        'files',
+        pickedFile.path,
+        contentType: mimeTypeData != null ? MediaType(mimeTypeData[0], mimeTypeData[1]) : null,
+      );
+      request.files.add(imageFile);
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      print("--- Visai API Full Response ---");
+      print("Status Code: ${response.statusCode}");
+      print("Response Body: $responseBody");
+      print("-----------------------------");
+
+      if (response.statusCode == 200) {
+        final List<dynamic> responseData = json.decode(responseBody);
+        if (responseData.isEmpty) {
+          throw Exception('API returned an empty response.');
+        }
+        final data = responseData[0];
+        
+        if (data['status'] == 'success' && data['data'] != null) {
+          final fields = data['data']['fields'];
+          final idNumber = fields['idnum']?['text'];
+          final fullName = fields['th_name']?['text'];
+
+          if (idNumber != null && fullName != null) {
+            setState(() {
+              _extractedIdNumber = idNumber;
+              _extractedFullName = fullName;
+              _idCardController.text = idNumber.replaceAll(' ', '');
+              _fullNameController.text = fullName;
+            });
+            _formKey.currentState?.validate();
+          } else {
+            List<String> missingFields = [];
+            if (idNumber == null) missingFields.add("เลขบัตร (idnum)");
+            if (fullName == null) missingFields.add("ชื่อไทย (th_name)");
+            throw Exception('ไม่พบข้อมูลสำคัญ: ${missingFields.join(', ')}');
+          }
+        } else {
+          throw Exception(data['message'] ?? 'API returned an error.');
+        }
+      } else {
+        throw Exception('API Error: ${response.statusCode}\n$responseBody');
+      }
+    } catch (e) {
+      _showErrorDialog('เกิดข้อผิดพลาดในการสแกน', e.toString());
+    } finally {
+      setState(() => _isScanning = false);
+    }
+  }
+
+  Future<void> _showErrorDialog(String title, String content) async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: SingleChildScrollView(
+            child: SelectableText(content),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('ปิด'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<ImageSource?> _showImageSourceActionSheet() async {
     return showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) => SafeArea(
@@ -85,7 +183,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
           children: <Widget>[
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('ถ่ายรูปใหม่'),
+              title: const Text('ถ่ายรูป'),
               onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),
             ListTile(
@@ -99,126 +197,8 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     );
   }
 
-  // [REWRITTEN] This function now uploads the image and listens for results from Firestore.
-  Future<void> _scanIdCard() async {
-    // Cancel any previous listener
-    await _scanSubscription?.cancel();
-
-    final ImageSource? source = await _showImageSourceDialog();
-    if (source == null) return;
-
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: source);
-    if (image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ไม่ได้เลือกรูปภาพ')));
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _scanStatusMessage = 'กำลังอัปโหลด...';
-      _fullNameController.clear(); // Clear previous values
-      _idCardController.clear();    // Clear previous values
-    });
-
-    // 1. Generate a unique ID for this scan session
-    _scanId = const Uuid().v4();
-    final imageFile = File(image.path);
-    // [แก้ไข] เปลี่ยนชื่อไฟล์ให้ตรงกับที่ Cloud Function คาดหวัง
-    final storagePath = 'id_card_images/$_scanId.jpg'; 
-
-    try {
-      // [แก้ไขใหม่] ลงชื่อเข้าใช้แบบไม่ระบุตัวตนก่อนอัปโหลด
-      // เพื่อให้แน่ใจว่ามีผู้ใช้ลงชื่อเข้าใช้อยู่ (แม้จะเป็นชั่วคราว)
-      // และ Firebase Storage จะยอมรับการเขียนตามกฎ
-      User? currentUser = _auth.currentUser;
-      if (currentUser == null) {
-        print("No user signed in, attempting anonymous sign-in for upload.");
-        await _auth.signInAnonymously();
-        currentUser = _auth.currentUser; // Update currentUser after anonymous sign-in
-      }
-
-      if (currentUser == null) {
-        throw Exception("Failed to sign in anonymously. Cannot upload image.");
-      }
-      print("User is signed in (UID: ${currentUser.uid}) for image upload.");
-
-
-      // 2. Upload the image to Firebase Storage
-      final storageRef = FirebaseStorage.instance.ref().child(storagePath);
-      await storageRef.putFile(imageFile);
-      print('Image uploaded successfully to: $storagePath');
-
-      setState(() {
-        _scanStatusMessage = 'กำลังประมวลผลภาพ...';
-      });
-
-      // 3. Listen for the result from the Cloud Function in Firestore
-      final docRef = FirebaseFirestore.instance.collection('idCardScans').doc(_scanId);
-      _scanSubscription = docRef.snapshots().timeout(const Duration(seconds: 60), onTimeout: (sink) {
-        sink.addError('หมดเวลาในการประมวลผล กรุณาลองอีกครั้ง');
-      }).listen(
-        (snapshot) {
-          if (snapshot.exists && snapshot.data() != null) {
-            final data = snapshot.data()!;
-            final status = data['status'];
-
-            if (status == 'completed') {
-              setState(() {
-                _fullNameController.text = data['fullName'] ?? '';
-                _idCardController.text = data['idNumber'] ?? '';
-                _isLoading = false;
-                _scanStatusMessage = 'สแกนข้อมูลสำเร็จ!';
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('สแกนข้อมูลสำเร็จ กรุณาตรวจสอบความถูกต้อง')),
-              );
-              _scanSubscription?.cancel(); // Stop listening once completed
-            } else if (status == 'error') {
-              final errorMessage = data['errorMessage'] ?? 'เกิดข้อผิดพลาดในการประมวลผล';
-              setState(() {
-                _isLoading = false;
-                _scanStatusMessage = 'สแกนผิดพลาด: $errorMessage';
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('สแกนผิดพลาด: $errorMessage')),
-              );
-              _scanSubscription?.cancel(); // Stop listening on error
-            }
-          }
-        },
-        onError: (error) {
-          setState(() {
-            _isLoading = false;
-            _scanStatusMessage = 'เกิดข้อผิดพลาด ลองอีกครั้ง';
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('เกิดข้อผิดพลาด: ${error.toString()}')),
-          );
-          _scanSubscription?.cancel();
-        }
-      );
-
-    } on FirebaseAuthException catch (e) {
-      String message = 'เกิดข้อผิดพลาดในการยืนยันตัวตนสำหรับอัปโหลด: ${e.message}';
-       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
-       if (mounted) setState(() => _isLoading = false);
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _scanStatusMessage = 'อัปโหลดล้มเหลว ลองอีกครั้ง';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลด: $e')),
-      );
-    }
-  }
-
 
   Future<void> _sendOtp() async {
-    // Validate email and phone fields first
     if (!_emailFieldKey.currentState!.validate() || !_phoneFieldKey.currentState!.validate()) {
       return;
     }
@@ -229,22 +209,18 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
       final email = _emailController.text.trim();
       final phoneNumber = "+66${_phoneController.text.trim()}";
 
-      // [NEW] Check if email is already in use by ANY Firebase Auth user
       final List<String> signInMethods = await _auth.fetchSignInMethodsForEmail(email);
       if (signInMethods.isNotEmpty) {
-        // If email is already registered, check if it's already a buyer
         final buyerDoc = await FirebaseFirestore.instance.collection('buyers').where('email', isEqualTo: email).limit(1).get();
         if (buyerDoc.docs.isNotEmpty) {
-          throw FirebaseAuthException(code: 'email-already-in-use-as-buyer'); // Custom error code
+          throw FirebaseAuthException(code: 'email-already-in-use-as-buyer');
         }
-        // If it's not a buyer, it must be a seller (or linked to phone auth)
         throw FirebaseAuthException(code: 'email-already-in-use');
       }
 
-      // [NEW] Check if phone number is already registered as a buyer
       final buyerPhoneDoc = await FirebaseFirestore.instance.collection('buyers').where('phoneNumber', isEqualTo: phoneNumber).limit(1).get();
       if (buyerPhoneDoc.docs.isNotEmpty) {
-        throw FirebaseAuthException(code: 'phone-already-in-use-as-buyer'); // Custom error code
+        throw FirebaseAuthException(code: 'phone-already-in-use-as-buyer');
       }
 
       print("[REG] Email and Phone are available for seller registration. Proceeding with phone verification...");
@@ -278,9 +254,9 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
        String message = 'เกิดข้อผิดพลาดในการส่ง OTP';
        if (e.code == 'email-already-in-use') {
          message = 'อีเมลนี้ถูกใช้งานแล้วในฐานะผู้ขาย กรุณาเข้าสู่ระบบ';
-       } else if (e.code == 'email-already-in-use-as-buyer') { // [NEW] Custom error
+       } else if (e.code == 'email-already-in-use-as-buyer') {
          message = 'อีเมลนี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
-       } else if (e.code == 'phone-already-in-use-as-buyer') { // [NEW] Custom error
+       } else if (e.code == 'phone-already-in-use-as-buyer') {
          message = 'เบอร์โทรศัพท์นี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
        } else {
           message = 'เกิดข้อผิดพลาด: ${e.message}';
@@ -299,17 +275,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
 
   void _registerSeller() async {
     if (!_formKey.currentState!.validate()) return;
-    // [แก้ไข] ตรวจสอบว่าข้อมูลจากการสแกนมีอยู่หรือไม่ ถ้าไม่ ให้บังคับกรอกเอง
-    if (_idCardController.text.isEmpty) { // idCardNumber should always be present after scan or manual entry
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรุณาสแกนหรือกรอกเลขบัตรประชาชน')));
-      return;
-    }
-    if (_fullNameController.text.isEmpty) { // If fullName is still empty after scan, require manual entry
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรุณากรอกชื่อ-นามสกุล')));
-      return;
-    }
-
-
     if (!_isOtpSent || _verificationId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณากดส่งและยืนยัน OTP ก่อน')),
@@ -320,7 +285,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     setState(() => _isLoading = true);
     
     try {
-      // Step 1: Sign in with phone credential
       PhoneAuthCredential credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: _otpController.text.trim(),
@@ -332,28 +296,22 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         throw Exception("Phone auth failed, user is null.");
       }
 
-      // [NEW] Check if this UID already exists in 'buyers' collection
       final existingBuyerDoc = await FirebaseFirestore.instance.collection('buyers').doc(user.uid).get();
       if (existingBuyerDoc.exists) {
-        // If the UID already has a buyer profile, prevent creating a seller profile
-        await FirebaseAuth.instance.signOut(); // Sign out to prevent mixed state
-        throw FirebaseAuthException(code: 'uid-already-in-use-as-buyer'); // Custom error code
+        await FirebaseAuth.instance.signOut();
+        throw FirebaseAuthException(code: 'uid-already-in-use-as-buyer');
       }
 
-      // Step 2: Link with email credential
       final emailCredential = EmailAuthProvider.credential(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
       await user.linkWithCredential(emailCredential);
       
-      // Step 3: Update profile
       await user.updateProfile(displayName: _fullNameController.text.trim());
       
-      // Step 4: Send verification email
       await user.sendEmailVerification();
 
-      // Step 5: Save user data to Firestore
       await FirebaseFirestore.instance.collection('sellers').doc(user.uid).set({
         'uid': user.uid,
         'fullName': _fullNameController.text.trim(),
@@ -363,7 +321,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         'province': _selectedProvince,
         'hasStore': false,
         'createdAt': Timestamp.now(),
-        'idCardScanId': _scanId,
       });
 
     } on FirebaseAuthException catch (e) {
@@ -374,7 +331,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         message = 'ข้อมูลรับรองไม่ถูกต้องหรือถูกใช้งานแล้ว';
       } else if (e.code == 'invalid-verification-code') {
         message = 'รหัส OTP ไม่ถูกต้อง';
-      } else if (e.code == 'uid-already-in-use-as-buyer') { // [NEW] Custom error
+      } else if (e.code == 'uid-already-in-use-as-buyer') {
         message = 'บัญชีนี้ถูกใช้งานแล้วในฐานะผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ';
       }
       if(mounted) {
@@ -398,7 +355,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         title: const Text('บ้านบ้านช็อป', style: 
         TextStyle(color: Colors.black,fontWeight: FontWeight.bold)),
         centerTitle: true,
-        backgroundColor: Color(0xFFE8F4FD),
+        backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
@@ -420,60 +377,11 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('ผู้ขาย - สมัครสมาชิก', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-
-              const SizedBox(height: 20),
-
-                // [แก้ไข] เปลี่ยนจาก ElevatedButton.icon เป็น OutlinedButton.icon เพื่อให้ดูเป็นปุ่ม secondary
-                // และปรับสถานะข้อความตามการทำงาน
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.camera_alt_outlined),
-                    label: Text(_scanStatusMessage),
-                    onPressed: _isLoading ? null : _scanIdCard,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFF7aa5d2)), // [แก้ไข] เปลี่ยนสีขอบให้เข้ากับธีม
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
-                      foregroundColor: const Color(0xFF7aa5d2), // [เพิ่ม] สีข้อความและไอคอน
-                    ),
-                  ),
-                ),
-
                 const SizedBox(height: 20),
-                // [แก้ไข] เปลี่ยนช่อง ชื่อ-นามสกุล และ บัตรประชาชน ให้สามารถแก้ไขได้ หากสแกนไม่สำเร็จ
-                _buildInputField(
-                  label: 'ชื่อ - นามสกุล', // [แก้ไข] ลบ (จากการสแกน)
-                  controller: _fullNameController,
-                  // readOnly: true, // [แก้ไข] เอา readOnly ออก เพื่อให้ผู้ใช้กรอกเองได้ถ้าสแกนไม่สำเร็จ
-                  validator: (v) => (v == null || v.isEmpty) ? 'กรุณากรอกชื่อ-นามสกุล' : null, // [แก้ไข] เปลี่ยน validator
-                ),
+                
+                _buildOcrSection(),
+                
                 const SizedBox(height: 15),
-                 _buildInputField(
-                  label: 'เลขบัตรประชาชน', // [แก้ไข] ลบ (จากการสแกน)
-                  controller: _idCardController, 
-                  // readOnly: true, // [แก้ไข] เอา readOnly ออก เพื่อให้ผู้ใช้กรอกเองได้ถ้าสแกนไม่สำเร็จ
-                  keyboardType: TextInputType.number, 
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)], 
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'กรุณากรอกเลขบัตรประชาชน'; // [แก้ไข] เปลี่ยน validator
-                    if (v.length != 13) return 'เลขบัตรประชาชนต้องมี 13 หลัก';
-                    return null;
-                  }
-                ),
-
-                const SizedBox(height: 20),
-                const Divider(),
-                const SizedBox(height: 20),
-
-                // [แก้ไข] ลบช่องกรอกข้อมูลชื่อ-นามสกุล และบัตรประชาชนที่ซ้ำซ้อนออก
-                // _buildInputField(label: 'ชื่อ - นามสกุล', controller: _fullNameController, validator: (v) {
-                //   if (v == null || v.isEmpty) return 'กรุณากรอกชื่อ';
-                //   if (!RegExp(r'^[a-zA-Z\u0E00-\u0E7F\s]+$').hasMatch(v)) return 'ชื่อต้องเป็นตัวอักษรเท่านั้น';
-                //   return null;
-                // }),
-                // const SizedBox(height: 15),
-
                 _buildInputField(
                   fieldKey: _emailFieldKey,
                   label: 'อีเมล', 
@@ -538,13 +446,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
                   if (v != _passwordController.text) return 'รหัสผ่านไม่ตรงกัน';
                   return null;
                 }),
-                // [แก้ไข] ลบช่องกรอกบัตรประชาชนที่ซ้ำซ้อนออก
-                // const SizedBox(height: 15),
-                // _buildInputField(label: 'บัตรประชาชน', controller: _idCardController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)], validator: (v) {
-                //   if (v == null || v.isEmpty) return 'กรุณากรอกเลขบัตรประชาชน';
-                //   if (v.length != 13) return 'เลขบัตรประชาชนต้องมี 13 หลัก';
-                //   return null;
-                // }),
+
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
@@ -579,6 +481,111 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     );
   }
 
+  Widget _buildOcrSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('ข้อมูลจากบัตรประชาชน', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12.0),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(10.0),
+            border: Border.all(color: Colors.grey[300]!)
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('ชื่อ-นามสกุล:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _extractedFullName ?? 'ยังไม่ได้สแกน',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: _extractedFullName == null ? Colors.red : Colors.black87, fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 20, thickness: 1),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('เลขบัตรประชาชน:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _extractedIdNumber ?? 'ยังไม่ได้สแกน',
+                      textAlign: TextAlign.end,
+                       style: TextStyle(color: _extractedIdNumber == null ? Colors.red : Colors.black87, fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.lightbulb_outline, color: Colors.orange[800], size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'แนะนำ: ถ่ายภาพให้ชัดเจน ไม่มีแสงสะท้อน',
+                  style: TextStyle(color: Colors.orange[800], fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isScanning ? null : _scanAndProcessIdCard,
+            icon: _isScanning 
+                ? Container(width: 24, height: 24, padding: const EdgeInsets.all(2.0), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                : const Icon(Icons.camera_alt, color: Colors.white),
+            label: Text(_isScanning ? 'กำลังสแกน...' : 'สแกน/อัปโหลดรูปบัตร', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5C6BC0), // Indigo
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+            ),
+          ),
+        ),
+        // --- FIXED: This hidden field caused the UI bug. ---
+        // By removing the controller, it no longer displays text.
+        // The validator now checks the controller directly.
+        TextFormField(
+          readOnly: true,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+            constraints: BoxConstraints(maxHeight: 0),
+          ),
+          validator: (value) {
+            if (_fullNameController.text.isEmpty) {
+              return 'กรุณาสแกนบัตรประชาชนเพื่อดึงข้อมูล';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildInputField({
     required String label,
     String? subLabel,
@@ -588,8 +595,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     List<TextInputFormatter>? inputFormatters,
     String? prefixText,
     Key? fieldKey,
-    bool readOnly = false,
-    String? hintText, // เพิ่ม parameter สำหรับ hintText
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -605,9 +610,7 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
           controller: controller,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
-          readOnly: readOnly,
           decoration: InputDecoration(
-            hintText: hintText, // ใช้ hintText
             prefixText: prefixText,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0), borderSide: BorderSide.none),
             filled: true,

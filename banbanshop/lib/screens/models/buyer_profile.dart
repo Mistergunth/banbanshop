@@ -7,8 +7,9 @@ class BuyerProfile {
   final String? fullName;
   final String email;
   final String? phoneNumber;
-  final String? shippingAddress; // ฟิลด์สำหรับที่อยู่จัดส่ง
-  final String? profileImageUrl; // <--- เพิ่มฟิลด์นี้สำหรับ URL รูปโปรไฟล์
+  final String? shippingAddress;
+  final String? profileImageUrl; 
+  final String? idCardNumber;
 
   BuyerProfile({
     required this.uid,
@@ -16,7 +17,8 @@ class BuyerProfile {
     required this.email,
     this.phoneNumber,
     this.shippingAddress,
-    this.profileImageUrl, // <--- เพิ่มใน constructor
+    this.profileImageUrl,
+    this.idCardNumber, // <--- เพิ่มใน constructor
   });
 
   // Factory constructor สำหรับสร้าง BuyerProfile จาก Firestore DocumentSnapshot
@@ -28,7 +30,8 @@ class BuyerProfile {
       email: data['email'] as String? ?? '',
       phoneNumber: data['phoneNumber'] as String?,
       shippingAddress: data['shippingAddress'] as String?,
-      profileImageUrl: data['profileImageUrl'] as String?, // <--- อ่านจาก Firestore
+      profileImageUrl: data['profileImageUrl'] as String?,
+      idCardNumber: data['idCardNumber'] as String?, // <--- อ่านจาก Firestore
     );
   }
 
@@ -39,7 +42,8 @@ class BuyerProfile {
       'email': email,
       'phoneNumber': phoneNumber,
       'shippingAddress': shippingAddress,
-      'profileImageUrl': profileImageUrl, // <--- เขียนลง Firestore
+      'profileImageUrl': profileImageUrl,
+      'idCardNumber': idCardNumber, // <--- เขียนลง Firestore
     };
   }
 
@@ -51,6 +55,7 @@ class BuyerProfile {
     String? phoneNumber,
     String? shippingAddress,
     String? profileImageUrl,
+    String? idCardNumber,
   }) {
     return BuyerProfile(
       uid: uid ?? this.uid,
@@ -59,6 +64,7 @@ class BuyerProfile {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       shippingAddress: shippingAddress ?? this.shippingAddress,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      idCardNumber: idCardNumber ?? this.idCardNumber,
     );
   }
 }

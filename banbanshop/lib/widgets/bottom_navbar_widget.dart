@@ -16,45 +16,48 @@ class BottomNavbarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // --- [KEY CHANGE] สร้างรายการของปุ่ม destinations แบบไดนามิก ---
+    // สร้างรายการของปุ่ม destinations แบบไดนามิก
     final List<Widget> destinations = [
-      const NavigationDestination(
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home, color: Color(0xFF9C6ADE)),
+      NavigationDestination(
+        icon: const Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home, color: Color(0xFF6A1B9A)), // Selected icon color: Orange/Yellow from icon
         label: 'หน้าแรก',
       ),
-      // --- ใช้ isSeller เพื่อกำหนดไอคอนและข้อความ ---
+      // ใช้ isSeller เพื่อกำหนดไอคอนและข้อความ
       if (isSeller)
-        const NavigationDestination(
-          icon: Icon(Icons.shopping_bag_outlined),
-          selectedIcon: Icon(Icons.shopping_bag, color: Color(0xFF9C6ADE)),
+        NavigationDestination(
+          icon: const Icon(Icons.shopping_bag_outlined),
+          selectedIcon: Icon(Icons.shopping_bag, color: Color(0xFF6A1B9A)), // Selected icon color: Orange/Yellow from icon
           label: 'ออเดอร์',
         )
       else
-        const NavigationDestination(
-          icon: Icon(Icons.shopping_cart_outlined),
-          selectedIcon: Icon(Icons.shopping_cart, color: Color(0xFF9C6ADE)),
+        NavigationDestination(
+          icon: const Icon(Icons.shopping_cart_outlined),
+          selectedIcon: Icon(Icons.shopping_cart, color: Color(0xFF6A1B9A)), // Selected icon color: Orange/Yellow from icon
           label: 'ตะกร้า',
         ),
-      const NavigationDestination(
-        icon: Icon(Icons.add_box_outlined),
-        selectedIcon: Icon(Icons.add_box, color: Color(0xFF9C6ADE)),
+      NavigationDestination(
+        icon: const Icon(Icons.add_box_outlined),
+        selectedIcon: Icon(Icons.add_box, color: Color(0xFF6A1B9A)), // Selected icon color: Orange/Yellow from icon
         label: 'สร้างโพสต์',
       ),
-      const NavigationDestination(
-        icon: Icon(Icons.person_outlined),
-        selectedIcon: Icon(Icons.person, color: Color(0xFF9C6ADE)),
+      NavigationDestination(
+        icon: const Icon(Icons.person_outlined),
+        selectedIcon: Icon(Icons.person, color: Color(0xFF6A1B9A)), // Selected icon color: Orange/Yellow from icon
         label: 'โปรไฟล์',
       ),
     ];
 
     return NavigationBar(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FCFE), // Very light blue background to match the icon theme
       destinations: destinations,
       selectedIndex: selectedIndex,
       onDestinationSelected: (int value) {
         onItemSelected(value);
       },
+      indicatorColor: Colors.blue.shade100, // Light blue indicator color to highlight selected item
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow, // Always show labels
+      elevation: 5, // Add some elevation for a subtle lift effect
     );
   }
 }

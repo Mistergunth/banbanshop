@@ -5,83 +5,90 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { logger } = require("firebase-functions");
 const admin = require("firebase-admin");
-const { onObjectFinalized } = require("firebase-functions/v2/storage");
-const vision = require("@google-cloud/vision"); // [สำคัญ] ต้องมีบรรทัดนี้
 
-// [สำคัญ] ย้ายการสร้าง VisionClient มาไว้ที่ Global Scope
-// การสร้าง client นี้ควรเกิดขึ้นเพียงครั้งเดียวเมื่อฟังก์ชันถูกโหลด
-const visionClient = new vision.ImageAnnotatorClient();
-
-// [สำคัญ] เริ่มต้น Firebase Admin SDK เพียงครั้งเดียว
+// [แก้ไข] Initialize Firebase Admin เพียงครั้งเดียวใน Global Scope
 admin.initializeApp();
+
+// [แก้ไข] ประกาศตัวแปร client ไว้ใน Global Scope แต่ยังไม่สร้าง object
+// เราจะสร้างมันเมื่อถูกเรียกใช้ครั้งแรก (Lazy Initialization)
+let db;
+let auth;
 
 // --- โค้ดเดิมของคุณ (ไม่เปลี่ยนแปลง) ---
 exports.updateStoreRating = onDocumentWritten({
     document: "stores/{storeId}/reviews/{reviewId}",
-    region: "asia-southeast1"
+    region: "us-central1"
 }, async (event) => {
-  const storeId = event.params.storeId;
-  logger.log(`Detected a review change for store: ${storeId}`);
-  const storeRef = admin.firestore().collection("stores").doc(storeId);
-  const reviewsSnapshot = await storeRef.collection("reviews").get();
-  if (reviewsSnapshot.empty) {
-    logger.log(`No reviews for store ${storeId}. Setting rating to 0.`);
-    return storeRef.update({ averageRating: 0, reviewCount: 0 });
-  }
-  let totalRating = 0;
-  reviewsSnapshot.forEach((doc) => {
-    totalRating += doc.data().rating;
-  });
-  const reviewCount = reviewsSnapshot.size;
-  const averageRating = totalRating / reviewCount;
-  logger.log(
-      `Updating store ${storeId}: reviewCount=${reviewCount}, ` +
-      `averageRating=${averageRating.toFixed(2)}`,
-  );
-  return storeRef.update({
-    reviewCount: reviewCount,
-    averageRating: averageRating,
-  });
+    // Lazy load 'db'
+    if (!db) db = admin.firestore();
+
+    const storeId = event.params.storeId;
+    logger.log(`Detected a review change for store: ${storeId}`);
+    const storeRef = db.collection("stores").doc(storeId);
+    const reviewsSnapshot = await storeRef.collection("reviews").get();
+    if (reviewsSnapshot.empty) {
+        logger.log(`No reviews for store ${storeId}. Setting rating to 0.`);
+        return storeRef.update({ averageRating: 0, reviewCount: 0 });
+    }
+    let totalRating = 0;
+    reviewsSnapshot.forEach((doc) => {
+        totalRating += doc.data().rating;
+    });
+    const reviewCount = reviewsSnapshot.size;
+    const averageRating = totalRating / reviewCount;
+    logger.log(
+        `Updating store ${storeId}: reviewCount=${reviewCount}, ` +
+        `averageRating=${averageRating.toFixed(2)}`,
+    );
+    return storeRef.update({
+        reviewCount: reviewCount,
+        averageRating: averageRating,
+    });
 });
 
 exports.addRoleOnBuyerCreate = onDocumentWritten({
     document: "buyers/{userId}",
-    region: "asia-southeast1"
+    region: "us-central1"
 }, async (event) => {
-  if (!event.data.before.exists && event.data.after.exists) {
-    const userId = event.params.userId;
-    logger.log(`Detected new buyer document for user: ${userId}. Setting custom claim 'role: buyer'.`);
-    try {
-      await admin.auth().setCustomUserClaims(userId, { role: 'buyers' });
-      logger.log(`Custom claim 'role: buyers' set successfully for user ${userId}.`);
-    } catch (error) {
-      logger.error(`Error setting custom claim for buyer ${userId}:`, error);
+    // Lazy load 'auth'
+    if (!auth) auth = admin.auth();
+
+    if (!event.data.before.exists && event.data.after.exists) {
+        const userId = event.params.userId;
+        logger.log(`Detected new buyer document for user: ${userId}. Setting custom claim 'role: buyer'.`);
+        try {
+            await auth.setCustomUserClaims(userId, { role: 'buyers' });
+            logger.log(`Custom claim 'role: buyers' set successfully for user ${userId}.`);
+        } catch (error) {
+            logger.error(`Error setting custom claim for buyer ${userId}:`, error);
+        }
     }
-  }
-  return null;
+    return null;
 });
 
 exports.addRoleOnSellerCreate = onDocumentWritten({
     document: "sellers/{userId}",
-    region: "asia-southeast1"
+    region: "us-central1"
 }, async (event) => {
-  if (!event.data.before.exists && event.data.after.exists) {
-    const userId = event.params.userId;
-    logger.log(`Detected new seller document for user: ${userId}. Setting custom claim 'role: seller'.`);
-    try {
-      await admin.auth().setCustomUserClaims(userId, { role: 'sellers' });
-      logger.log(`Custom claim 'role: sellers' set successfully for user ${userId}.`);
-    } catch (error) {
-      logger.error(`Error setting custom claim for seller ${userId}:`, error);
+    // Lazy load 'auth'
+    if (!auth) auth = admin.auth();
+
+    if (!event.data.before.exists && event.data.after.exists) {
+        const userId = event.params.userId;
+        logger.log(`Detected new seller document for user: ${userId}. Setting custom claim 'role: seller'.`);
+        try {
+            await auth.setCustomUserClaims(userId, { role: 'sellers' });
+            logger.log(`Custom claim 'role: sellers' set successfully for user ${userId}.`);
+        } catch (error) {
+            logger.error(`Error setting custom claim for seller ${userId}:`, error);
+        }
     }
-  }
-  return null;
+    return null;
 });
 
-// --- [แก้ไขแล้ว] ฟังก์ชันสำหรับ Gemini Chatbot ---
 exports.chatWithGemini = onCall({
     secrets: ["GEMINI_API_KEY"],
-    region: "asia-southeast1"
+    region: "us-central1"
 }, async (request) => {
   const { GoogleGenerativeAI } = require("@google/generative-ai");
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -111,125 +118,57 @@ exports.chatWithGemini = onCall({
   }
 });
 
-// --- [แก้ไขใหม่] ฟังก์ชันสำหรับประมวลผลภาพบัตรประชาชนด้วย Cloud Vision API ---
-exports.processIdCardImage = onObjectFinalized({
-    bucket: "banbanshop", 
+// ========================================================================
+// [ใหม่] ฟังก์ชันสำหรับสแกนบัตรประชาชนด้วย Gemini (แทนที่ Cloud Vision)
+// ========================================================================
+exports.extractIdInfoWithGemini = onCall({
+    secrets: ["GEMINI_API_KEY"],
     region: "asia-southeast1",
-    timeoutSeconds: 300, 
-    memory: "2GiB",      
-}, async (event) => {
-    logger.log(">>>>>> DIAGNOSTIC TEST: Function triggered successfully! <<<<<<");
-    const fileBucket = event.data.bucket;
-    const filePath = event.data.name;
-    const contentType = event.data.contentType;
-
-    // ตรวจสอบว่าเป็นไฟล์รูปภาพที่ถูกอัปโหลดมาในโฟลเดอร์ที่ถูกต้องหรือไม่
-    if (!contentType.startsWith("image/") || !filePath.startsWith("id_card_images/")) {
-        return logger.log("This is not an ID card image or not in the correct folder, skipping.");
+    timeoutSeconds: 60,
+    memory: "1GiB",
+}, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "The function must be called while authenticated.");
     }
+    
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    // ดึง User ID ออกมาจากชื่อไฟล์ (เช่น "id_card_images/USER_ID.jpg")
-    const fileName = filePath.split("/").pop();
-    const userId = fileName.split(".")[0];
-    if (!userId) {
-        return logger.error("Could not extract user ID from file path.", { filePath });
+    const imageBase64 = request.data.imageBase64;
+    if (!imageBase64) {
+        throw new HttpsError("invalid-argument", "Image data (Base64) is required.");
     }
-
-    logger.log(`Processing ID card for user: ${userId}`);
-    const db = admin.firestore(); // [สำคัญ] ต้องมีบรรทัดนี้
 
     try {
-        // [สำคัญ] โค้ดส่วน Vision API และ Firestore ที่ถูกเปิดใช้งานแล้ว
-        const [result] = await visionClient.textDetection(`gs://${fileBucket}/${filePath}`, {
-            imageContext: {
-                languageHints: ['th', 'en'] // แนะนำให้ใช้ภาษาไทยและอังกฤษ
-            }
-        });
-        const detections = result.textAnnotations;
+        logger.log("Received image, calling Gemini 1.5 Flash...");
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
-        if (!detections || detections.length === 0) {
-            // ถ้าไม่พบข้อความในภาพ ให้บันทึกสถานะข้อผิดพลาดลง Firestore
-            logger.log(`No text found in image for user: ${userId}`);
-            await db.collection("idCardScans").doc(userId).set({
-                status: "error",
-                errorMessage: "No text found in image.",
-                processedAt: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
-            return null;
-        }
+        const prompt = "จากรูปภาพบัตรประชาชนไทยที่ให้มา ให้ดึงข้อมูลเฉพาะชื่อ-นามสกุลภาษาไทย และเลขประจำตัวประชาชน 13 หลักออกมา ตอบกลับเป็น JSON object ที่มี key เป็น 'fullName' และ 'idNumber' เท่านั้น หากหาข้อมูลส่วนไหนไม่เจอ ให้ค่าของ key นั้นเป็นสตริงว่าง ('')";
 
-        const fullText = detections[0].description;
-        logger.log("Full text from Vision API:", fullText);
+        const imagePart = {
+            inlineData: {
+                data: imageBase64,
+                mimeType: "image/jpeg",
+            },
+        };
 
-        const idCardRegex = /(\d[\s-]?){13}/;
-        const nameRegex = /(นาย|นางสาว|นาง|เด็กชาย|เด็กหญิง)\s*([ก-๙]+(?:\s[ก-๙]+)?)\s+([ก-๙]+)/;
-        const fallbackNameRegex = /(?:ชื่อตัวและชื่อสกุล|ชื่อ)\s*([ก-๙\s]+)/;
-        const engNameRegex = /Name\s*([a-zA-Z\s.]+)\s*Last name\s*([a-zA-Z\s.]+)/;
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = await result.response;
+        const text = response.text();
 
-        let foundIdNumber = "";
-        let foundFullName = "";
-        let foundEngName = "";
+        logger.log("Gemini response raw text:", text);
+        
+        const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        const data = JSON.parse(cleanedText);
 
-        // ค้นหาเลขบัตรประชาชน
-        const idMatch = fullText.match(idCardRegex);
-        if (idMatch) {
-            foundIdNumber = idMatch[0].replace(/[\s-]/g, ""); // ลบช่องว่างและขีดกลาง
-            // ตรวจสอบความยาวเลขบัตรประชาชน 13 หลักสุดท้าย (เผื่อมีตัวเลขอื่น ๆ ติดมา)
-            if (foundIdNumber.length > 13) {
-                foundIdNumber = foundIdNumber.substring(foundIdNumber.length - 13);
-            }
-        }
-
-        // ค้นหาชื่อ-นามสกุลไทย
-        let nameMatch = fullText.match(nameRegex);
-        if (nameMatch && nameMatch[2] && nameMatch[3]) {
-            foundFullName = `${nameMatch[2].trim()} ${nameMatch[3].trim()}`;
-        } else {
-            nameMatch = fullText.match(fallbackNameRegex);
-            if (nameMatch && nameMatch[1]) {
-                foundFullName = nameMatch[1].trim().replace(/[a-zA-Z0-9]/g, '');
-                const nameParts = foundFullName.split(/\s+/).filter(part => part.length > 0);
-                if (nameParts.length >= 2) {
-                    foundFullName = `${nameParts[0]} ${nameParts[1]}`;
-                } else {
-                    foundFullName = nameParts.length > 0 ? nameParts[0] : "";
-                }
-            }
-        }
-
-        // ค้นหาชื่อภาษาอังกฤษ
-        const engNameMatch = fullText.match(engNameRegex);
-        if (engNameMatch && engNameMatch[1] && engNameMatch[2]) {
-            foundEngName = `${engNameMatch[1].trim()} ${engNameMatch[2].trim()}`;
-        }
-
-        // นำข้อมูลที่ได้ไปบันทึกไว้ใน Firestore ใน Collection "idCardScans"
-        await db.collection("idCardScans").doc(userId).set({
-            idNumber: foundIdNumber,
-            fullName: foundFullName,
-            englishName: foundEngName,
-            status: "completed", // ตั้งสถานะเป็น "completed" หากประมวลผลสำเร็จ
-            processedAt: admin.firestore.FieldValue.serverTimestamp(), // บันทึกเวลาที่ประมวลผล
-        }, { merge: true }); // ใช้ merge: true เพื่อไม่ให้เขียนทับข้อมูลอื่น ๆ ใน document
-
-        logger.log(`Successfully processed ID for user ${userId}. Name: ${foundFullName}, ID: ${foundIdNumber}, Eng Name: ${foundEngName}`);
-        return null;
+        logger.log("Successfully parsed JSON:", data);
+        return {
+            fullName: data.fullName || "",
+            idNumber: data.idNumber || "",
+        };
 
     } catch (error) {
-        // หากเกิดข้อผิดพลาดในการประมวลผล ให้บันทึกสถานะข้อผิดพลาดลง Firestore
-        logger.error(`Error processing image for user ${userId}:`, error);
-        await db.collection("idCardScans").doc(userId).set({
-            status: "error",
-            errorMessage: "An error occurred during processing: " + error.message,
-            errorDetails: error.stack,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        }, { merge: true });
-        return null;
+        logger.error("Error calling Gemini or parsing response:", error);
+        throw new HttpsError("internal", "Failed to process image with AI.", error.message);
     }
-});
-
-// เพิ่มฟังก์ชันนี้เพื่อทดสอบการ Deploy และ Log พื้นฐาน
-exports.testLogFunction = functions.https.onRequest(async (req, res) => {
-  logger.log(">>>>>> DEBUG: testLogFunction was called successfully! <<<<<<");
-  res.status(200).send("Hello from testLogFunction!");
 });

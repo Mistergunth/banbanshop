@@ -129,8 +129,16 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.address == null ? 'เพิ่มที่อยู่ใหม่' : 'แก้ไขที่อยู่'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -192,19 +200,19 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
                   labelText: 'ที่อยู่ (เลือกจากแผนที่)',
                   hintText: _selectedLocation == null ? 'แตะเพื่อเลือกตำแหน่ง' : 'เลือกตำแหน่งแล้ว',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                  prefixIcon: const Icon(Icons.map_outlined),
+                  prefixIcon: const Icon(Icons.map_outlined, color: Color(0xFF0288D1)), // Blue icon
                 ),
                 validator: (value) => (value == null || value.isEmpty) ? 'กรุณาเลือกที่อยู่จากแผนที่' : null,
               ),
               const SizedBox(height: 32),
               _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
                   : ElevatedButton.icon(
                       onPressed: _saveAddress,
                       icon: const Icon(Icons.save),
                       label: const Text('บันทึกที่อยู่'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF9C6ADE),
+                        backgroundColor: const Color(0xFF0288D1), // Blue button
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -233,6 +241,14 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
         labelText: label,
         prefixText: prefixText, 
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+        focusedBorder: OutlineInputBorder( // Blue border when focused
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+        ),
+        enabledBorder: OutlineInputBorder( // Grey border when enabled
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+        ),
       ),
       validator: validator,
     );

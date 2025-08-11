@@ -163,14 +163,22 @@ class _StoreScreenContentState extends State<StoreScreenContent> {
             controller: _searchController,
             decoration: InputDecoration(
               hintText: 'ค้นหาชื่อร้าน, หมวดหมู่, จังหวัด...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF0098DA)), // Blue search icon
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(30.0),
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: Colors.grey[200],
-              contentPadding: EdgeInsets.zero,
+              fillColor: Colors.white, // White background for search bar
+              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+              enabledBorder: OutlineInputBorder( // Solid border when enabled
+                borderRadius: BorderRadius.circular(30.0),
+                borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder( // Blue border when focused
+                borderRadius: BorderRadius.circular(30.0),
+                borderSide: const BorderSide(color: Color(0xFF0098DA), width: 2),
+              ),
             ),
           ),
         ),
@@ -179,17 +187,41 @@ class _StoreScreenContentState extends State<StoreScreenContent> {
             future: _storesFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(child: CircularProgressIndicator(color: Color(0xFF0098DA))); // Blue loading indicator
               }
       
               if (snapshot.hasError) {
                 return Center(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'เกิดข้อผิดพลาด: ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red),
+                    child: Column( // Display error with icon and refresh button
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
+                        const SizedBox(height: 15),
+                        Text(
+                          'เกิดข้อผิดพลาด: ${snapshot.error}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 16),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _storesFuture = _fetchStoresAndCalculateDistances(); // Retry fetching
+                            });
+                          },
+                          icon: const Icon(Icons.refresh, color: Colors.white),
+                          label: const Text('ลองอีกครั้ง', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0288D1), // Blue button from icon
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -200,12 +232,28 @@ class _StoreScreenContentState extends State<StoreScreenContent> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.store_outlined, size: 50, color: Colors.grey),
-                          const SizedBox(height: 10),
+                          const Icon(Icons.store_outlined, size: 60, color: Colors.grey),
+                          const SizedBox(height: 15),
                           const Text(
                             'ไม่พบร้านค้าที่ตรงกับเงื่อนไข',
-                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                            style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold),
                           ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon( // Added refresh button
+                              onPressed: () {
+                                _searchController.clear();
+                                _applyFilters(); // Apply filters again
+                              },
+                              icon: const Icon(Icons.clear_all, color: Colors.white),
+                              label: const Text('ล้างการค้นหา/ตัวกรอง', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFFB300), // Yellow/Orange button from icon
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              ),
+                            ),
                         ],
                       ),
                     )
@@ -239,20 +287,27 @@ class StoreCard extends StatelessWidget {
 
   Widget _buildStatusBadge(bool isOpen) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), // Increased padding
       decoration: BoxDecoration(
-        color: isOpen ? Colors.green : Colors.red,
+        color: isOpen ? Colors.green.shade600 : Colors.red.shade600, // Deeper green/red
         borderRadius: const BorderRadius.only(
-          topRight: Radius.circular(15),
-          bottomLeft: Radius.circular(15),
+          topRight: Radius.circular(20), // More rounded
+          bottomLeft: Radius.circular(20), // More rounded
         ),
+        boxShadow: [ // Subtle shadow
+          BoxShadow(
+            color: (isOpen ? Colors.green : Colors.red).withOpacity(0.3),
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Text(
         isOpen ? 'เปิด' : 'ปิด',
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
-          fontSize: 12,
+          fontSize: 13, // Slightly larger font
         ),
       ),
     );
@@ -261,12 +316,12 @@ class StoreCard extends StatelessWidget {
   Widget _buildInfoRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: Colors.grey[600]),
-        const SizedBox(width: 6),
+        Icon(icon, size: 16, color: Colors.grey[600]), // Larger icon
+        const SizedBox(width: 8), // Increased spacing
         Expanded(
           child: Text(
             text,
-            style: TextStyle(color: Colors.grey[700], fontSize: 13),
+            style: TextStyle(color: Colors.grey[700], fontSize: 14), // Slightly larger font
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -289,20 +344,20 @@ class StoreCard extends StatelessWidget {
           ),
         );
       },
-      borderRadius: BorderRadius.circular(15),
+      borderRadius: BorderRadius.circular(20), // More rounded for the whole card
       child: Stack(
         children: [
           Container(
-            margin: const EdgeInsets.only(bottom: 15),
-            padding: const EdgeInsets.all(15),
+            margin: const EdgeInsets.only(bottom: 20), // Increased margin
+            padding: const EdgeInsets.all(18), // Increased padding
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(20), // More rounded
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  color: Colors.grey.withOpacity(0.15), // Stronger shadow
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
@@ -310,53 +365,53 @@ class StoreCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 90, // Larger image
+                  height: 90, // Larger image
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(15), // More rounded
                     image: DecorationImage(
                       image: NetworkImage(store.imageUrl ?? 'https://placehold.co/100x100/EFEFEF/AAAAAA?text=No+Image'),
                       fit: BoxFit.cover,
                     ),
                   ),
                 ),
-                const SizedBox(width: 15),
+                const SizedBox(width: 18), // Increased spacing
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         store.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: Colors.black87), // Bolder, larger
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 5),
                       Text(
                         store.description,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                        maxLines: 1,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14), // Slightly larger font
+                        maxLines: 2, // Allow more lines for description
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10), // Increased spacing
                       _buildInfoRow(Icons.category_outlined, store.category ?? 'ไม่มีหมวดหมู่'),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6), // Increased spacing
                       _buildInfoRow(Icons.location_city_outlined, store.province),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10), // Increased spacing
                       Row(
                         children: [
-                          Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
+                          Icon(Icons.location_on_outlined, size: 18, color: Colors.grey[600]), // Larger icon
+                          const SizedBox(width: 6), // Increased spacing
                           Text(
                             '${storeData.distanceInKm.toStringAsFixed(1)} km',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
                           ),
-                          const SizedBox(width: 15),
-                          const Icon(Icons.star, size: 16, color: Colors.orange),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 20), // Increased spacing
+                          const Icon(Icons.star, size: 18, color: Colors.orange), // Larger icon
+                          const SizedBox(width: 6), // Increased spacing
                           Text(
                             store.averageRating.toStringAsFixed(1),
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
                           ),
                         ],
                       ),
