@@ -16,13 +16,15 @@ class ShippingAddressScreen extends StatefulWidget {
 class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
 
-  void _navigateToAddEditScreen([Address? address]) {
-    Navigator.push(
+  void _navigateToAddEditScreen([Address? address]) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => AddEditAddressScreen(address: address),
       ),
     );
+    // Refresh addresses after returning from AddEditAddressScreen
+    setState(() {}); 
   }
 
   Future<void> _deleteAddress(String addressId) async {
@@ -66,7 +68,19 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
   Widget build(BuildContext context) {
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('ที่อยู่จัดส่ง')),
+        appBar: AppBar(
+          title: const Text('ที่อยู่จัดส่ง'),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          foregroundColor: Colors.white,
+        ),
         body: const Center(child: Text('กรุณาเข้าสู่ระบบเพื่อจัดการที่อยู่')),
       );
     }
@@ -74,7 +88,15 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ที่อยู่จัดส่ง'),
-        backgroundColor: const Color(0xFF9C6ADE),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -85,7 +107,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))); // Blue loading
           }
           if (snapshot.hasError) {
             return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
@@ -127,13 +149,13 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
+                              color: const Color(0xFFE0F7FA), // Light blue background for label
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               address.label,
-                              style: TextStyle(
-                                color: Theme.of(context).primaryColor,
+                              style: const TextStyle(
+                                color: Color(0xFF0288D1), // Blue text for label
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -141,11 +163,11 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
                           Row(
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                                icon: const Icon(Icons.edit_outlined, color: Color(0xFF0288D1)), // Blue edit icon
                                 onPressed: () => _navigateToAddEditScreen(address),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                icon: const Icon(Icons.delete_outline, color: Colors.red), // Red delete icon
                                 onPressed: () => _deleteAddress(address.id),
                               ),
                             ],
@@ -153,10 +175,10 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
                         ],
                       ),
                       const Divider(height: 20),
-                      Text(address.contactName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text(address.phoneNumber),
+                      Text(address.contactName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)), // Darker text
+                      Text(address.phoneNumber, style: TextStyle(color: Colors.grey[700])), // Darker text
                       const SizedBox(height: 4),
-                      Text(address.addressLine),
+                      Text(address.addressLine, style: TextStyle(color: Colors.grey[700])), // Darker text
                     ],
                   ),
                 ),
@@ -167,8 +189,8 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToAddEditScreen(),
-        backgroundColor: const Color(0xFF9C6ADE),
-        child: const Icon(Icons.add),
+        backgroundColor: const Color(0xFF4A00E0), // Dark Purple FAB
+        child: const Icon(Icons.add, color: Colors.white), // White icon
       ),
     );
   }

@@ -236,15 +236,23 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: Colors.white, // White background
       appBar: AppBar(
         title: const Text('ยืนยันคำสั่งซื้อ'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
           : _product == null
               ? const Center(child: Text('ไม่สามารถโหลดข้อมูลสินค้าได้'))
               : Column(
@@ -285,7 +293,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87), // Darker text
       ),
     );
   }
@@ -293,7 +301,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   Widget _buildShippingMethodSelector() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 0,
+      elevation: 2, // Added elevation
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Row(
@@ -306,6 +314,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                 onSelected: (selected) {
                   setState(() => _shippingMethod = ShippingMethod.delivery);
                 },
+                selectedColor: const Color(0xFF0288D1), // Blue selected color
               ),
             ),
             const SizedBox(width: 8),
@@ -318,6 +327,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('การรับที่ร้านยังไม่พร้อมใช้งาน')));
                 },
+                selectedColor: const Color(0xFF4A00E0), // Dark Purple selected color
               ),
             ),
           ],
@@ -328,21 +338,24 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   
   Widget _buildAddressSelector() {
     if (_addresses.isEmpty) {
-      return const Card(
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ListTile(
-          title: Text('ไม่มีที่อยู่'),
-          subtitle: Text('กรุณาเพิ่มที่อยู่ของคุณในหน้าโปรไฟล์'),
+          title: const Text('ไม่มีที่อยู่', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), // Red text
+          subtitle: const Text('กรุณาเพิ่มที่อยู่ของคุณในหน้าโปรไฟล์'),
+          trailing: const Icon(Icons.info_outline, color: Colors.redAccent), // Red info icon
         ),
       );
     }
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 0,
+      elevation: 2, // Added elevation
       child: ListTile(
-        leading: const Icon(Icons.location_on, color: Color(0xFF9C6ADE)),
-        title: Text(_selectedAddress?.name ?? 'เลือกที่อยู่'),
-        subtitle: Text(_selectedAddress?.fullAddress ?? 'กรุณาเลือกที่อยู่สำหรับจัดส่ง'),
-        trailing: const Icon(Icons.chevron_right),
+        leading: const Icon(Icons.location_on, color: Color(0xFF0288D1)), // Blue icon
+        title: Text(_selectedAddress?.name ?? 'เลือกที่อยู่', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
+        subtitle: Text(_selectedAddress?.fullAddress ?? 'กรุณาเลือกที่อยู่สำหรับจัดส่ง', style: TextStyle(color: Colors.grey[700])), // Darker subtitle
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey), // Grey arrow
         onTap: () {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('ฟังก์ชันเลือกที่อยู่ยังไม่พร้อมใช้งาน')));
@@ -354,7 +367,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   Widget _buildProductItem(Product product) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 0,
+      elevation: 2, // Added elevation
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
@@ -366,8 +379,11 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                 width: 60,
                 height: 60,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  return progress == null ? child : Center(child: CircularProgressIndicator(color: const Color(0xFF0288D1))); // Blue loading
+                },
                 errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.image_not_supported, size: 60),
+                    const Icon(Icons.image_not_supported, size: 60, color: Colors.grey),
               ),
             ),
             const SizedBox(width: 12),
@@ -377,17 +393,17 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                 children: [
                   Text(
                     product.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87), // Darker text
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const Text('จำนวน: 1'),
+                  Text('จำนวน: 1', style: TextStyle(color: Colors.grey[700])), // Darker text
                 ],
               ),
             ),
             Text(
               '฿${NumberFormat("#,##0.00").format(product.price)}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF4A00E0)), // Dark Purple price
             ),
           ],
         ),
@@ -398,7 +414,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
   Widget _buildPaymentMethodSelector() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 0,
+      elevation: 2, // Added elevation
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Row(
@@ -411,6 +427,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                 onSelected: (selected) {
                   setState(() => _paymentMethod = PaymentMethod.transfer);
                 },
+                selectedColor: const Color(0xFF0288D1), // Blue selected color
               ),
             ),
             const SizedBox(width: 8),
@@ -422,6 +439,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
                 onSelected: (selected) {
                   setState(() => _paymentMethod = PaymentMethod.cod);
                 },
+                selectedColor: const Color(0xFF4A00E0), // Dark Purple selected color
               ),
             ),
           ],
@@ -435,6 +453,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
     required IconData icon,
     required bool isSelected,
     required Function(bool) onSelected,
+    required Color selectedColor, // Added selectedColor parameter
   }) {
     return ChoiceChip(
       label: Text(label),
@@ -442,7 +461,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
       selected: isSelected,
       onSelected: onSelected,
       backgroundColor: Colors.grey[200],
-      selectedColor: const Color(0xFF9C6ADE),
+      selectedColor: selectedColor, // Use the passed selectedColor
       labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -470,26 +489,26 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('ราคาสินค้า'),
-              Text('฿${NumberFormat("#,##0.00").format(subtotal)}'),
+              const Text('ราคาสินค้า', style: TextStyle(color: Colors.black87)), // Darker text
+              Text('฿${NumberFormat("#,##0.00").format(subtotal)}', style: const TextStyle(color: Colors.black87)), // Darker text
             ],
           ),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('ค่าจัดส่ง'),
-              Text('฿${NumberFormat("#,##0.00").format(_shippingFee)}'),
+              const Text('ค่าจัดส่ง', style: TextStyle(color: Colors.black87)), // Darker text
+              Text('฿${NumberFormat("#,##0.00").format(_shippingFee)}', style: const TextStyle(color: Colors.black87)), // Darker text
             ],
           ),
           const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('สรุปยอดชำระเงิน', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Text('สรุปยอดชำระเงิน', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87)), // Darker text
               Text(
                 '฿${NumberFormat("#,##0.00").format(total)}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF9C6ADE)),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF4A00E0)), // Dark Purple total
               ),
             ],
           ),
@@ -499,7 +518,7 @@ class _ConfirmOrderScreenState extends State<ConfirmOrderScreen> {
             child: ElevatedButton(
               onPressed: (_isPlacingOrder || _selectedAddress == null) ? null : _placeOrder,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF28A745), // Green color
+                backgroundColor: const Color(0xFF0288D1), // Blue confirm button
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),

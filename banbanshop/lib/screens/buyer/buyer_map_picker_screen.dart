@@ -21,6 +21,7 @@ class _BuyerMapPickerScreenState extends State<BuyerMapPickerScreen> {
   LatLng? _selectedLocation;
   String _selectedAddress = 'กำลังค้นหาที่อยู่...';
   bool _isLoading = true;
+  final TextEditingController _searchController = TextEditingController(); // Added search controller
 
   static const LatLng _initialPosition = LatLng(13.7563, 100.5018); // ตำแหน่งเริ่มต้นที่กรุงเทพ
 
@@ -34,6 +35,12 @@ class _BuyerMapPickerScreenState extends State<BuyerMapPickerScreen> {
     } else {
       _getUserLocation();
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose(); // Dispose search controller
+    super.dispose();
   }
 
   Future<void> _getUserLocation() async {
@@ -104,6 +111,40 @@ class _BuyerMapPickerScreenState extends State<BuyerMapPickerScreen> {
     }
   }
 
+  // New: Function to search for a location by address
+  Future<void> _searchLocation(String query) async {
+    if (query.isEmpty) return;
+    setState(() => _isLoading = true);
+    try {
+      List<Location> locations = await locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        final firstLocation = locations.first;
+        final newLatLng = LatLng(firstLocation.latitude, firstLocation.longitude);
+        setState(() {
+          _selectedLocation = newLatLng;
+          _isLoading = false;
+        });
+        _mapController?.animateCamera(CameraUpdate.newLatLngZoom(newLatLng, 16));
+        _getAddressFromLatLng(newLatLng);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ไม่พบที่อยู่ดังกล่าว')),
+          );
+        }
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print("Error searching location: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาดในการค้นหา: $e')),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
   void _onMapTapped(LatLng position) {
     setState(() {
       _selectedLocation = position;
@@ -130,20 +171,29 @@ class _BuyerMapPickerScreenState extends State<BuyerMapPickerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ปักหมุดที่อยู่จัดส่ง'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
         actions: [
           IconButton(
             icon: const Icon(Icons.my_location),
             onPressed: _getUserLocation,
             tooltip: 'ตำแหน่งปัจจุบัน',
+            color: Colors.white, // White icon
           )
         ],
       ),
       body: Stack(
         children: [
           _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
               : GoogleMap(
                   initialCameraPosition: CameraPosition(
                     target: _selectedLocation ?? _initialPosition,
@@ -164,9 +214,43 @@ class _BuyerMapPickerScreenState extends State<BuyerMapPickerScreen> {
                             onDragEnd: (newPosition) {
                               _onMapTapped(newPosition);
                             },
+                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange), // Orange marker
                           ),
                         },
                 ),
+          // Search bar
+          Positioned(
+            top: 10,
+            left: 10,
+            right: 10,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'ค้นหาที่อยู่...',
+                  hintStyle: TextStyle(color: Colors.grey[600]), // Darker hint text
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.search, color: Color(0xFF0288D1)), // Blue search icon
+                    onPressed: () => _searchLocation(_searchController.text),
+                  ),
+                ),
+                onSubmitted: _searchLocation, // Search on submit
+              ),
+            ),
+          ),
           Positioned(
             bottom: 0,
             left: 0,
@@ -191,16 +275,16 @@ class _BuyerMapPickerScreenState extends State<BuyerMapPickerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('ตำแหน่งที่เลือก', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('ตำแหน่งที่เลือก', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
                   const SizedBox(height: 8),
-                  Text(_selectedAddress, style: const TextStyle(fontSize: 16)),
+                  Text(_selectedAddress, style: const TextStyle(fontSize: 16, color: Colors.grey)), // Grey text
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _confirmSelection,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF9C6ADE),
+                        backgroundColor: const Color(0xFF0288D1), // Blue button
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

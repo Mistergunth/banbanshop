@@ -172,11 +172,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ชำระเงิน'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
           : _store == null || _order == null || _store!.paymentInfo == null
               ? const Center(child: Text('ไม่พบข้อมูลการชำระเงินของร้านค้า'))
               : SingleChildScrollView(
@@ -205,7 +213,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           children: [
             const Text(
               'สแกน QR Code เพื่อชำระเงิน',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87), // Darker text
             ),
             const SizedBox(height: 16),
             if (paymentInfo['qrCodeImageUrl'] != null)
@@ -214,12 +222,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 height: 250,
                 width: 250,
                 fit: BoxFit.contain,
-                errorBuilder: (c, e, s) => const Icon(Icons.error, size: 50),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                          : null,
+                      color: const Color(0xFF0288D1), // Blue loading
+                    ),
+                  );
+                },
+                errorBuilder: (c, e, s) => const Icon(Icons.error, size: 50, color: Colors.redAccent), // Red error icon
               ),
             const SizedBox(height: 16),
             Text(
               'ยอดที่ต้องชำระ: ฿${_order!.totalAmount.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF9C6ADE)),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF4A00E0)), // Dark Purple amount
             ),
             const Divider(height: 32),
             _buildInfoRow('ชื่อบัญชี:', paymentInfo['accountName'] ?? 'N/A'),
@@ -237,8 +256,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[600])),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(label, style: TextStyle(color: Colors.grey[700])), // Darker grey
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87)), // Darker text
         ],
       ),
     );
@@ -247,7 +266,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _buildUploadSlipSection() {
     return Column(
       children: [
-        const Text('อัปโหลดสลิปการโอนเงิน', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text('อัปโหลดสลิปการโอนเงิน', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
         const SizedBox(height: 16),
         GestureDetector(
           onTap: _pickSlipImage,
@@ -257,7 +276,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid),
+              border: Border.all(color: Colors.grey.shade400, style: BorderStyle.solid), // Lighter grey border
             ),
             child: _slipImageFile != null
                 ? ClipRRect(
@@ -290,7 +309,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white))
             : const Text('แจ้งชำระเงินแล้ว'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF66BB6A),
+          backgroundColor: const Color(0xFF0288D1), // Blue confirm button
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 15),
           textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold ,fontFamily: GoogleFonts.kanit().fontFamily),

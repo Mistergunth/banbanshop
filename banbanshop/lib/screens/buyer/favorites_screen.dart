@@ -57,14 +57,22 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ร้านค้าโปรด'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: FutureBuilder<List<Store>>(
         future: _fetchFavoriteStores(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))); // Blue loading
           }
 
           if (snapshot.hasError) {
@@ -114,15 +122,15 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                         ? NetworkImage(store.imageUrl!)
                         : null,
                     child: store.imageUrl == null || store.imageUrl!.isEmpty
-                        ? const Icon(Icons.store, size: 30, color: Colors.white)
+                        ? const Icon(Icons.store, size: 30, color: Colors.grey) // Grey icon for no image
                         : null,
                   ),
                   title: Text(
                     store.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87), // Darker text
                   ),
-                  subtitle: Text(store.province),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  subtitle: Text(store.province, style: TextStyle(color: Colors.grey[700])), // Darker subtitle
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey), // Grey arrow
                   onTap: () {
                     Navigator.push(
                       context,

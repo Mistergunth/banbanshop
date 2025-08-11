@@ -46,18 +46,26 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F4FD),
+      backgroundColor: const Color(0xFFF0F4F8), // Lighter background color
       appBar: AppBar(
-        backgroundColor: const Color(0xFFE8F4FD),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20), // White icon
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'บ้านบ้านช็อป',
           style: TextStyle(
-            color: Colors.black87,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -74,7 +82,7 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Colors.black87, // Darker text
               ),
             ),
             const SizedBox(height: 25),
@@ -94,8 +102,8 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                 controller: searchController,
                 decoration: InputDecoration(
                   hintText: 'ค้นหา',
-                  hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
-                  prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
+                  hintStyle: TextStyle(color: Colors.grey[600], fontSize: 16), // Darker hint text
+                  prefixIcon: Icon(Icons.search, color: Colors.grey[600]), // Darker icon
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                 ),
@@ -144,7 +152,7 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                           Icon(
                             category.icon,
                             size: 40,
-                            color: const Color(0xFF9C6ADE),
+                            color: const Color(0xFF0288D1), // Blue icon
                           ),
                           const SizedBox(height: 12),
                           Text(
@@ -152,7 +160,7 @@ class _CategorySelectionPageState extends State<CategorySelectionPage> {
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Colors.black87,
+                              color: Colors.black87, // Darker text
                             ),
                             textAlign: TextAlign.center,
                           ),

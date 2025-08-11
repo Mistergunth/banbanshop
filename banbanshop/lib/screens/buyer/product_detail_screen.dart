@@ -148,8 +148,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.product.name),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -163,7 +171,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       widget.product.imageUrl!,
                       fit: BoxFit.cover,
                       loadingBuilder: (context, child, progress) {
-                        return progress == null ? child : const Center(child: CircularProgressIndicator());
+                        return progress == null ? child : Center(child: CircularProgressIndicator(color: const Color(0xFF0288D1))); // Blue loading
                       },
                       errorBuilder: (context, error, stackTrace) {
                         return const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey));
@@ -178,12 +186,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 children: [
                   Text(
                     widget.product.name,
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87), // Darker text
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '฿${widget.product.price.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 24, color: Color(0xFF9C6ADE), fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 24, color: Color(0xFF4A00E0), fontWeight: FontWeight.bold), // Dark Purple price
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -201,12 +209,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const Divider(height: 16),
                   const Text(
                     'รายละเอียด',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87), // Darker text
                   ),
                   const SizedBox(height: 8),
                   Text(
                     widget.product.description.isNotEmpty ? widget.product.description : 'ไม่มีคำอธิบายสำหรับสินค้านี้',
-                    style: TextStyle(fontSize: 16, color: Colors.grey[700], height: 1.5),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[700], height: 1.5), // Darker text
                   ),
                 ],
               ),
@@ -232,7 +240,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             if (_isStoreLoading)
               const Padding(
                 padding: EdgeInsets.only(bottom: 8.0),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2.0, color: Color(0xFF0288D1))), // Blue loading
               )
             else if (!isStoreOpen)
               Padding(
@@ -262,16 +270,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
+                      icon: const Icon(Icons.remove_circle_outline, color: Color(0xFF4A00E0)), // Dark Purple icon
                       onPressed: !canAddToCart ? null : _decrementQuantity,
                       iconSize: 30,
                     ),
                     Text(
                       '$_quantity',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87), // Darker text
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
+                      icon: const Icon(Icons.add_circle_outline, color: Color(0xFF0288D1)), // Blue icon
                       onPressed: !canAddToCart ? null : _incrementQuantity,
                       iconSize: 30,
                     ),
@@ -286,7 +294,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
                       : Text(isOutOfStock ? 'สินค้าหมด' : (isStoreOpen ? 'เพิ่มลงตะกร้า' : 'ร้านปิด')),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: canAddToCart ? const Color(0xFF66BB6A) : Colors.grey,
+                    backgroundColor: canAddToCart ? const Color(0xFF0288D1) : Colors.grey, // Blue add to cart, grey if not
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: GoogleFonts.kanit().fontFamily ),

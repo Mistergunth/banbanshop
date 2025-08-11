@@ -96,18 +96,26 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF0F4F8), // Lighter background color
       appBar: AppBar(
-        backgroundColor: const Color(0xFFE8F4FD),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20), // White icon
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'บ้านบ้านช็อป',
           style: TextStyle(
-            color: Colors.black87,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -125,7 +133,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Colors.black87, // Darker text
               ),
             ),
             const SizedBox(height: 20),
@@ -133,14 +141,14 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
+                border: Border.all(color: Colors.grey[300]!), // Light grey border
               ),
               child: DropdownButtonFormField<String>(
                 value: selectedProvince,
                 decoration: InputDecoration(
                   hintText: 'เลือกจังหวัด',
                   hintStyle: TextStyle(
-                    color: Colors.grey[500],
+                    color: Colors.grey[600], // Darker hint text
                     fontSize: 16,
                   ),
                   border: InputBorder.none,
@@ -151,7 +159,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                 ),
                 icon: Icon(
                   Icons.keyboard_arrow_down,
-                  color: Colors.grey[600],
+                  color: Colors.grey[600], // Darker icon
                 ),
                 items: provinces.map((String province) {
                   return DropdownMenuItem<String>(
@@ -160,7 +168,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                       province,
                       style: const TextStyle(
                         fontSize: 16,
-                        color: Colors.black87,
+                        color: Colors.black87, // Darker text
                       ),
                     ),
                   );
@@ -190,13 +198,13 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF9C6ADE),
-                  // ignore: deprecated_member_use
-                  disabledBackgroundColor: const Color(0xFF9C6ADE).withOpacity(0.5),
+                  backgroundColor: const Color(0xFF0288D1), // Blue button
+                  disabledBackgroundColor: const Color(0xFF0288D1).withOpacity(0.5), // Lighter blue when disabled
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  elevation: 0,
+                  elevation: 3, // Added elevation
+                  shadowColor: const Color(0xFF0288D1).withOpacity(0.3), // Blue shadow
                 ),
                 child: const Text(
                   'ยืนยันจังหวัด',
