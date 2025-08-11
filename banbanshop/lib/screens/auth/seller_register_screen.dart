@@ -128,6 +128,22 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
     final storagePath = 'id_card_images/$_scanId.jpg'; 
 
     try {
+      // [แก้ไขใหม่] ลงชื่อเข้าใช้แบบไม่ระบุตัวตนก่อนอัปโหลด
+      // เพื่อให้แน่ใจว่ามีผู้ใช้ลงชื่อเข้าใช้อยู่ (แม้จะเป็นชั่วคราว)
+      // และ Firebase Storage จะยอมรับการเขียนตามกฎ
+      User? currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        print("No user signed in, attempting anonymous sign-in for upload.");
+        await _auth.signInAnonymously();
+        currentUser = _auth.currentUser; // Update currentUser after anonymous sign-in
+      }
+
+      if (currentUser == null) {
+        throw Exception("Failed to sign in anonymously. Cannot upload image.");
+      }
+      print("User is signed in (UID: ${currentUser.uid}) for image upload.");
+
+
       // 2. Upload the image to Firebase Storage
       final storageRef = FirebaseStorage.instance.ref().child(storagePath);
       await storageRef.putFile(imageFile);
@@ -183,6 +199,12 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         }
       );
 
+    } on FirebaseAuthException catch (e) {
+      String message = 'เกิดข้อผิดพลาดในการยืนยันตัวตนสำหรับอัปโหลด: ${e.message}';
+       ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       setState(() {
         _isLoading = false;

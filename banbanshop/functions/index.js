@@ -6,13 +6,13 @@ const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { logger } = require("firebase-functions");
 const admin = require("firebase-admin");
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
-const vision = require("@google-cloud/vision");
+const vision = require("@google-cloud/vision"); // [สำคัญ] ต้องมีบรรทัดนี้
 
-// [แก้ไข] ย้ายการสร้าง VisionClient มาไว้ที่ Global Scope
+// [สำคัญ] ย้ายการสร้าง VisionClient มาไว้ที่ Global Scope
 // การสร้าง client นี้ควรเกิดขึ้นเพียงครั้งเดียวเมื่อฟังก์ชันถูกโหลด
 const visionClient = new vision.ImageAnnotatorClient();
 
-// [แก้ไข] เริ่มต้น Firebase Admin SDK เพียงครั้งเดียว
+// [สำคัญ] เริ่มต้น Firebase Admin SDK เพียงครั้งเดียว
 admin.initializeApp();
 
 // --- โค้ดเดิมของคุณ (ไม่เปลี่ยนแปลง) ---
@@ -113,12 +113,10 @@ exports.chatWithGemini = onCall({
 
 // --- [แก้ไขใหม่] ฟังก์ชันสำหรับประมวลผลภาพบัตรประชาชนด้วย Cloud Vision API ---
 exports.processIdCardImage = onObjectFinalized({
-    // [แก้ไข: สำคัญมาก!] เปลี่ยนกลับเป็นชื่อสั้นของ Bucket เท่านั้น
-    // เนื่องจาก Cloud Functions (2nd Gen) สำหรับ Storage Trigger ต้องการชื่อสั้น
     bucket: "banbanshop", 
     region: "asia-southeast1",
-    timeoutSeconds: 300, // เพิ่ม timeout เป็น 5 นาที (300 วินาที)
-    memory: "2GiB",      // เพิ่ม memory เป็น 2GiB (ถ้ามีให้เลือก)
+    timeoutSeconds: 300, 
+    memory: "2GiB",      
 }, async (event) => {
     logger.log(">>>>>> DIAGNOSTIC TEST: Function triggered successfully! <<<<<<");
     const fileBucket = event.data.bucket;
@@ -127,7 +125,6 @@ exports.processIdCardImage = onObjectFinalized({
 
     // ตรวจสอบว่าเป็นไฟล์รูปภาพที่ถูกอัปโหลดมาในโฟลเดอร์ที่ถูกต้องหรือไม่
     if (!contentType.startsWith("image/") || !filePath.startsWith("id_card_images/")) {
-        // ถ้าไม่ใช่รูปภาพบัตรประชาชน หรือไม่ได้อยู่ในโฟลเดอร์ที่กำหนด ให้ข้ามการประมวลผล
         return logger.log("This is not an ID card image or not in the correct folder, skipping.");
     }
 
@@ -135,15 +132,14 @@ exports.processIdCardImage = onObjectFinalized({
     const fileName = filePath.split("/").pop();
     const userId = fileName.split(".")[0];
     if (!userId) {
-        // ถ้าไม่สามารถดึง User ID ได้ ให้บันทึกข้อผิดพลาด
         return logger.error("Could not extract user ID from file path.", { filePath });
     }
 
     logger.log(`Processing ID card for user: ${userId}`);
-    const db = admin.firestore(); // สร้าง Firestore instance ภายในฟังก์ชัน
+    const db = admin.firestore(); // [สำคัญ] ต้องมีบรรทัดนี้
 
     try {
-        // เรียกใช้ Cloud Vision API เพื่ออ่านข้อความจากภาพ (ระบุภาษาเป็น THAI และ English)
+        // [สำคัญ] โค้ดส่วน Vision API และ Firestore ที่ถูกเปิดใช้งานแล้ว
         const [result] = await visionClient.textDetection(`gs://${fileBucket}/${filePath}`, {
             imageContext: {
                 languageHints: ['th', 'en'] // แนะนำให้ใช้ภาษาไทยและอังกฤษ
@@ -230,4 +226,10 @@ exports.processIdCardImage = onObjectFinalized({
         }, { merge: true });
         return null;
     }
+});
+
+// เพิ่มฟังก์ชันนี้เพื่อทดสอบการ Deploy และ Log พื้นฐาน
+exports.testLogFunction = functions.https.onRequest(async (req, res) => {
+  logger.log(">>>>>> DEBUG: testLogFunction was called successfully! <<<<<<");
+  res.status(200).send("Hello from testLogFunction!");
 });
