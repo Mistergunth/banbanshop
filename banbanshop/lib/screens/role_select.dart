@@ -63,12 +63,12 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3), // เพิ่มความทึบเล็กน้อย
+        color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12),
       ),
       child: const Icon(
         Icons.storefront_rounded,
-        color: Colors.white,
+        color: Color(0xFF2E7D32),
         size: 24,
       ),
     );
@@ -77,28 +77,28 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3), // เพิ่มความทึบเล็กน้อย
+        color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12),
       ),
       child: const Icon(
         Icons.shopping_cart_rounded,
-        color: Colors.white,
+        color: Color(0xFF1976D2),
         size: 24,
       ),
     );
 
-
     return Scaffold(
       body: Container(
-        // --- [การแก้ไข] เปลี่ยนชุดสี Gradient ของพื้นหลัง ---
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF89F7FE), // สีฟ้าสว่าง
-              Color(0xFF66A6FF), // สีฟ้าอมเขียว
+              Color(0xFFE8F5E8), // อ่อนๆ เขียวอ่อน
+              Color(0xFFF0F8FF), // ขาวฟ้าอ่อน
+              Color(0xFFFFF8E1), // เหลืองอ่อนๆ
             ],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: Stack(
@@ -120,19 +120,34 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Container(
-                                width: 100,
-                                height: 100,
-                                child: ClipOval(
-                                  child: CachedNetworkImage(
-                                    imageUrl: 'https://firebasestorage.googleapis.com/v0/b/banbanshop.firebasestorage.app/o/icon%20basket.png?alt=media&token=f5c2f07c-ff19-4001-afa4-44ee4d0e9a83',
-                                    placeholder: (context, url) => Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white.withOpacity(0.8),
-                                        strokeWidth: 2.0,
+                                width: 150,
+                                height: 150,
+                                child: ShaderMask(
+                                  // กำหนดสี Gradient ที่จะใช้เป็นหน้ากาก
+                                  shaderCallback: (bounds) => const LinearGradient(
+                                    colors: [
+                                      Color(0xFF9C6ADE), // สีน้ำเงินเข้ม
+                                      Color(0xFF0288D1)  // สีฟ้าเทอร์ควอยซ์
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ).createShader(bounds),
+                                  // กำหนดวิธีการผสมสี (ใช้สีจาก Gradient ทับลงบนส่วนที่ไม่โปร่งใสของรูป)
+                                  blendMode: BlendMode.srcIn,
+                                  child: ClipOval(
+                                    child: CachedNetworkImage(
+                                      imageUrl: 'https://firebasestorage.googleapis.com/v0/b/banbanshop.firebasestorage.app/o/icon%20basket.png?alt=media&token=f5c2f07c-ff19-4001-afa4-44ee4d0e9a83',
+                                      // ทำให้รูปเป็นสีขาว เพื่อให้รับสี Gradient ได้เต็มที่
+                                      color: Colors.white,
+                                      placeholder: (context, url) => Center(
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white.withOpacity(0.8),
+                                          strokeWidth: 2.0,
+                                        ),
                                       ),
+                                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                                      fit: BoxFit.cover,
                                     ),
-                                    errorWidget: (context, url, error) => const Icon(Icons.error),
-                                    fit: BoxFit.cover,
                                   ),
                                 ),
                               ),
@@ -140,17 +155,27 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                               Text(
                                 'บ้านบ้านช็อป',
                                 style: GoogleFonts.kanit(
-                                  fontSize: 28,
+                                  fontSize: 48,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                                  color: const Color(0xFF0288D1), // เขียวเข้มสบายตา
                                   shadows: [
                                     Shadow(
-                                      color: Colors.black.withOpacity(0.2), // ลดความเข้มของเงา
+                                      color: Colors.black.withOpacity(0.1),
                                       offset: const Offset(0, 2),
                                       blurRadius: 4,
                                     ),
                                   ],
                                 ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'คุณคือใคร?',
+                                style: GoogleFonts.kanit(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF424242), // เทาเข้มอ่านง่าย
+                                ),
+                                textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 48),
                               ClipRRect(
@@ -160,13 +185,16 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                                   child: Container(
                                     padding: const EdgeInsets.all(24),
                                     decoration: BoxDecoration(
-                                      // --- [การแก้ไข] ปรับสีและความทึบของการ์ด ---
-                                      color: Colors.white.withOpacity(0.25),
+                                      color: Colors.white.withOpacity(0.85), // ขาวแทบจะทึบ สบายตา
                                       borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.4),
-                                        width: 1.5,
-                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.grey.withOpacity(0.2),
+                                          blurRadius: 10,
+                                          spreadRadius: 2,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -174,9 +202,9 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                                         Text(
                                           'เลือกบทบาทของคุณ',
                                           style: GoogleFonts.kanit(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w500,
+                                            color: const Color.fromARGB(255, 0, 0, 0), // เขียวเข้ม
                                           ),
                                         ),
                                         const SizedBox(height: 16),
@@ -190,8 +218,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                                               MaterialPageRoute(builder: (context) => ProvinceSelectionPage()),
                                             );
                                           },
-                                          // --- [การแก้ไข] เปลี่ยนชุดสีปุ่มผู้ซื้อ ---
-                                          gradientColors: const [Color(0xFF56CCF2), Color(0xFF2F80ED)],
+                                          gradientColors: const [Color(0xFF2196F3), Color(0xFF21CBF3)], // ฟ้าสดใส
                                           isFirst: true,
                                         ),
                                         const SizedBox(height: 20),
@@ -205,8 +232,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                                               MaterialPageRoute(builder: (context) => const SellerLoginScreen()),
                                             );
                                           },
-                                           // --- [การแก้ไข] เปลี่ยนชุดสีปุ่มผู้ขาย ---
-                                          gradientColors: const [Color(0xFF6DD5FA), Color(0xFF29FFC6)],
+                                          gradientColors: const [Color(0xFF4CAF50), Color(0xFF66BB6A)], // เขียวสดใส
                                           isFirst: false,
                                         ),
                                       ],
@@ -230,7 +256,6 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
   }
   
   Widget _buildAnimatedBackgroundShapes() {
-    // ปรับสีวงกลมพื้นหลังให้สว่างขึ้น
     return Stack(
       children: [
         Positioned(
@@ -249,7 +274,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                   height: 200,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.15),
+                    color: const Color(0xFF4CAF50).withOpacity(0.08), // เขียวอ่อนๆ
                   ),
                 ),
               );
@@ -272,7 +297,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                   height: 150,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.12),
+                    color: const Color(0xFF2196F3).withOpacity(0.06), // ฟ้าอ่อนๆ
                   ),
                 ),
               );
@@ -295,7 +320,7 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                   height: 180,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.18),
+                    color: const Color(0xFFFFC107).withOpacity(0.1), // เหลืองอ่อนๆ
                   ),
                 ),
               );
@@ -326,10 +351,10 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
         ),
         boxShadow: [
           BoxShadow(
-            color: gradientColors.first.withOpacity(0.3),
-            blurRadius: 20,
+            color: gradientColors.first.withOpacity(0.25),
+            blurRadius: 15,
             spreadRadius: 0,
-            offset: const Offset(0, 8),
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -349,8 +374,8 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                     child: Text(
                       label,
                       style: GoogleFonts.kanit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 24, 
+                        fontWeight: FontWeight.w500,
                         color: Colors.white,
                       ),
                     ),

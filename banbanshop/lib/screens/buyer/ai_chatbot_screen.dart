@@ -4,11 +4,50 @@ import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'dart:async';
 
+// [CRITICAL FIX] Add the correct import for your StoreProfileScreen
+// Please verify this path matches your project structure.
+import 'package:banbanshop/screens/seller/store_profile.dart';
 
+// Data model for a store
+class Store {
+  final String id;
+  final String name;
+  final String description;
+  final String imageUrl;
+  final double rating;
+
+  Store({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.imageUrl,
+    required this.rating,
+  });
+
+  factory Store.fromMap(Map<String, dynamic> map) {
+    return Store(
+      id: map['id'] ?? '',
+      name: map['name'] ?? 'ไม่มีชื่อร้าน',
+      description: map['description'] ?? 'ไม่มีรายละเอียด',
+      imageUrl: map['imageUrl'] ?? '',
+      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+// Data model for a chat message, now supporting stores
 class ChatMessage {
   final String text;
   final bool isUser;
-  ChatMessage({required this.text, required this.isUser});
+  final List<Store>? stores;
+  final bool isError;
+
+  ChatMessage({
+    required this.text,
+    required this.isUser,
+    this.stores,
+    this.isError = false,
+  });
 }
 
 class AiChatBotScreen extends StatefulWidget {
@@ -24,16 +63,14 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
 
-  // สร้าง instance ของ Cloud Functions
-  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(region: 'us-central1'); 
+  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(region: 'asia-southeast1');
 
   @override
   void initState() {
     super.initState();
-    // เพิ่มข้อความต้อนรับเริ่มต้น
     _messages.add(
       ChatMessage(
-        text: 'สวัสดีครับ! ผมคือผู้ช่วย AI ของ BanBanShop ยินดีให้บริการครับ',
+        text: 'สวัสดีครับ! ผมคือผู้ช่วย AI ของ BanBanShop สามารถสอบถามเกี่ยวกับร้านค้าในแอปได้เลยครับ เช่น "หาผ้าครามที่สกลนคร" หรือ "มีร้านเครื่องจักสานแนะนำไหม"',
         isUser: false,
       ),
     );
@@ -58,8 +95,6 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
     });
   }
 
-  // --- [อัปเดตแล้ว] ---
-  // ฟังก์ชันนี้จะเรียกใช้ Cloud Function ที่สร้างไว้แทน n8n
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -72,35 +107,36 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
     _scrollToBottom();
 
     try {
-      // เรียกใช้ Cloud Function ที่ชื่อ 'chatWithGemini'
-      final HttpsCallable callable = functions.httpsCallable('chatWithGemini');
-      final result = await callable.call<Map<String, dynamic>>({
-        'message': text, // ส่งข้อมูลในรูปแบบที่ฟังก์ชันต้องการ
-      });
+      final HttpsCallable callable = functions.httpsCallable('searchStoresWithAI');
+      final result = await callable.call<Map<String, dynamic>>({'query': text});
 
-      // ดึงคำตอบจาก key 'reply' ที่เรากำหนดไว้ใน index.js
-      final reply = result.data['reply']?.toString() ?? 'ขออภัยค่ะ ไม่สามารถประมวลผลคำตอบได้';
+      final responseText = result.data['responseText']?.toString() ?? '';
+      final List<dynamic> storeData = result.data['stores'] ?? [];
+      final List<Store> stores = storeData.map((data) => Store.fromMap(Map<String, dynamic>.from(data))).toList();
 
       setState(() {
-        _messages.add(ChatMessage(text: reply, isUser: false));
+        _messages.add(ChatMessage(
+          text: responseText,
+          isUser: false,
+          stores: stores.isNotEmpty ? stores : null,
+        ));
       });
 
     } on FirebaseFunctionsException catch (e) {
-      // จัดการกับ Error ที่มาจาก Cloud Function โดยเฉพาะ
+      String errorMessage = 'ขออภัยค่ะ เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+      if (e.code == 'internal') {
+        errorMessage = 'ขออภัยค่ะ ระบบ AI ขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง';
+      } else if (e.code == 'deadline-exceeded') {
+        errorMessage = 'ขออภัยค่ะ ใช้เวลาค้นหานานเกินไป กรุณาลองใหม่อีกครั้ง';
+      }
       print("Firebase Functions Error: ${e.code} - ${e.message}");
       setState(() {
-        _messages.add(ChatMessage(
-          text: 'ขออภัยค่ะ เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI (Code: ${e.code})',
-          isUser: false,
-        ));
+        _messages.add(ChatMessage(text: errorMessage, isUser: false, isError: true));
       });
     } catch (e) {
       print("Generic Error: $e");
       setState(() {
-        _messages.add(ChatMessage(
-          text: 'ขออภัยค่ะ เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ',
-          isUser: false,
-        ));
+        _messages.add(ChatMessage(text: 'ขออภัยค่ะ เกิดข้อผิดพลาดที่ไม่คาดคิด', isUser: false, isError: true));
       });
     } finally {
       setState(() {
@@ -112,20 +148,19 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // UI ทั้งหมดเหมือนเดิมทุกประการ
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Chatbot'),
+        title: const Text('AI Assistant'),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
         ),
-        foregroundColor: Colors.white, // White text/icons
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -136,7 +171,14 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
-                return _buildChatBubble(message);
+                return Column(
+                  crossAxisAlignment: message.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    _buildChatBubble(message),
+                    if (message.stores != null && message.stores!.isNotEmpty)
+                      ...message.stores!.map((store) => _buildStoreCard(store)).toList(),
+                  ],
+                );
               },
             ),
           ),
@@ -145,16 +187,9 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.0,
-                      color: const Color(0xFF0288D1), // Blue loading indicator
-                    ),
-                  ),
+                  const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.0)),
                   const SizedBox(width: 12),
-                  Text("AI กำลังพิมพ์...", style: TextStyle(color: Colors.grey[700])), // Darker text
+                  Text("AI กำลังค้นหา...", style: TextStyle(color: Colors.grey[700])),
                 ],
               ),
             ),
@@ -165,27 +200,98 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
   }
 
   Widget _buildChatBubble(ChatMessage message) {
+    if (!message.isUser && message.text.isEmpty && message.stores != null && message.stores!.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    final bool isError = message.isError;
+    final Color bubbleColor = message.isUser
+        ? const Color(0xFF0288D1)
+        : (isError ? const Color(0xFFFFEBEE) : const Color(0xFFE0F7FA));
+    final Color textColor = message.isUser
+        ? Colors.white
+        : (isError ? const Color(0xFFB71C1C) : Colors.black87);
+
     return Align(
       alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5.0),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
         decoration: BoxDecoration(
-          color: message.isUser ? const Color(0xFF0288D1) : const Color(0xFFE0F7FA), // Blue for user, Light Blue for AI
+          color: bubbleColor,
           borderRadius: BorderRadius.circular(20.0).copyWith(
             bottomRight: message.isUser ? const Radius.circular(5) : const Radius.circular(20),
             bottomLeft: message.isUser ? const Radius.circular(20) : const Radius.circular(5),
           ),
         ),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            color: message.isUser ? Colors.white : Colors.black87,
-            fontSize: 16,
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        child: Text(message.text, style: TextStyle(color: textColor, fontSize: 16)),
+      ),
+    );
+  }
+
+  // [CRITICAL FIX] Added Navigation logic to the correct screen
+  Widget _buildStoreCard(Store store) {
+    return GestureDetector(
+      onTap: () {
+        print("Navigating to StoreProfileScreen for ID: ${store.id}");
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            // Call the correct screen from your project
+            builder: (context) => StoreProfileScreen(
+              storeId: store.id,
+              isSellerView: false, // Assuming the user is a buyer
+            ),
           ),
+        );
+      },
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.8,
+        margin: const EdgeInsets.symmetric(vertical: 8.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), spreadRadius: 1, blurRadius: 5, offset: const Offset(0, 3))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12.0)),
+              child: store.imageUrl.isNotEmpty
+                  ? Image.network(
+                      store.imageUrl,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, progress) => progress == null ? child : Container(height: 120, color: Colors.grey[200], child: const Center(child: CircularProgressIndicator())),
+                      errorBuilder: (context, error, stack) => Container(height: 120, color: Colors.grey[200], child: const Icon(Icons.storefront, color: Colors.grey, size: 50)),
+                    )
+                  : Container(height: 120, color: Colors.grey[200], child: const Center(child: Icon(Icons.storefront, color: Colors.grey, size: 50))),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(store.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(store.description, style: TextStyle(fontSize: 14, color: Colors.grey[600]), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.star, color: Colors.amber, size: 18),
+                      const SizedBox(width: 4),
+                      Text(store.rating.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      const Text('ดูรายละเอียด', style: TextStyle(color: Color(0xFF0288D1), fontWeight: FontWeight.bold)),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -196,13 +302,7 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
       padding: const EdgeInsets.all(8.0),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
       ),
       child: SafeArea(
         child: Row(
@@ -212,11 +312,8 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
                 controller: _controller,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText: 'พิมพ์ข้อความที่นี่...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25.0),
-                    borderSide: BorderSide.none,
-                  ),
+                  hintText: 'ถามเกี่ยวกับร้านค้า...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(25.0), borderSide: BorderSide.none),
                   filled: true,
                   fillColor: Colors.grey[100],
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -228,11 +325,7 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
             IconButton(
               icon: const Icon(Icons.send),
               onPressed: _sendMessage,
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFF4A00E0), // Dark Purple send button
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(12),
-              ),
+              style: IconButton.styleFrom(backgroundColor: const Color(0xFF4A00E0), foregroundColor: Colors.white, padding: const EdgeInsets.all(12)),
             ),
           ],
         ),
