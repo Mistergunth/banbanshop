@@ -45,7 +45,6 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
       if (isEmail) {
         emailToLogin = loginInput;
 
-        // [NEW] Check if this email belongs to a buyer BEFORE attempting login
         final buyerDoc = await FirebaseFirestore.instance.collection('buyers').where('email', isEqualTo: emailToLogin).limit(1).get();
         if (buyerDoc.docs.isNotEmpty) {
           throw FirebaseAuthException(code: 'email-is-buyer', message: 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง');
@@ -104,9 +103,12 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
           await FirebaseAuth.instance.signOut();
           return;
         }
+        // --- [การแก้ไข] เพิ่มคำสั่งปิดหน้าล็อกอินหลังจากสำเร็จ ---
+        // เมื่อล็อกอินและตรวจสอบทุกอย่างเรียบร้อยแล้ว ให้ปิดหน้านี้
+        // เพื่อให้ AuthWrapper แสดงหน้า FeedPage ขึ้นมา
+        Navigator.pop(context);
+
       } else {
-        // This case should ideally be caught by the pre-check if user logs in with email.
-        // But if they login with phone linked to a buyer email, this will catch it.
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('บัญชีนี้ไม่ใช่บัญชีผู้ขาย กรุณาเข้าสู่ระบบในฐานะผู้ซื้อ'),
@@ -126,7 +128,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
         message = 'ตรวจพบกิจกรรมที่น่าสงสัย โปรดลองอีกครั้งในภายหลัง';
       } else if (e.message != null && e.message!.contains('อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง')) {
           message = e.message!;
-      } else if (e.code == 'email-is-buyer') { // [NEW] Custom error message for buyer email
+      } else if (e.code == 'email-is-buyer') {
           message = e.message!;
       }
       else {
@@ -159,7 +161,7 @@ class _SellerLoginScreenState extends State<SellerLoginScreen> {
             ),
           ),
         ),
-        backgroundColor: Color(0xFFE8F4FD),
+        backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),

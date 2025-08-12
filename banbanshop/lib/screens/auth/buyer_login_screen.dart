@@ -1,4 +1,4 @@
-// lib/screens/auth/buyer_login_screen.dart (ฉบับแก้ไข)
+// lib/screens/auth/buyer_login_screen.dart
 
 // ignore_for_file: use_build_context_synchronously
 
@@ -44,7 +44,6 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
       if (isEmail) {
         emailToLogin = loginInput;
 
-        // [NEW] Check if this email belongs to a seller BEFORE attempting login
         final sellerDoc = await FirebaseFirestore.instance.collection('sellers').where('email', isEqualTo: emailToLogin).limit(1).get();
         if (sellerDoc.docs.isNotEmpty) {
           throw FirebaseAuthException(code: 'email-is-seller', message: 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง');
@@ -103,9 +102,12 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
           await FirebaseAuth.instance.signOut();
           return;
         }
+        // --- [การแก้ไข] เพิ่มคำสั่งปิดหน้าล็อกอินหลังจากสำเร็จ ---
+        // เมื่อล็อกอินและตรวจสอบทุกอย่างเรียบร้อยแล้ว ให้ปิดหน้านี้
+        // เพื่อให้ AuthWrapper แสดงหน้า FeedPage ขึ้นมา
+        Navigator.pop(context);
+
       } else {
-        // This case should ideally be caught by the pre-check if user logs in with email.
-        // But if they login with phone linked to a seller email, this will catch it.
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('บัญชีนี้ไม่ใช่บัญชีผู้ซื้อ กรุณาเข้าสู่ระบบในฐานะผู้ขาย'),
@@ -123,7 +125,7 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
         message = 'ตรวจพบกิจกรรมที่น่าสงสัย โปรดลองอีกครั้งในภายหลัง';
       } else if (e.message != null && e.message!.contains('อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง')) {
           message = e.message!;
-      } else if (e.code == 'email-is-seller') { // [NEW] Custom error message for seller email
+      } else if (e.code == 'email-is-seller') {
           message = e.message!;
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -153,7 +155,7 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
             ),
           ),
         ),
-        backgroundColor: Color(0xFFE8F4FD),
+        backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
