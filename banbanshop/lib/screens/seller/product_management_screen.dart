@@ -56,13 +56,22 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('จัดการสินค้า'),
-        backgroundColor: const Color(0xFF9B7DD9),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             tooltip: 'เพิ่มสินค้าใหม่',
             onPressed: () => _navigateToAddEditScreen(),
+            color: Colors.white, // White icon
           ),
         ],
       ),
@@ -74,7 +83,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))); // Blue loading
           }
           if (snapshot.hasError) {
             return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
@@ -92,6 +101,13 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                     onPressed: () => _navigateToAddEditScreen(),
                     icon: const Icon(Icons.add),
                     label: const Text('เพิ่มสินค้าชิ้นแรก'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0288D1), // Blue button
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 3,
+                      shadowColor: const Color(0xFF0288D1).withOpacity(0.3),
+                    ),
                   )
                 ],
               ),
@@ -107,8 +123,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               final product = products[index];
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 8.0),
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 3, // Added elevation
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Rounded corners
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(12),
                   leading: ClipRRect(
@@ -119,31 +135,42 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                             width: 60,
                             height: 60,
                             fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  color: const Color(0xFF0288D1), // Blue loading
+                                ),
+                              );
+                            },
                             errorBuilder: (context, error, stackTrace) => 
-                              const Icon(Icons.image_not_supported, size: 60),
+                              const Icon(Icons.image_not_supported, size: 60, color: Colors.grey),
                           )
                         : Container(
                             width: 60,
                             height: 60,
                             color: Colors.grey[200],
-                            child: const Icon(Icons.image_not_supported),
+                            child: const Icon(Icons.image_not_supported, color: Colors.grey), // Grey icon
                           ),
                   ),
-                  title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('฿${product.price.toStringAsFixed(2)}', style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w600)),
+                      Text('฿${product.price.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF4A00E0), fontWeight: FontWeight.w600)), // Dark Purple price
                       Text(
                         product.stock == -1 ? 'สต็อก: ไม่จำกัด' : 'สต็อก: ${product.stock} ชิ้น',
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: TextStyle(color: Colors.grey[700]), // Darker text
                       ),
                     ],
                   ),
                   trailing: Switch(
                     value: product.isAvailable,
                     onChanged: (value) => _toggleAvailability(product),
-                    activeColor: Colors.green,
+                    activeColor: const Color(0xFF0288D1), // Blue active color
                   ),
                   onTap: () => _navigateToAddEditScreen(product: product),
                 ),

@@ -114,6 +114,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       appBar: AppBar(
         title: Text('ออเดอร์ #${order.id.substring(0, 8)}'),
         centerTitle: true,
+        flexibleSpace: Container( // Added flexibleSpace for gradient
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -142,6 +152,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         child: Image.network(
                           item.imageUrl ?? 'https://placehold.co/60x60/EFEFEF/AAAAAA?text=No+Image',
                           width: 60, height: 60, fit: BoxFit.cover,
+                          loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))), // Blue loading
+                          errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)), // Grey error icon
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -149,12 +161,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Text('จำนวน: ${item.quantity}'),
+                            Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
+                            Text('จำนวน: ${item.quantity}', style: TextStyle(color: Colors.grey[700])), // Darker text
                           ],
                         ),
                       ),
-                      Text('฿${(item.price * item.quantity).toStringAsFixed(2)}'),
+                      Text('฿${(item.price * item.quantity).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A00E0))), // Dark Purple price
                     ],
                   ),
                 );
@@ -167,7 +179,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 _buildInfoRow(Icons.delivery_dining_outlined, 'วิธีจัดส่ง:', order.deliveryMethod == 'pickup' ? 'รับที่ร้าน' : 'จัดส่ง'),
                 _buildInfoRow(Icons.payment_outlined, 'วิธีชำระเงิน:', order.paymentMethod == 'cod' ? 'เก็บเงินปลายทาง' : 'โอนเงิน'),
                 const Divider(height: 20),
-                _buildInfoRow(null, 'ยอดรวม:', '฿${order.totalAmount.toStringAsFixed(2)}'),
+                _buildInfoRow(null, 'ยอดรวม:', '฿${order.totalAmount.toStringAsFixed(2)}', valueColor: const Color(0xFF4A00E0)), // Dark Purple total
                 _buildInfoRow(null, 'วันที่สั่งซื้อ:', formatter.format(order.orderDate.toDate())),
               ],
             ),
@@ -197,8 +209,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network(
                     imageUrl, height: 200, fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator()),
-                    errorBuilder: (context, error, stackTrace) => const Center(child: Text('ไม่สามารถแสดงรูปภาพได้')),
+                    loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))), // Blue loading
+                    errorBuilder: (context, error, stackTrace) => const Center(child: Text('ไม่สามารถแสดงรูปภาพได้', style: TextStyle(color: Colors.red))), // Red error text
                   ),
                 ),
               ),
@@ -214,7 +226,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       return _buildActionButton(
         text: 'ยกเลิกออเดอร์',
         onPressed: () => _updateOrderStatus(OrderStatus.cancelled),
-        color: Colors.red,
+        color: Colors.red, // Red for cancel
       );
     }
     
@@ -230,14 +242,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           _buildActionButton(
             text: buttonText,
             onPressed: () => _updateOrderStatus(OrderStatus.shipped),
-            color: Colors.green,
+            color: const Color(0xFF0288D1), // Blue for confirmation/shipping
           ),
           if (!isCOD && currentOrder.paymentSlipUrl != null) ...[
             const SizedBox(height: 10),
             _buildActionButton(
               text: 'ปฏิเสธ (ยกเลิกออเดอร์)',
               onPressed: () => _updateOrderStatus(OrderStatus.cancelled),
-              color: Colors.red.withOpacity(0.8),
+              color: Colors.red.withOpacity(0.8), // Red for rejection
             ),
           ],
         ],
@@ -259,7 +271,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                    ),
                  );
                },
-               color: Colors.blue,
+               color: const Color(0xFF0288D1), // Blue for tracking
              )
            else
              _buildActionButton(
@@ -272,40 +284,46 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                    ),
                  );
                },
-               color: Colors.deepPurple,
+               color: const Color(0xFF4A00E0), // Dark Purple for pickup tracking
              ),
            const SizedBox(height: 10),
            _buildActionButton(
              text: 'ลูกค้ารับสินค้า/จัดส่งถึงแล้ว',
              onPressed: () => _updateOrderStatus(OrderStatus.delivered),
-             color: Colors.teal,
+             color: const Color(0xFFFFD700), // Yellow for delivered (tertiary color)
+             textColor: Colors.black87, // Dark text for yellow button
            ),
          ],
        );
     }
 
     return Card(
+      elevation: 2, // Added elevation
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Rounded corners
       child: ListTile(
-        title: const Text('สถานะปัจจุบัน', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('สถานะปัจจุบัน', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
         trailing: Text(
           currentOrder.status.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _getStatusColor(currentOrder.status)), // Dynamic color for status
         ),
       ),
     );
   }
 
-  Widget _buildActionButton({required String text, required VoidCallback onPressed, required Color color}) {
+  Widget _buildActionButton({required String text, required VoidCallback onPressed, required Color color, Color textColor = Colors.white}) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: _isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
-          foregroundColor: Colors.white,
+          foregroundColor: textColor, // Use dynamic textColor
           padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)), // Rounded corners
+          elevation: 3, // Added elevation
+          shadowColor: color.withOpacity(0.3), // Shadow matching button color
         ),
-        child: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : Text(text),
+        child: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)), // Larger, bolder text
       ),
     );
   }
@@ -319,7 +337,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)), // Darker text
             const Divider(height: 24),
             ...children,
           ],
@@ -328,20 +346,35 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _buildInfoRow(IconData? icon, String label, String value, {bool isAddress = false}) {
+  Widget _buildInfoRow(IconData? icon, String label, String value, {bool isAddress = false, Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         crossAxisAlignment: isAddress ? CrossAxisAlignment.start : CrossAxisAlignment.center,
         children: [
           if (icon != null) ...[
-            Icon(icon, color: Colors.grey[600], size: 20),
+            Icon(icon, color: Colors.grey[600], size: 20), // Darker grey icon
             const SizedBox(width: 12),
           ],
-          Text('$label ', style: const TextStyle(fontWeight: FontWeight.w600)),
-          Expanded(child: Text(value, style: TextStyle(color: Colors.grey[800]))),
+          Text('$label ', style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)), // Darker text
+          Expanded(child: Text(value, style: TextStyle(color: valueColor ?? Colors.grey[800]))), // Dynamic value color
         ],
       ),
     );
+  }
+
+  Color _getStatusColor(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return Colors.orange;
+      case OrderStatus.processing:
+        return const Color(0xFF0288D1); // Blue for processing
+      case OrderStatus.shipped:
+        return const Color(0xFF4A00E0); // Dark Purple for shipped
+      case OrderStatus.delivered:
+        return const Color(0xFFFFD700); // Yellow for delivered
+      case OrderStatus.cancelled:
+        return Colors.red;
+    }
   }
 }

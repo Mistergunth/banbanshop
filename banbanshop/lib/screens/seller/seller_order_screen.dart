@@ -71,13 +71,19 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
   @override
   Widget build(BuildContext context) {
     Widget screenContent = _isLoading
-        ? const Center(child: CircularProgressIndicator())
+        ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
         : _storeId == null
             ? const Center(child: Text('คุณยังไม่มีร้านค้า'))
             : Column(
                 children: [
                   Container(
-                    color: const Color(0xFF9B7DD9),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient( // Blue to Dark Purple gradient for TabBar
+                        colors: [Color(0xFF0288D1), Color(0xFF4A00E0)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
                     child: TabBar(
                       controller: _tabController,
                       tabs: _tabs,
@@ -105,18 +111,27 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
 
     if (!widget.isEmbedded) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF5F5F7),
+        backgroundColor: const Color(0xFFF0F4F8), // Lighter background color
         appBar: AppBar(
-          backgroundColor: const Color(0xFF9B7DD9),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
           foregroundColor: Colors.white,
           elevation: 1,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new),
             onPressed: () => Navigator.of(context).pop(),
+            color: Colors.white, // White icon
           ),
           title: const Text(
             'รายการออเดอร์ของฉัน',
-            style: TextStyle(fontWeight: FontWeight.w500),
+            style: TextStyle(fontWeight: FontWeight.w500, color: Colors.white), // White text
           ),
           centerTitle: true,
         ),
@@ -125,7 +140,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
     }
 
     return Container(
-      color: const Color(0xFFF5F5F7),
+      color: const Color(0xFFF0F4F8), // Lighter background color
       child: screenContent,
     );
   }
@@ -143,7 +158,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))); // Blue loading
         }
         if (snapshot.hasError) {
           return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
@@ -190,9 +205,9 @@ class OrderCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
-      elevation: 2,
+      elevation: 3, // Added elevation
       shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Rounded corners
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
@@ -203,6 +218,7 @@ class OrderCard extends StatelessWidget {
             ),
           ).then((value) {
             if (value == true) {
+              // Handle refresh if needed
             }
           });
         },
@@ -216,25 +232,25 @@ class OrderCard extends StatelessWidget {
                 children: [
                   Text(
                     'ออเดอร์ #${order.id.substring(0, 8).toUpperCase()}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.black87), // Darker text
                   ),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+                  const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16), // Grey arrow
                 ],
               ),
               const Divider(height: 20),
               Row(
                 children: [
-                  Icon(Icons.person_outline, size: 18, color: Colors.grey[700]),
+                  Icon(Icons.person_outline, size: 18, color: Colors.grey[700]), // Darker grey icon
                   const SizedBox(width: 8),
-                  Text('ผู้ซื้อ: ${order.buyerName}', style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                  Text('ผู้ซื้อ: ${order.buyerName}', style: TextStyle(fontSize: 14, color: Colors.grey[800])), // Darker text
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                   Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey[700]),
+                   Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey[700]), // Darker grey icon
                    const SizedBox(width: 8),
-                   Text('วันที่สั่ง: ${formatter.format(order.orderDate.toDate())}', style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                   Text('วันที่สั่ง: ${formatter.format(order.orderDate.toDate())}', style: TextStyle(fontSize: 14, color: Colors.grey[800])), // Darker text
                 ],
               ),
               const SizedBox(height: 12),
@@ -242,7 +258,7 @@ class OrderCard extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: Text(
                   'ยอดรวม: ฿${order.totalAmount.toStringAsFixed(2)}',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).primaryColor),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF4A00E0)), // Dark Purple total
                 ),
               ),
             ],

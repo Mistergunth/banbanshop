@@ -116,7 +116,7 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
     if (!mounted || widget.order.shippingLocation == null || _buyerProfile == null) return;
 
     final destinationIcon = await _createCustomMarkerBitmap(
-        _buyerProfile?.profileImageUrl, Colors.greenAccent, isDestination: true);
+        _buyerProfile?.profileImageUrl, const Color(0xFF4A00E0), isDestination: true); // Dark Purple border for destination
         
     if (mounted) {
       setState(() {
@@ -270,7 +270,7 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
                  _polylines.clear();
                  _polylines.add(Polyline(
                   polylineId: const PolylineId('route'),
-                  color: Colors.blueAccent,
+                  color: const Color(0xFF0288D1), // Blue polyline
                   width: 5,
                   points: polylineCoordinates,
                 ));
@@ -350,7 +350,7 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
   Future<BitmapDescriptor> _createNavigationArrowMarker() async {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    final Paint paint = Paint()..color = Colors.blueAccent;
+    final Paint paint = Paint()..color = const Color(0xFF0288D1); // Blue arrow
     const double width = 60.0;
     const double height = 80.0;
 
@@ -518,26 +518,27 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
              ListTile(
               leading: CircleAvatar(
                 radius: 25,
+                backgroundColor: const Color(0xFFE0F7FA), // Light blue background for avatar
                 backgroundImage: (_buyerProfile?.profileImageUrl != null)
                     ? NetworkImage(_buyerProfile!.profileImageUrl!)
                     : null,
                 child: (_buyerProfile?.profileImageUrl == null)
-                    ? const Icon(Icons.person)
+                    ? const Icon(Icons.person, color: Color(0xFF0288D1)) // Blue icon
                     : null,
               ),
               title: Text(
                 _buyerProfile?.fullName ?? 'ผู้ซื้อ',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87), // Darker text
               ),
               subtitle: Text(
                 _routeInfo.isEmpty ? 'กำลังคำนวณเส้นทาง...' : _routeInfo,
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 16, color: Colors.grey), // Grey text
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               trailing: IconButton(
                 onPressed: _callBuyer,
-                icon: const Icon(Icons.call, color: Colors.green, size: 30),
+                icon: const Icon(Icons.call, color: Colors.green, size: 30), // Green call icon
               ),
             ),
             const SizedBox(height: 10),
@@ -547,7 +548,7 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
                 icon: const Icon(Icons.done_all_rounded),
                 onPressed: _stopTrackingAndDeliver,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: const Color(0xFF4A00E0), // Dark Purple button
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -569,9 +570,19 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('แชร์ตำแหน่งการจัดส่ง'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
           : Stack(
               children: [
                 GoogleMap(
@@ -585,22 +596,22 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
                   zoomControlsEnabled: false,
                 ),
                 Positioned(
-                  top: 16,
-                  right: 16,
+                  top: 16, // Original position
+                  right: 16, // Original position
                   child: Column(
                     children: [
                       FloatingActionButton(
                         heroTag: 'recenter_button',
                         onPressed: _recenterMap,
                         backgroundColor: Colors.white,
-                        child: const Icon(Icons.gps_fixed, color: Colors.black54),
+                        child: const Icon(Icons.gps_fixed, color: Color(0xFF0288D1)), // Blue icon
                       ),
                       const SizedBox(height: 16),
                       FloatingActionButton(
                         heroTag: 'route_button',
                         onPressed: _forceRedrawRoute,
                         backgroundColor: Colors.white,
-                        child: const Icon(Icons.route, color: Colors.blueAccent),
+                        child: const Icon(Icons.route, color: Color(0xFF4A00E0)), // Dark Purple icon
                       ),
                     ],
                   ),

@@ -185,6 +185,16 @@ class _EditSellerProfileScreenState extends State<EditSellerProfileScreen> {
       appBar: AppBar(
         title: const Text('แก้ไขโปรไฟล์ผู้ขาย'),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -233,7 +243,7 @@ class _EditSellerProfileScreenState extends State<EditSellerProfileScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: _isLoading ? null : _verifyAndupdatePhone,
-                    child: const Text('เปลี่ยนเบอร์โทรศัพท์'),
+                    child: const Text('เปลี่ยนเบอร์โทรศัพท์', style: TextStyle(color: Color(0xFF4A00E0))), // Dark Purple text
                   ),
                 ),
               
@@ -259,6 +269,12 @@ class _EditSellerProfileScreenState extends State<EditSellerProfileScreen> {
                             _updatePhoneCredential(credential);
                           }
                         }, 
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0288D1), // Blue button
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                         child: const Text('ยืนยัน OTP และอัปเดตเบอร์โทร'),
                       ),
                        TextButton(
@@ -274,6 +290,9 @@ class _EditSellerProfileScreenState extends State<EditSellerProfileScreen> {
                 onPressed: _isLoading ? null : _updateProfile,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: const Color(0xFF4A00E0), // Dark Purple save button
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _isLoading 
                   ? const CircularProgressIndicator(color: Colors.white)
@@ -301,7 +320,15 @@ class _EditSellerProfileScreenState extends State<EditSellerProfileScreen> {
       decoration: InputDecoration(
         labelText: label,
         prefixText: prefixText,
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), // Rounded border
+        focusedBorder: OutlineInputBorder( // Blue border when focused
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+        ),
+        enabledBorder: OutlineInputBorder( // Grey border when enabled
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+        ),
       ),
       validator: validator,
     );

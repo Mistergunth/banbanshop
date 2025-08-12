@@ -161,10 +161,21 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.product == null ? 'เพิ่มสินค้าใหม่' : 'แก้ไขสินค้า'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _isLoading ? null : _saveProduct,
+            color: Colors.white, // White icon
           ),
         ],
       ),
@@ -186,15 +197,19 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                     border: Border.all(color: Colors.grey),
                   ),
                   child: _imageFile != null
-                      ? Image.file(_imageFile!, fit: BoxFit.cover)
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(_imageFile!, fit: BoxFit.cover))
                       : (_networkImageUrl != null
-                          ? Image.network(_networkImageUrl!, fit: BoxFit.cover)
-                          : const Center(
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(_networkImageUrl!, fit: BoxFit.cover))
+                          : Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.camera_alt, size: 50),
-                                  Text('เพิ่มรูปภาพสินค้า'),
+                                  Icon(Icons.camera_alt, size: 50, color: Colors.grey[600]), // Darker grey icon
+                                  Text('เพิ่มรูปภาพสินค้า', style: TextStyle(color: Colors.grey[700])), // Darker text
                                 ],
                               ),
                             )),
@@ -203,19 +218,59 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'ชื่อสินค้า'),
+                decoration: InputDecoration(
+                  labelText: 'ชื่อสินค้า',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
+                ),
                 validator: (v) => (v == null || v.isEmpty) ? 'กรุณากรอกชื่อสินค้า' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'คำอธิบาย'),
                 maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'คำอธิบาย',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _priceController,
-                decoration: const InputDecoration(labelText: 'ราคา (บาท)', prefixText: '฿ '),
+                decoration: InputDecoration(
+                  labelText: 'ราคา (บาท)',
+                  prefixText: '฿ ',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
+                ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'กรุณากรอกราคา';
@@ -225,21 +280,36 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               ),
               const SizedBox(height: 16),
               SwitchListTile(
-                title: const Text('สินค้าพร้อมขาย'),
+                title: const Text('สินค้าพร้อมขาย', style: TextStyle(color: Colors.black87)), // Darker text
                 value: _isAvailable,
                 onChanged: (value) => setState(() => _isAvailable = value),
+                activeColor: const Color(0xFF0288D1), // Blue active color
               ),
               SwitchListTile(
-                title: const Text('สต็อกไม่จำกัด'),
+                title: const Text('สต็อกไม่จำกัด', style: TextStyle(color: Colors.black87)), // Darker text
                 value: _isUnlimitedStock,
                 onChanged: (value) => setState(() => _isUnlimitedStock = value),
+                activeColor: const Color(0xFF0288D1), // Blue active color
               ),
               if (!_isUnlimitedStock)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
                   child: TextFormField(
                     controller: _stockController,
-                    decoration: const InputDecoration(labelText: 'จำนวนสต็อก'),
+                    decoration: InputDecoration(
+                      labelText: 'จำนวนสต็อก',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.white,
+                      focusedBorder: OutlineInputBorder( // Blue border when focused
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                      ),
+                      enabledBorder: OutlineInputBorder( // Grey border when enabled
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                      ),
+                    ),
                     keyboardType: TextInputType.number,
                     validator: (v) {
                       if (!_isUnlimitedStock && (v == null || v.isEmpty)) {
@@ -257,7 +327,17 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _saveProduct,
-                  child: _isLoading ? const CircularProgressIndicator() : const Text('บันทึกสินค้า'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4A00E0), // Dark Purple button
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 3, // Added elevation
+                    shadowColor: const Color(0xFF4A00E0).withOpacity(0.3), // Dark Purple shadow
+                  ),
+                  child: _isLoading 
+                      ? const CircularProgressIndicator(color: Colors.white) 
+                      : const Text('บันทึกสินค้า', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), // Larger, bolder text
                 ),
               ),
             ],

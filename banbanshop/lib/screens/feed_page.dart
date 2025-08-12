@@ -21,7 +21,9 @@ import 'package:banbanshop/screens/role_select.dart';
 import 'package:banbanshop/screens/buyer/buyer_cart_screen.dart';
 import 'package:banbanshop/screens/buyer/checkout_screen.dart';
 import 'package:banbanshop/screens/models/cart_model.dart';
-
+// --- เพิ่ม import สำหรับ photo_view ---
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 
 class FeedPage extends StatefulWidget {
   final String selectedProvince;
@@ -62,13 +64,13 @@ class FilterButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), // Increased padding
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0288D1) : Colors.white, // Deeper blue for selected, matching icon
-          borderRadius: BorderRadius.circular(25), // More rounded corners
-          boxShadow: [ // Subtle shadow
+          color: isSelected ? const Color(0xFF0288D1) : Colors.white,
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
             BoxShadow(
-              color: isSelected ? const Color.fromARGB(255, 19, 117, 255).withOpacity(0.4) : Colors.grey.withOpacity(0.2),
+              color: isSelected ? const Color(0xFF0288D1).withOpacity(0.4) : Colors.grey.withOpacity(0.2),
               blurRadius: 5,
               offset: const Offset(0, 3),
             ),
@@ -77,7 +79,7 @@ class FilterButton extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
-            color: isSelected ? Colors.white : const Color(0xFF0288D1), // Text color for selected/unselected, matching icon
+            color: isSelected ? Colors.white : const Color(0xFF0288D1),
             fontSize: 16,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
@@ -194,8 +196,8 @@ class _FeedPageState extends State<FeedPage> {
       setState(() => _isLoadingPosts = true);
       try {
         await FirebaseFirestore.instance.collection('posts').doc(post.id).delete();
-        if (post.imageUrl != null && post.imageUrl!.isNotEmpty) {
-          // Cloudinary deletion logic...
+        if (post.imageUrls != null && post.imageUrls!.isNotEmpty) {
+          print('Deleting images from Cloudinary (placeholder)');
         }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -203,7 +205,12 @@ class _FeedPageState extends State<FeedPage> {
           );
         }
       } catch (e) {
-        // Error handling...
+        print("Error deleting post: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('เกิดข้อผิดพลาดในการลบ: $e')),
+          );
+        }
       } finally {
         if (mounted) {
           setState(() => _isLoadingPosts = false);
@@ -302,12 +309,12 @@ class _FeedPageState extends State<FeedPage> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8), // Lighter background color
+      backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        flexibleSpace: Container( // Added flexibleSpace for gradient
+        flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Purple to dark purple gradient
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -316,20 +323,20 @@ class _FeedPageState extends State<FeedPage> {
         elevation: 0,
         leading: Navigator.of(context).canPop()
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios, size: 20, color: Colors.white), // White icon color
+                icon: const Icon(Icons.arrow_back_ios, size: 20, color: Colors.white),
                 onPressed: () => Navigator.pop(context),
               )
             : null,
         title: Text(
           _getAppBarTitle(),
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), // White text color
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
         centerTitle: true,
         actions: [
           Builder(
             builder: (BuildContext innerContext) {
               return IconButton(
-                icon: const Icon(Icons.menu, size: 24, color: Colors.white), // White icon color
+                icon: const Icon(Icons.menu, size: 24, color: Colors.white),
                 onPressed: () {
                   Scaffold.of(innerContext).openEndDrawer();
                 },
@@ -344,8 +351,8 @@ class _FeedPageState extends State<FeedPage> {
           children: [
             DrawerHeader(
               decoration: const BoxDecoration(
-                gradient: LinearGradient( // Vibrant gradient for drawer header
-                  colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Purple to dark purple
+                gradient: LinearGradient(
+                  colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -492,11 +499,11 @@ class _FeedPageState extends State<FeedPage> {
                 child: Column(
                   children: [
                     Container(
-                      height: 50, // Slightly taller search bar
+                      height: 50,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(25), // More rounded
-                        boxShadow: [ // Subtle shadow
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
                           BoxShadow(
                             color: Colors.grey.withOpacity(0.2),
                             blurRadius: 5,
@@ -507,9 +514,9 @@ class _FeedPageState extends State<FeedPage> {
                       child: TextField(
                         controller: searchController,
                         decoration: InputDecoration(
-                          hintText: 'ค้นหาโพสต์ หรือ ร้านค้า...', // More descriptive hint
+                          hintText: 'ค้นหาโพสต์ หรือ ร้านค้า...',
                           hintStyle: TextStyle(color: Colors.grey[500]),
-                          prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 22), // Larger icon
+                          prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 22),
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
                         ),
@@ -518,9 +525,9 @@ class _FeedPageState extends State<FeedPage> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 15), // Increased spacing
+                    const SizedBox(height: 15),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Distribute evenly
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         FilterButton(
                           text: 'ฟีดโพสต์',
@@ -548,7 +555,7 @@ class _FeedPageState extends State<FeedPage> {
               ),
             Expanded(
               child: _isLoadingPosts && _selectedTopFilter == 'ฟีดโพสต์'
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF6A1B9A))) // Darker purple loading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF4A00E0)))
                   : IndexedStack(
                       index: _selectedIndex,
                       children: pages,
@@ -567,21 +574,19 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Widget _buildFeedContent() {
-    // Wrap the Container with ClipRRect to ensure content is clipped to rounded corners
     return ClipRRect(
       borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(30), // More rounded
-        topRight: Radius.circular(30), // More rounded
+        topLeft: Radius.circular(30),
+        topRight: Radius.circular(30),
       ),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          // Removed borderRadius from here as it's now handled by ClipRRect
-          boxShadow: [ // Subtle shadow
+          boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
               blurRadius: 10,
-              offset: const Offset(0, -5), // Shadow at the top
+              offset: const Offset(0, -5),
             ),
           ],
         ),
@@ -591,7 +596,7 @@ class _FeedPageState extends State<FeedPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.info_outline, size: 60, color: Colors.grey), // Changed icon
+                        const Icon(Icons.info_outline, size: 60, color: Colors.grey),
                         const SizedBox(height: 15),
                         const Text(
                           'ไม่พบโพสต์ที่ตรงกับเงื่อนไข',
@@ -603,7 +608,7 @@ class _FeedPageState extends State<FeedPage> {
                           style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 20),
-                        ElevatedButton.icon( // Added refresh button
+                        ElevatedButton.icon(
                           onPressed: () {
                             searchController.clear();
                             _drawerSelectedProvince = 'ทั้งหมด';
@@ -613,7 +618,7 @@ class _FeedPageState extends State<FeedPage> {
                           icon: const Icon(Icons.refresh, color: Colors.white),
                           label: const Text('รีเซ็ตการค้นหา', style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4A00E0), // Dark purple button
+                            backgroundColor: const Color(0xFF4A00E0),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -682,6 +687,7 @@ class _PostCardState extends State<PostCard> {
   late String _timeAgoString;
   Timer? _timer;
   bool _isProcessingOrder = false;
+  int _currentImageIndex = 0;
 
   @override
   void initState() {
@@ -730,7 +736,7 @@ class _PostCardState extends State<PostCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent), // Red icon
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
                     onPressed: () {
                       if (quantity > 1) {
                         setState(() => quantity--);
@@ -739,7 +745,7 @@ class _PostCardState extends State<PostCard> {
                   ),
                   Text('$quantity', style: Theme.of(context).textTheme.headlineMedium),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: Colors.green), // Green icon
+                    icon: const Icon(Icons.add_circle_outline, color: Colors.green),
                     onPressed: () {
                       setState(() => quantity++);
                     },
@@ -753,7 +759,7 @@ class _PostCardState extends State<PostCard> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6A1B9A), // Purple button
+                    backgroundColor: const Color(0xFF4A00E0),
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('ตกลง'),
@@ -841,10 +847,10 @@ class _PostCardState extends State<PostCard> {
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20), // More rounded corners
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.15), // Stronger shadow
+            color: Colors.grey.withOpacity(0.15),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -854,27 +860,27 @@ class _PostCardState extends State<PostCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(18), // Increased padding
+            padding: const EdgeInsets.all(18),
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 20, // Larger avatar
-                  backgroundColor: Colors.blue.shade100, // Light blue default
+                  radius: 20,
+                  backgroundColor: Colors.blue.shade100,
                   backgroundImage: widget.post.avatarImageUrl != null && widget.post.avatarImageUrl!.startsWith('http')
                       ? NetworkImage(widget.post.avatarImageUrl!)
-                      : null, // No background image if using default icon
+                      : null,
                   child: widget.post.avatarImageUrl == null || !widget.post.avatarImageUrl!.startsWith('http')
-                      ? Icon(Icons.person, size: 30, color: Colors.blue.shade700) // Default avatar icon
+                      ? Icon(Icons.person, size: 30, color: Colors.blue.shade700)
                       : null,
                 ),
-                const SizedBox(width: 15), // Increased spacing
+                const SizedBox(width: 15),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         widget.post.shopName,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87), // Bolder, larger
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -884,10 +890,10 @@ class _PostCardState extends State<PostCard> {
                       ),
                       const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Increased padding
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0288D1), // Deeper purple for badge
-                          borderRadius: BorderRadius.circular(15), // More rounded
+                          color: const Color(0xFF4A00E0),
+                          borderRadius: BorderRadius.circular(15),
                         ),
                         child: Text(
                           '${widget.post.category} | ${widget.post.province}',
@@ -899,7 +905,7 @@ class _PostCardState extends State<PostCard> {
                 ),
                 if (isMyPost)
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.redAccent, size: 24), // Brighter red, larger icon
+                    icon: const Icon(Icons.delete, color: Colors.redAccent, size: 24),
                     onPressed: () => widget.onDelete(widget.post),
                   ),
               ],
@@ -909,20 +915,75 @@ class _PostCardState extends State<PostCard> {
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Text(
               widget.post.title,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87), // Larger, bolder text
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
             ),
           ),
           const SizedBox(height: 18),
-          if (widget.post.imageUrl != null && widget.post.imageUrl!.isNotEmpty)
-            Container(
-              width: double.infinity,
-              height: 200, // Taller image container
-              margin: const EdgeInsets.symmetric(horizontal: 18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15), // More rounded image corners
-                image: DecorationImage(
-                  image: NetworkImage(widget.post.imageUrl!),
-                  fit: BoxFit.cover,
+          // --- ส่วนที่แก้ไข: ทำให้รูปภาพกดได้ ---
+          if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => FullScreenImageViewer(
+                      imageUrls: widget.post.imageUrls!,
+                      initialIndex: _currentImageIndex,
+                    ),
+                  ),
+                );
+              },
+              child: SizedBox(
+                height: 200,
+                child: Stack(
+                  children: [
+                    PageView.builder(
+                      itemCount: widget.post.imageUrls!.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentImageIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        return Hero(
+                          tag: widget.post.imageUrls![index],
+                          child: Container(
+                            width: double.infinity,
+                            height: 200,
+                            margin: const EdgeInsets.symmetric(horizontal: 18),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(15),
+                              image: DecorationImage(
+                                image: NetworkImage(widget.post.imageUrls![index]),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    Positioned(
+                      bottom: 10,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(widget.post.imageUrls!.length, (index) {
+                          return Container(
+                            width: 8.0,
+                            height: 8.0,
+                            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _currentImageIndex == index
+                                  ? Colors.white
+                                  : Colors.grey.withOpacity(0.5),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -932,26 +993,27 @@ class _PostCardState extends State<PostCard> {
               height: 200,
               margin: const EdgeInsets.symmetric(horizontal: 18),
               decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(15)),
-              child: const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)), // Larger icon
+              child: const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)),
             ),
-          const SizedBox(height: 18), // Increased spacing
+          const SizedBox(height: 18),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
             child: Row(
               children: [
                 if (!widget.isSeller)
-                  Expanded( // Use Expanded for both buttons
+                  Expanded(
                     child: ActionButton(
                       text: 'สั่งเลย',
                       onTap: _handleBuyNow,
                       isLoading: _isProcessingOrder,
-                      buttonColor: const Color(0xFF6A1B9A), // Deep purple for "Buy Now"
+                      buttonColor: const Color(0xFF4A00E0 ),
+                      textColor: Colors.white,
                     ),
                   ),
                 
-                if (!widget.isSeller) const SizedBox(width: 15), // Increased spacing
+                if (!widget.isSeller) const SizedBox(width: 15),
 
-                Expanded( // Use Expanded for both buttons
+                Expanded(
                   child: ActionButton(
                     text: 'ดูหน้าร้าน',
                     onTap: () {
@@ -971,12 +1033,13 @@ class _PostCardState extends State<PostCard> {
                         );
                       }
                     },
-                    buttonColor: Colors.deepOrange.shade400, // Vibrant orange for "View Store"
+                    buttonColor: Colors.amber.shade900,
                   ),
                 ),
               ],
             ),
           ),
+           const SizedBox(height: 12),
         ],
       ),
     );
@@ -987,14 +1050,16 @@ class ActionButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
   final bool isLoading;
-  final Color buttonColor; // Added custom color parameter
+  final Color buttonColor;
+  final Color textColor;
 
   const ActionButton({
     super.key,
     required this.text,
     required this.onTap,
     this.isLoading = false,
-    this.buttonColor = const Color(0xFF9C6ADE), // Default color
+    this.buttonColor = const Color(0xFF0288D1),
+    this.textColor = Colors.white,
   });
 
   @override
@@ -1002,28 +1067,72 @@ class ActionButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: isLoading ? null : onTap,
       style: ElevatedButton.styleFrom(
-        backgroundColor: buttonColor, // Use custom color
-        foregroundColor: Colors.white,
+        backgroundColor: buttonColor,
+        foregroundColor: textColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12), // More rounded corners
+          borderRadius: BorderRadius.circular(12),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 5), // Increased padding
-        elevation: 5, // Added elevation
-        shadowColor: buttonColor.withOpacity(0.4), // Shadow matching button color
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        elevation: 5,
+        shadowColor: buttonColor.withOpacity(0.4),
       ),
       child: isLoading
           ? const SizedBox(
-              height: 22, // Slightly larger loading indicator
+              height: 22,
               width: 22,
               child: CircularProgressIndicator(
                 color: Colors.white,
-                strokeWidth: 2.8, // Thicker stroke
+                strokeWidth: 2.8,
               ),
             )
           : Text(
               text,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold), // Larger, bolder text
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
+    );
+  }
+}
+
+// --- เพิ่ม Widget ใหม่สำหรับแสดงภาพเต็มจอ ---
+class FullScreenImageViewer extends StatelessWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  const FullScreenImageViewer({
+    super.key,
+    required this.imageUrls,
+    this.initialIndex = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: PhotoViewGallery.builder(
+        itemCount: imageUrls.length,
+        builder: (context, index) {
+          return PhotoViewGalleryPageOptions(
+            imageProvider: NetworkImage(imageUrls[index]),
+            initialScale: PhotoViewComputedScale.contained,
+            minScale: PhotoViewComputedScale.contained * 0.8,
+            maxScale: PhotoViewComputedScale.covered * 2.0,
+            heroAttributes: PhotoViewHeroAttributes(tag: imageUrls[index]),
+          );
+        },
+        scrollPhysics: const BouncingScrollPhysics(),
+        backgroundDecoration: const BoxDecoration(
+          color: Colors.black,
+        ),
+        pageController: PageController(initialPage: initialIndex),
+      ),
     );
   }
 }

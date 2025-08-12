@@ -9,7 +9,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloudinary_sdk/cloudinary_sdk.dart';
-import 'package:banbanshop/screens/map_picker_screen.dart';
+import 'package:banbanshop/screens/map_picker_screen.dart'; // Assuming this is the seller's map picker
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:banbanshop/screens/seller/edit_store_hours_screen.dart';
 
@@ -259,19 +259,27 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F4FD),
+      backgroundColor: Colors.white, // White background
       appBar: AppBar(
-        backgroundColor: const Color(0xFFE8F4FD),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white), // White icon
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'แก้ไขข้อมูลร้านค้า',
           style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
           ),
         ),
         centerTitle: true,
@@ -290,6 +298,14 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณาป้อนชื่อร้าน' : null,
               ),
@@ -302,6 +318,14 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณาป้อนรายละเอียดร้านค้า' : null,
               ),
@@ -313,9 +337,17 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 items: _storeTypes.map((String type) {
-                  return DropdownMenuItem<String>(value: type, child: Text(type));
+                  return DropdownMenuItem<String>(value: type, child: Text(type, style: const TextStyle(color: Colors.black87))); // Darker text
                 }).toList(),
                 onChanged: (String? newValue) => setState(() => _selectedStoreType = newValue),
                 validator: (v) => v == null ? 'กรุณาเลือกประเภทร้านค้า' : null,
@@ -328,9 +360,17 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 items: _provinces.map((String province) {
-                  return DropdownMenuItem<String>(value: province, child: Text(province));
+                  return DropdownMenuItem<String>(value: province, child: Text(province, style: const TextStyle(color: Colors.black87))); // Darker text
                 }).toList(),
                 onChanged: (String? newValue) => setState(() => _selectedProvince = newValue),
                 validator: (v) => v == null ? 'กรุณาเลือกจังหวัด' : null,
@@ -341,20 +381,24 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                 child: Container(
                   height: 150,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.grey[200], // Light grey background
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
+                    border: Border.all(color: Colors.grey.shade400), // Lighter grey border
                   ),
                   child: _shopImageFile != null
-                      ? Image.file(_shopImageFile!, fit: BoxFit.cover)
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(_shopImageFile!, fit: BoxFit.cover))
                       : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty
-                          ? Image.network(_currentImageUrl!, fit: BoxFit.cover)
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(_currentImageUrl!, fit: BoxFit.cover))
                           : Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.camera_alt, size: 40, color: Colors.grey[600]),
+                                Icon(Icons.camera_alt, size: 40, color: Colors.grey[600]), // Darker grey icon
                                 const SizedBox(height: 8),
-                                Text('อัปโหลดรูปภาพหน้าร้าน', style: TextStyle(color: Colors.grey[600])),
+                                Text('อัปโหลดรูปภาพหน้าร้าน', style: TextStyle(color: Colors.grey[700])), // Darker text
                               ],
                             )),
                 ),
@@ -368,7 +412,15 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
-                  suffixIcon: const Icon(Icons.phone),
+                  suffixIcon: const Icon(Icons.phone, color: Color(0xFF0288D1)), // Blue phone icon
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณาป้อนเบอร์โทรศัพท์ร้าน' : null,
               ),
@@ -383,7 +435,15 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
-                  suffixIcon: const Icon(Icons.map),
+                  suffixIcon: const Icon(Icons.map, color: Color(0xFF0288D1)), // Blue map icon
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณาปักหมุดตำแหน่งร้าน' : null,
               ),
@@ -396,27 +456,36 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
                     fillColor: Colors.white,
+                    focusedBorder: OutlineInputBorder( // Blue border when focused
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                    ),
+                    enabledBorder: OutlineInputBorder( // Grey border when enabled
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                    ),
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('ตั้งค่าเวลาทำการ', style: TextStyle(fontSize: 16)),
-                      Icon(Icons.access_time, color: Colors.grey),
+                      Text('ตั้งค่าเวลาทำการ', style: TextStyle(fontSize: 16, color: Colors.black87)), // Darker text
+                      Icon(Icons.access_time, color: Color(0xFF0288D1)), // Blue icon
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 32),
               _isUploading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
                   : ElevatedButton(
                       onPressed: _updateStore,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF9C6ADE),
+                        backgroundColor: const Color(0xFF4A00E0), // Dark Purple button
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                         elevation: 3,
+                        shadowColor: const Color(0xFF4A00E0).withOpacity(0.3), // Dark Purple shadow
                       ),
                       child: const Text('บันทึกการแก้ไข', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),

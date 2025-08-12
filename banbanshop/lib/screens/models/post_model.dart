@@ -1,4 +1,4 @@
-// lib/screens/post_model.dart
+// lib/screens/models/post_model.dart
 
 // ignore_for_file: avoid_print
 
@@ -10,7 +10,7 @@ class Post {
   final DateTime createdAt; // ประเภทเป็น DateTime โดยตรง
   final String category;
   final String title;
-  final String? imageUrl; // ทำให้เป็น nullable
+  final List<String>? imageUrls; // เปลี่ยนเป็น List<String> สำหรับหลายรูปภาพ
   final String? avatarImageUrl; // ทำให้เป็น nullable
   final String province;
   final String productCategory;
@@ -26,7 +26,7 @@ class Post {
     required this.createdAt, // ใช้ createdAt ที่เป็น DateTime
     required this.category,
     required this.title,
-    this.imageUrl, // ไม่ต้อง required แล้ว
+    this.imageUrls, // เปลี่ยนเป็น imageUrls
     this.avatarImageUrl, // ไม่ต้อง required แล้ว
     this.productId,
     this.productName,
@@ -69,6 +69,15 @@ class Post {
       print('Warning: storeId/store_id is missing or not a String: ${json['storeId']} / ${json['store_id']}');
     }
 
+    // อ่าน imageUrls
+    List<String>? parsedImageUrls;
+    if (json.containsKey('image_urls') && json['image_urls'] is List) {
+      parsedImageUrls = (json['image_urls'] as List).map((e) => e.toString()).toList();
+    } else if (json.containsKey('image_url') && json['image_url'] is String) {
+      // รองรับข้อมูลเก่าที่อาจมีแค่ imageUrl เดียว
+      parsedImageUrls = [json['image_url'] as String];
+    }
+
 
     return Post(
       id: json['id'] as String? ?? '', // อ่านจาก 'id' ที่เราเพิ่มเข้าไปใน map ก่อนเรียก fromJson (ป้องกัน null)
@@ -76,7 +85,7 @@ class Post {
       createdAt: parsedCreatedAt,
       category: json['category'] as String? ?? '',
       title: json['title'] as String? ?? '',
-      imageUrl: json['image_url'] as String?, // อ่านจาก 'image_url' (snake_case)
+      imageUrls: parsedImageUrls, // ใช้ imageUrls
       avatarImageUrl: json['avatar_image_url'] as String?, // อ่านจาก 'avatar_image_url' (snake_case)
       province: json['province'] as String? ?? '',
       productCategory: json['product_category'] as String? ?? '', // อ่านจาก 'product_category'
@@ -94,7 +103,7 @@ class Post {
       'created_at': createdAt.toIso8601String(), 
       'category': category,
       'title': title,
-      'image_url': imageUrl,
+      'image_urls': imageUrls, // ใช้ imageUrls แทน imageUrl
       'avatar_image_url': avatarImageUrl,
       'province': province,
       'product_category': productCategory,

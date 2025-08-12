@@ -145,11 +145,19 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
+      backgroundColor: Colors.white, // White background
       appBar: AppBar(
         title: const Text('ช่องทางการชำระเงิน'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -166,20 +174,24 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
                   margin: const EdgeInsets.symmetric(vertical: 16),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.grey[200], // Light grey background
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: Colors.grey.shade400), // Lighter grey border
                   ),
                   child: _qrImageFile != null
-                      ? Image.file(_qrImageFile!, fit: BoxFit.contain)
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(_qrImageFile!, fit: BoxFit.contain))
                       : (_currentQrImageUrl != null && _currentQrImageUrl!.isNotEmpty
-                          ? Image.network(_currentQrImageUrl!, fit: BoxFit.contain)
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(_currentQrImageUrl!, fit: BoxFit.contain))
                           : Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.qr_code_scanner, size: 60, color: Colors.grey[600]),
+                                Icon(Icons.qr_code_scanner, size: 60, color: Colors.grey[600]), // Darker grey icon
                                 const SizedBox(height: 8),
-                                Text('แตะเพื่ออัปโหลด QR Code', style: TextStyle(color: Colors.grey[600])),
+                                Text('แตะเพื่ออัปโหลด QR Code', style: TextStyle(color: Colors.grey[700])), // Darker text
                               ],
                             )),
                 ),
@@ -192,6 +204,14 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกชื่อบัญชี' : null,
               ),
@@ -204,6 +224,14 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'กรุณากรอกเลขที่บัญชี' : null,
               ),
@@ -215,22 +243,30 @@ class _EditPaymentScreenState extends State<EditPaymentScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder( // Blue border when focused
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder( // Grey border when enabled
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                  ),
                 ),
                 items: _thaiBanks.map((String bank) {
-                  return DropdownMenuItem<String>(value: bank, child: Text(bank));
+                  return DropdownMenuItem<String>(value: bank, child: Text(bank, style: const TextStyle(color: Colors.black87))); // Darker text
                 }).toList(),
                 onChanged: (String? newValue) => setState(() => _selectedBank = newValue),
                 validator: (v) => v == null ? 'กรุณาเลือกธนาคาร' : null,
               ),
               const SizedBox(height: 32),
               _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))) // Blue loading
                   : ElevatedButton.icon(
                       onPressed: _savePaymentInfo,
                       icon: const Icon(Icons.save),
                       label: const Text('บันทึกข้อมูล'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF66BB6A),
+                        backgroundColor: const Color(0xFF4A00E0), // Dark Purple button
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),

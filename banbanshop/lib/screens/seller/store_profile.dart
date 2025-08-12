@@ -15,6 +15,9 @@ import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:banbanshop/screens/reviews/store_reviews_screen.dart';
 import 'package:intl/intl.dart';
+// --- เพิ่ม import สำหรับ photo_view ---
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 
 
 class StoreProfileScreen extends StatefulWidget {
@@ -82,6 +85,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       );
       return;
     }
+    if (widget.isSellerView) return; // Sellers cannot favorite their own store
     if (_isCheckingFavorite) return;
 
     setState(() => _isCheckingFavorite = true);
@@ -249,6 +253,9 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     if (confirmDelete == true) {
         try {
             await FirebaseFirestore.instance.collection('posts').doc(post.id).delete();
+            if (post.imageUrls != null && post.imageUrls!.isNotEmpty) {
+              print('Deleting images from Cloudinary (placeholder)');
+            }
             if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('ลบโพสต์สำเร็จ!')),
@@ -347,7 +354,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         children: [
           const Text(
             'สินค้าของร้าน',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
           ),
           const SizedBox(height: 15),
           SizedBox(
@@ -420,13 +427,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
               const SizedBox(height: 8),
               Text(
                 product.name,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
                 '฿${product.price.toStringAsFixed(2)}',
-                style: TextStyle(color: Colors.grey[800], fontSize: 14, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Color(0xFF4A00E0), fontSize: 14, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -439,9 +446,18 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(widget.isSellerView ? 'จัดการร้านค้าของฉัน' : _store?.name ?? 'หน้าร้านค้า'),
-        backgroundColor: const Color(0xFF9C6ADE),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -460,6 +476,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                   }
                 });
               },
+              color: Colors.white,
             ),
         ],
       ),
@@ -477,12 +494,12 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                   }
                 });
               },
-              backgroundColor: const Color(0xFF9C6ADE),
-              child: const Icon(Icons.add),
+              backgroundColor: const Color(0xFF4A00E0),
+              child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF4A00E0)))
           : _errorMessage != null
               ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)))
               : _store == null
@@ -522,16 +539,16 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(_store!.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                                        Text(_store!.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
                                         const SizedBox(height: 4),
                                         if (_store!.reviewCount > 0)
                                           Row(
                                             children: [
-                                              const Icon(Icons.star, color: Colors.amber, size: 20),
+                                              const Icon(Icons.star, color: Color(0xFFFFD700), size: 20),
                                               const SizedBox(width: 4),
                                               Text(
                                                 _store!.averageRating.toStringAsFixed(1),
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
@@ -592,12 +609,14 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                         _launchMapsUrl(_store!.latitude!, _store!.longitude!);
                                       },
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF5C6BC0),
+                                        backgroundColor: const Color(0xFF0288D1),
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(vertical: 12),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(12),
                                         ),
+                                        elevation: 3,
+                                        shadowColor: const Color(0xFF0288D1).withOpacity(0.3),
                                       ),
                                     ),
                                   ),
@@ -612,12 +631,14 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                       label: Text(_isFavorited ? 'ลบจากรายการโปรด' : 'เพิ่มในรายการโปรด'),
                                       onPressed: _toggleFavorite,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: _isFavorited ? Colors.pink[400] : const Color(0xFF7E57C2),
-                                        foregroundColor: Colors.white,
+                                        backgroundColor: _isFavorited ? const Color.fromARGB(255, 255, 75, 105) : const Color(0xFF4A00E0),
+                                        foregroundColor: _isFavorited ? Colors.white : Colors.white,
                                         padding: const EdgeInsets.symmetric(vertical: 12),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(12),
                                         ),
+                                        elevation: 3,
+                                        shadowColor: (_isFavorited ? const Color(0xFF4A00E0) : const Color(0xFFFFD700)).withOpacity(0.3),
                                       ),
                                     ),
                                   ),
@@ -640,12 +661,14 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF66BB6A),
+                                      backgroundColor: Colors.amber.shade900,
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
+                                      elevation: 3,
+                                      shadowColor: const Color(0xFF0288D1).withOpacity(0.3),
                                     ),
                                   ),
                                 ),
@@ -655,13 +678,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                             const SizedBox(height: 20),
                             Text(
                               widget.isSellerView ? 'โพสต์ของร้านค้าฉัน' : 'โพสต์ของร้าน ${_store!.name}',
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
                             ),
                             const SizedBox(height: 15),
                             _storePosts.isEmpty
                                 ? const Center(child: Padding(
                                   padding: EdgeInsets.symmetric(vertical: 32.0),
-                                  child: Text('ยังไม่มีโพสต์สำหรับร้านค้านี้'),
+                                  child: Text('ยังไม่มีโพสต์สำหรับร้านค้านี้', style: TextStyle(color: Colors.grey)),
                                 ))
                                 : ListView.builder(
                                     shrinkWrap: true,
@@ -673,6 +696,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                                         post: post,
                                         onDelete: _deletePost,
                                         currentUserId: FirebaseAuth.instance.currentUser?.uid,
+                                        isSeller: widget.isSellerView,
                                       );
                                     },
                                   ),
@@ -688,12 +712,14 @@ class PostCard extends StatefulWidget {
   final Post post;
   final Function(Post) onDelete;
   final String? currentUserId;
+  final bool isSeller;
 
   const PostCard({
     super.key,
     required this.post,
     required this.onDelete,
     this.currentUserId,
+    required this.isSeller,
   });
 
   @override
@@ -703,6 +729,7 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> {
   late String _timeAgoString;
   Timer? _timer;
+  int _currentImageIndex = 0;
 
   @override
   void initState() {
@@ -746,12 +773,12 @@ class _PostCardState extends State<PostCard> {
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.grey.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -759,93 +786,130 @@ class _PostCardState extends State<PostCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.all(18),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor: const Color(0xFFE0F7FA),
                   backgroundImage: widget.post.avatarImageUrl != null && widget.post.avatarImageUrl!.startsWith('http')
                       ? NetworkImage(widget.post.avatarImageUrl!)
-                      : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+                      : null,
+                  child: widget.post.avatarImageUrl == null || !widget.post.avatarImageUrl!.startsWith('http')
+                      ? const Icon(Icons.person, size: 30, color: Color(0xFF0288D1))
+                      : null,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 15),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         widget.post.shopName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87),
                       ),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _timeAgoString,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF9C6ADE),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '${widget.post.category} | ${widget.post.province}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 2),
+                      Text(
+                        _timeAgoString,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4A00E0),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Text(
+                          '${widget.post.category} | ${widget.post.province}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 if (isMyPost)
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: const Icon(Icons.delete, color: Colors.redAccent, size: 24),
                     onPressed: () => widget.onDelete(widget.post),
                   ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Text(
               widget.post.title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
             ),
           ),
-          const SizedBox(height: 10),
-          if (widget.post.imageUrl != null && widget.post.imageUrl!.isNotEmpty)
-            Container(
-              width: double.infinity,
-              height: 200,
-              margin: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                image: DecorationImage(
-                  image: NetworkImage(widget.post.imageUrl!),
-                  fit: BoxFit.cover,
+          const SizedBox(height: 18),
+          // --- ส่วนที่แก้ไข: ทำให้รูปภาพกดได้ ---
+          if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => FullScreenImageViewer(
+                      imageUrls: widget.post.imageUrls!,
+                      initialIndex: _currentImageIndex,
+                    ),
+                  ),
+                );
+              },
+              child: SizedBox(
+                height: 200,
+                child: Stack(
+                  children: [
+                    PageView.builder(
+                      itemCount: widget.post.imageUrls!.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentImageIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        return Hero(
+                          tag: 'store_post_image_${widget.post.id}_$index', // --- แก้ไข Tag ให้ไม่ซ้ำกัน ---
+                          child: Container(
+                            width: double.infinity,
+                            height: 200,
+                            margin: const EdgeInsets.symmetric(horizontal: 18),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(15),
+                              image: DecorationImage(
+                                image: NetworkImage(widget.post.imageUrls![index]),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    Positioned(
+                      bottom: 10,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(widget.post.imageUrls!.length, (index) {
+                          return Container(
+                            width: 8.0,
+                            height: 8.0,
+                            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _currentImageIndex == index
+                                  ? Colors.white
+                                  : Colors.grey.withOpacity(0.5),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -853,31 +917,54 @@ class _PostCardState extends State<PostCard> {
             Container(
               width: double.infinity,
               height: 200,
-              margin: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(
-                child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
-              ),
+              margin: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(15)),
+              child: const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)),
             ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 18),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
             child: Row(
               children: [
-                ActionButton(text: 'สั่งเลย', onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ฟังก์ชันสั่งเลยยังไม่พร้อมใช้งานในหน้านี้')),
-                  );
-                }),
-                const SizedBox(width: 10),
-                ActionButton(text: 'ดูหน้าร้าน', onTap: () {
-                }),
+                if (!widget.isSeller)
+                  Expanded(
+                    child: ActionButton(
+                      text: 'สั่งเลย',
+                      onTap: () { /* TODO: Implement buy now functionality */ },
+                      buttonColor: const Color(0xFF6A1B9A),
+                      textColor: Colors.white,
+                    ),
+                  ),
+                
+                if (!widget.isSeller) const SizedBox(width: 15),
+
+                Expanded(
+                  child: ActionButton(
+                    text: 'ดูหน้าร้าน',
+                    onTap: () {
+                      if (widget.post.storeId.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => StoreProfileScreen(
+                              storeId: widget.post.storeId,
+                              isSellerView: false,
+                            ),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ไม่พบ ID ร้านค้าสำหรับโพสต์นี้')),
+                        );
+                      }
+                    },
+                    buttonColor: Colors.amber.shade900,
+                  ),
+                ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -887,31 +974,90 @@ class _PostCardState extends State<PostCard> {
 class ActionButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
+  final bool isLoading;
+  final Color buttonColor;
+  final Color textColor;
 
   const ActionButton({
     super.key,
     required this.text,
     required this.onTap,
+    this.isLoading = false,
+    this.buttonColor = const Color(0xFF0288D1),
+    this.textColor = Colors.white,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF9C6ADE),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+    return ElevatedButton(
+      onPressed: isLoading ? null : onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: buttonColor,
+        foregroundColor: textColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        elevation: 5,
+        shadowColor: buttonColor.withOpacity(0.4),
+      ),
+      child: isLoading
+          ? const SizedBox(
+              height: 22,
+              width: 22,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2.8,
+              ),
+            )
+          : Text(
+              text,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+    );
+  }
+}
+
+// --- เพิ่ม Widget ใหม่สำหรับแสดงภาพเต็มจอ ---
+class FullScreenImageViewer extends StatelessWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  const FullScreenImageViewer({
+    super.key,
+    required this.imageUrls,
+    this.initialIndex = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-    );  
+      body: PhotoViewGallery.builder(
+        itemCount: imageUrls.length,
+        builder: (context, index) {
+          return PhotoViewGalleryPageOptions(
+            imageProvider: NetworkImage(imageUrls[index]),
+            initialScale: PhotoViewComputedScale.contained,
+            minScale: PhotoViewComputedScale.contained * 0.8,
+            maxScale: PhotoViewComputedScale.covered * 2.0,
+            heroAttributes: PhotoViewHeroAttributes(tag: 'store_post_image_${imageUrls[index].hashCode}_$index'), // --- แก้ไข Tag ให้ไม่ซ้ำกัน ---
+          );
+        },
+        scrollPhysics: const BouncingScrollPhysics(),
+        backgroundDecoration: const BoxDecoration(
+          color: Colors.black,
+        ),
+        pageController: PageController(initialPage: initialIndex),
+      ),
+    );
   }
 }

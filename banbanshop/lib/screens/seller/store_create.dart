@@ -246,12 +246,20 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F4FD),
+      backgroundColor: Colors.white, // White background
       appBar: AppBar(
-        backgroundColor: const Color(0xFF9C6ADE),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Purple to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white), // White icon
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -264,7 +272,7 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
         centerTitle: true,
       ),
       body: _isFetchingInitialData
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF4A00E0))) // Dark Purple loading
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Form(
@@ -277,7 +285,7 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                       child: Container(
                         height: 180,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Colors.grey[200], // Light grey background
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
@@ -294,11 +302,11 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                             : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.camera_alt, size: 50, color: Colors.grey[600]),
+                                  Icon(Icons.camera_alt, size: 50, color: Colors.grey[600]), // Darker grey icon
                                   const SizedBox(height: 10),
                                   Text(
                                     'เพิ่มรูปหน้าร้าน',
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                                    style: TextStyle(color: Colors.grey[700], fontSize: 16), // Darker text
                                   ),
                                 ],
                               ),
@@ -314,7 +322,15 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                         filled: true,
                         fillColor: Colors.white,
-                        prefixIcon: const Icon(Icons.store, color: Color(0xFF9C6ADE)),
+                        prefixIcon: const Icon(Icons.store, color: Color(0xFF0288D1)), // Blue icon
+                        focusedBorder: OutlineInputBorder( // Blue border when focused
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                        ),
+                        enabledBorder: OutlineInputBorder( // Grey border when enabled
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
                       ),
                       validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณาป้อนชื่อร้านค้า' : null,
                     ),
@@ -329,7 +345,15 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                         filled: true,
                         fillColor: Colors.white,
-                        prefixIcon: const Icon(Icons.description, color: Color(0xFF9C6ADE)),
+                        prefixIcon: const Icon(Icons.description, color: Color(0xFF0288D1)), // Blue icon
+                        focusedBorder: OutlineInputBorder( // Blue border when focused
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                        ),
+                        enabledBorder: OutlineInputBorder( // Grey border when enabled
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
                       ),
                       validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณาป้อนรายละเอียดร้านค้า' : null,
                     ),
@@ -342,12 +366,20 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                         filled: true,
                         fillColor: Colors.white,
-                        prefixIcon: const Icon(Icons.category, color: Color(0xFF9C6ADE)),
+                        prefixIcon: const Icon(Icons.category, color: Color(0xFF0288D1)), // Blue icon
+                        focusedBorder: OutlineInputBorder( // Blue border when focused
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                        ),
+                        enabledBorder: OutlineInputBorder( // Grey border when enabled
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
                       ),
                       items: _storeTypes.map((String type) {
                         return DropdownMenuItem<String>(
                           value: type,
-                          child: Text(type),
+                          child: Text(type, style: const TextStyle(color: Colors.black87)), // Darker text
                         );
                       }).toList(),
                       onChanged: (String? newValue) {
@@ -371,8 +403,16 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                         filled: true,
                         fillColor: Colors.white,
-                        prefixIcon: const Icon(Icons.location_on, color: Color(0xFF9C6ADE)),
-                        suffixIcon: const Icon(Icons.map, color: Color(0xFF9C6ADE)),
+                        prefixIcon: const Icon(Icons.location_on, color: Color(0xFF0288D1)), // Blue icon
+                        suffixIcon: const Icon(Icons.map, color: Color(0xFF0288D1)), // Blue icon
+                        focusedBorder: OutlineInputBorder( // Blue border when focused
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                        ),
+                        enabledBorder: OutlineInputBorder( // Grey border when enabled
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
                       ),
                       validator: (value) => (value == null || value.trim().isEmpty || _selectedLatitude == null) ? 'กรุณาปักหมุดตำแหน่งร้านบนแผนที่' : null,
                     ),
@@ -386,13 +426,21 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                           filled: true,
                           fillColor: Colors.white,
-                          prefixIcon: const Icon(Icons.access_time, color: Color(0xFF9C6ADE)),
+                          prefixIcon: const Icon(Icons.access_time, color: Color(0xFF0288D1)), // Blue icon
+                          focusedBorder: OutlineInputBorder( // Blue border when focused
+                            borderRadius: BorderRadius.circular(15),
+                            borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                          ),
+                          enabledBorder: OutlineInputBorder( // Grey border when enabled
+                            borderRadius: BorderRadius.circular(15),
+                            borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                          ),
                         ),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('ตั้งค่าเวลาทำการ', style: TextStyle(fontSize: 16)),
-                            Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),
+                            Text('ตั้งค่าเวลาทำการ', style: TextStyle(fontSize: 16, color: Colors.black87)), // Darker text
+                            Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18), // Grey arrow
                           ],
                         ),
                       ),
@@ -408,24 +456,33 @@ class _StoreCreateScreenState extends State<StoreCreateScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                         filled: true,
                         fillColor: Colors.white,
-                        prefixIcon: const Icon(Icons.phone, color: Color(0xFF9C6ADE)),
+                        prefixIcon: const Icon(Icons.phone, color: Color(0xFF0288D1)), // Blue icon
+                        focusedBorder: OutlineInputBorder( // Blue border when focused
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: const BorderSide(color: Color(0xFF0288D1), width: 2),
+                        ),
+                        enabledBorder: OutlineInputBorder( // Grey border when enabled
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
                       ),
                       validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณาป้อนเบอร์โทรศัพท์ร้าน' : null,
                     ),
                     const SizedBox(height: 32),
 
                     _isUploading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const Center(child: CircularProgressIndicator(color: Color(0xFF4A00E0))) // Dark Purple loading
                         : ElevatedButton(
                             onPressed: _createStore,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF9C6ADE),
+                              backgroundColor: const Color(0xFF4A00E0), // Dark Purple button
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 18),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(25),
                               ),
                               elevation: 5,
+                              shadowColor: const Color(0xFF4A00E0).withOpacity(0.3), // Dark Purple shadow
                             ),
                             child: const Text(
                               'สร้างร้านค้า',

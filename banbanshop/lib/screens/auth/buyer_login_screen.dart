@@ -142,12 +142,21 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('บ้านบ้านช็อป', style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold)),
+        title: const Text('บ้านบ้านช็อป', style: TextStyle(color: Colors.white,fontWeight: FontWeight.w600)),
         centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         backgroundColor: Color(0xFFE8F4FD),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -198,7 +207,7 @@ class _BuyerLoginScreenState extends State<BuyerLoginScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _loginBuyer,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9B7DD9),
+                      backgroundColor: const Color(0xFF0288D1),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
                     ),
                     child: _isLoading

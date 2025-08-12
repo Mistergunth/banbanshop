@@ -82,8 +82,16 @@ class _StoreReviewsScreenState extends State<StoreReviewsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('รีวิวร้าน ${widget.storeName}'),
-        backgroundColor: const Color(0xFF9C6ADE),
-        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white, // White text/icons
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -94,7 +102,7 @@ class _StoreReviewsScreenState extends State<StoreReviewsScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1))); // Blue loading
           }
           if (snapshot.hasError) {
             return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
@@ -135,7 +143,8 @@ class _StoreReviewsScreenState extends State<StoreReviewsScreen> {
               onPressed: _navigateToAddReview,
               label: const Text('เขียนรีวิว'),
               icon: const Icon(Icons.edit),
-              backgroundColor: const Color(0xFF9C6ADE),
+              backgroundColor: const Color(0xFF4A00E0), // Dark Purple FAB
+              foregroundColor: Colors.white, // White icon/text
             ),
     );
   }
@@ -163,14 +172,14 @@ class _StoreReviewsScreenState extends State<StoreReviewsScreen> {
                 style: const TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF9C6ADE),
+                  color: Color(0xFF4A00E0), // Dark Purple average rating
                 ),
               ),
               Row(
                 children: List.generate(5, (index) {
                   return Icon(
                     index < averageRating.round() ? Icons.star : Icons.star_border,
-                    color: Colors.amber,
+                    color: const Color(0xFFFFD700), // Yellow stars
                     size: 24,
                   );
                 }),
@@ -242,14 +251,14 @@ class ReviewCard extends StatelessWidget {
                     children: [
                       Text(
                         review.buyerName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87), // Darker text
                       ),
                       Row(
                         children: [
                           ...List.generate(5, (index) {
                             return Icon(
                               index < review.rating.round() ? Icons.star : Icons.star_border,
-                              color: Colors.amber,
+                              color: const Color(0xFFFFD700), // Yellow stars
                               size: 18,
                             );
                           }),
@@ -268,7 +277,7 @@ class ReviewCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               review.comment,
-              style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+              style: TextStyle(fontSize: 14, color: Colors.grey[800]), // Darker text
             ),
           ],
         ),
