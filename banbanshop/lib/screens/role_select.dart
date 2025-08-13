@@ -126,8 +126,8 @@ class _RoleSelectPageState extends State<RoleSelectPage> with SingleTickerProvid
                                   // กำหนดสี Gradient ที่จะใช้เป็นหน้ากาก
                                   shaderCallback: (bounds) => const LinearGradient(
                                     colors: [
-                                      Color(0xFF9C6ADE), // สีน้ำเงินเข้ม
-                                      Color(0xFF0288D1)  // สีฟ้าเทอร์ควอยซ์
+                                      Color(0xFF9C6ADE), 
+                                      Color(0xFF0288D1) 
                                     ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,

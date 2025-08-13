@@ -154,7 +154,7 @@ class _AiChatBotScreenState extends State<AiChatBotScreen> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF0288D1), Color(0xFF4A00E0)],
+              colors: [Color(0xFF2196F3), Color(0xFF21CBF3)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

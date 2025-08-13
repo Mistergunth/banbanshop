@@ -301,11 +301,10 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
               children: [
-                // Action button for editing profile
                 _buildActionButton(
                   icon: Icons.person_outline,
                   text: 'แก้ไขโปรไฟล์',
-                  color: const Color(0xFF0288D1), // Blue
+                  color: Colors.white, // Blue
                   onTap: () {
                     Navigator.push(
                       context,
@@ -359,7 +358,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                       _buildActionButton(
                         icon: Icons.store_outlined,
                         text: 'หน้าโปรไฟล์ร้านค้า',
-                        color: const Color(0xFF4A00E0), // Dark Purple
+                        color: Colors.white, // Dark Purple
                         onTap: () {
                           Navigator.push(
                             context,
@@ -377,7 +376,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                       _buildActionButton(
                         icon: Icons.receipt_long_outlined,
                         text: 'ดูออเดอร์',
-                        color: const Color(0xFF0288D1), // Blue
+                        color: Colors.white, // Blue
                         onTap: () {
                            Navigator.push(
                             context,
@@ -392,7 +391,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                       _buildActionButton(
                         icon: Icons.inventory_2_outlined,
                         text: 'จัดการสินค้า',
-                        color: const Color(0xFF4A00E0), // Dark Purple
+                        color: Colors.white, // Dark Purple
                         onTap: () {
                           if (_store != null) {
                             Navigator.push(
@@ -415,7 +414,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                       _buildActionButton(
                         icon: Icons.payment_outlined,
                         text: 'จัดการช่องทางชำระเงิน',
-                        color: const Color(0xFF0288D1), // Blue
+                        color: Colors.white, // Blue
                         onTap: () {
                           if (_store != null) {
                             Navigator.push(
@@ -440,7 +439,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                       _buildActionButton(
                         icon: Icons.star_border_outlined,
                         text: 'เรตติ้งและรีวิว',
-                        color: const Color(0xFF4A00E0), // Dark Purple
+                        color: Colors.white, // Dark Purple
                         onTap: () {
                           Navigator.push(
                             context,
@@ -490,28 +489,20 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
         decoration: BoxDecoration(
           color: color, // Background color of the button
           borderRadius: BorderRadius.circular(15), // More rounded corners
-          boxShadow: [ // Shadow for lifted effect
-            BoxShadow(
-              color: color.withOpacity(0.4), // Shadow color matching button color
-              spreadRadius: 2,
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween, // Space out icon/text and arrow
           children: [
             Row( // Group icon and text
               children: [
-                Icon(icon, color: Colors.white), // White icon for contrast
+                Icon(icon, color: const Color(0xFF0288D1)), // White icon for contrast
                 const SizedBox(width: 15), // Spacing between icon and text
                 Text(
                   text,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white, // White text for contrast
+                    color: Colors.black, // White text for contrast
                   ),
                 ),
               ],

@@ -573,7 +573,7 @@ class _SellerLiveTrackingScreenState extends State<SellerLiveTrackingScreen> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              colors: [Color(0xFF2196F3), Color(0xFF21CBF3)], // Blue to Dark Purple gradient
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

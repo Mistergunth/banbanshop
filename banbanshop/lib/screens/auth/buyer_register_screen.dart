@@ -356,7 +356,7 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+              colors: [Color(0xFF2196F3), Color(0xFF21CBF3)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -460,7 +460,7 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _registerBuyer,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0288D1),
+                      backgroundColor: const Color(0xFF483AA0),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
                     ),
                     child: _isLoading

@@ -101,7 +101,7 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Blue to Dark Purple gradient
+              colors: [Color(0xFF2196F3), Color(0xFF21CBF3)], // Blue to Dark Purple gradient
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -198,13 +198,13 @@ class _ProvinceSelectionPageState extends State<ProvinceSelectionPage> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0288D1), // Blue button
-                  disabledBackgroundColor: const Color(0xFF0288D1).withOpacity(0.5), // Lighter blue when disabled
+                  backgroundColor: const Color(0xFF483AA0), // Blue button
+                  disabledBackgroundColor: const Color(0xFF483AA0).withOpacity(0.5), // Lighter blue when disabled
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 3, // Added elevation
-                  shadowColor: const Color(0xFF0288D1).withOpacity(0.3), // Blue shadow
+                  shadowColor: const Color(0xFF483AA0).withOpacity(0.3), // Blue shadow
                 ),
                 child: const Text(
                   'ยืนยันจังหวัด',

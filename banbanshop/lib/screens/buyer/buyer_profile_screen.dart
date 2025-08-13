@@ -221,7 +221,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                         );
                       },
                     ),
-                    const SizedBox(height: 15), // Spacing
+                    const SizedBox(height: 5), // Spacing
                     // Action button for buyer orders
                     _buildProfileOptionButton(
                       icon: Icons.receipt_long_outlined,
@@ -234,7 +234,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                         );
                       },
                     ),
-                    const SizedBox(height: 15), // Spacing
+                    const SizedBox(height: 5), // Spacing
                     // Action button for shipping address
                     _buildProfileOptionButton(
                       icon: Icons.location_on_outlined,
@@ -247,7 +247,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                         );
                       },
                     ),
-                    const SizedBox(height: 15), // Spacing
+                    const SizedBox(height: 5), // Spacing
                     // Action button for favorites
                     _buildProfileOptionButton(
                       icon: Icons.favorite_border,
@@ -260,7 +260,7 @@ class _BuyerProfileScreenState extends State<BuyerProfileScreen> {
                         );
                       },
                     ),
-                    const SizedBox(height: 15), // Spacing
+                    const SizedBox(height: 5), // Spacing
                     // Action button for editing profile
                     _buildProfileOptionButton(
                       icon: Icons.edit_outlined,
