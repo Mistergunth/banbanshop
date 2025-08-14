@@ -323,6 +323,19 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
         'createdAt': Timestamp.now(),
       });
 
+      // --- [การแก้ไข] เพิ่มโค้ดส่วนนี้เพื่อเปลี่ยนหน้าจอหลังสมัครสำเร็จ ---
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // กลับไปที่หน้าแรกสุดเพื่อให้ AuthWrapper ทำงานและแสดงหน้า VerifyEmailScreen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      // --- สิ้นสุดส่วนที่แก้ไข ---
+
     } on FirebaseAuthException catch (e) {
       String message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
       if (e.code == 'weak-password') {
@@ -574,9 +587,6 @@ class _SellerRegisterScreenState extends State<SellerRegisterScreen> {
             ),
           ),
         ),
-        // --- FIXED: This hidden field caused the UI bug. ---
-        // By removing the controller, it no longer displays text.
-        // The validator now checks the controller directly.
         TextFormField(
           readOnly: true,
           decoration: const InputDecoration(

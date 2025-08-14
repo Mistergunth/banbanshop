@@ -4,8 +4,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart'; // สำหรับตำแหน่งปัจจุบัน
-import 'package:geocoding/geocoding.dart'; // สำหรับ reverse geocoding
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class MapPickerScreen extends StatefulWidget {
   final LatLng? initialLatLng;
@@ -16,199 +16,159 @@ class MapPickerScreen extends StatefulWidget {
 }
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
-  GoogleMapController? _mapController; 
-  LatLng? _pickedLocation; 
-  bool _isLoadingLocation = true; 
-  String _currentAddress = 'กำลังโหลดตำแหน่ง...'; 
+  GoogleMapController? _mapController;
+  LatLng? _pickedLocation;
+  bool _isLoading = true;
+  String _currentAddress = 'กำลังโหลดตำแหน่ง...';
+  final TextEditingController _searchController = TextEditingController();
+
+  static const LatLng _initialPosition = LatLng(13.7563, 100.5018); // Bangkok
 
   @override
   void initState() {
     super.initState();
     if (widget.initialLatLng != null) {
       _pickedLocation = widget.initialLatLng;
-      _updateAddress(_pickedLocation!);
-      _isLoadingLocation = false;
+      _getAddressFromLatLng(_pickedLocation!);
+      _isLoading = false;
     } else {
-      _determinePosition(); 
+      _getUserLocation();
     }
   }
 
-  // ตรวจสอบสิทธิ์และดึงตำแหน่งปัจจุบัน
-  Future<void> _determinePosition() async {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _getUserLocation() async {
     setState(() {
-      _isLoadingLocation = true;
+      _isLoading = true;
       _currentAddress = 'กำลังโหลดตำแหน่ง...';
     });
 
     bool serviceEnabled;
     LocationPermission permission;
 
-    // 1. ตรวจสอบว่าบริการตำแหน่งเปิดอยู่หรือไม่
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (mounted) {
-        await showDialog(
-          context: context,
-          barrierDismissible: false, // ผู้ใช้ต้องกดปุ่มใน dialog เท่านั้น
-          builder: (BuildContext dialogContext) {
-            return AlertDialog(
-              title: const Text('บริการระบุตำแหน่งถูกปิดอยู่'),
-              content: const Text('กรุณาเปิดบริการระบุตำแหน่งในตั้งค่าอุปกรณ์ของคุณเพื่อใช้งานแผนที่'),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    setState(() {
-                      _isLoadingLocation = false;
-                      _pickedLocation = const LatLng(13.7563, 100.5018); // ตั้งเริ่มต้นที่กรุงเทพ
-                      _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
-                    });
-                  },
-                  child: const Text('ยกเลิก'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.of(dialogContext).pop();
-                    await Geolocator.openLocationSettings(); // เปิดหน้าตั้งค่าตำแหน่ง
-                    // หลังจากกลับจากตั้งค่า ลองดึงตำแหน่งอีกครั้ง
-                    _determinePosition();
-                  },
-                  child: const Text('เปิดการตั้งค่า'),
-                ),
-              ],
-            );
-          },
-        );
-      }
-      return; // ออกจากฟังก์ชันหลังจากแสดง dialog
+      _setDefaultLocation();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเปิดบริการระบุตำแหน่ง (GPS)')),
+      );
+      await Geolocator.openLocationSettings();
+      return;
     }
 
-    // 2. ตรวจสอบและขอสิทธิ์การเข้าถึงตำแหน่ง
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        if (mounted) {
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext dialogContext) {
-              return AlertDialog(
-                title: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธ'),
-                content: const Text('คุณปฏิเสธการให้สิทธิ์เข้าถึงตำแหน่ง กรุณาให้สิทธิ์เพื่อใช้งานแผนที่'),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                      setState(() {
-                        _isLoadingLocation = false;
-                        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
-                        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
-                      });
-                    },
-                    child: const Text('ยกเลิก'),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      Navigator.of(dialogContext).pop();
-                      await Geolocator.openAppSettings(); // เปิดหน้าตั้งค่าแอป
-                      _determinePosition(); // ลองดึงตำแหน่งอีกครั้ง
-                    },
-                    child: const Text('เปิดการตั้งค่าแอป'),
-                  ),
-                ],
-              );
-            },
-          );
-        }
-        return; // ออกจากฟังก์ชันหลังจากแสดง dialog
+        _setDefaultLocation();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('คุณปฏิเสธการเข้าถึงตำแหน่ง')),
+        );
+        return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (mounted) {
-        await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext dialogContext) {
-            return AlertDialog(
-              title: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธถาวร'),
-              content: const Text('สิทธิ์การเข้าถึงตำแหน่งถูกปฏิเสธอย่างถาวร กรุณาไปที่การตั้งค่าแอปเพื่อเปิดใช้งานด้วยตนเอง'),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    setState(() {
-                      _isLoadingLocation = false;
-                      _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
-                      _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
-                    });
-                  },
-                  child: const Text('ยกเลิก'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.of(dialogContext).pop();
-                    await Geolocator.openAppSettings(); // เปิดหน้าตั้งค่าแอป
-                    _determinePosition(); // ลองดึงตำแหน่งอีกครั้ง
-                  },
-                  child: const Text('เปิดการตั้งค่าแอป'),
-                ),
-              ],
-            );
-          },
-        );
-      }
-      return; // ออกจากฟังก์ชันหลังจากแสดง dialog
+      _setDefaultLocation();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเปิดการเข้าถึงตำแหน่งในการตั้งค่าแอป')),
+      );
+      await Geolocator.openAppSettings();
+      return;
     }
 
-    // หากได้รับสิทธิ์แล้ว ให้ดึงตำแหน่งปัจจุบัน
     try {
-      Position position = await Geolocator.getCurrentPosition(
-          // ignore: deprecated_member_use
-          desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final userLatLng = LatLng(position.latitude, position.longitude);
       setState(() {
-        _pickedLocation = LatLng(position.latitude, position.longitude);
-        _isLoadingLocation = false;
-        _updateAddress(_pickedLocation!); // อัปเดตที่อยู่ตามตำแหน่งที่ได้
+        _pickedLocation = userLatLng;
+        _isLoading = false;
       });
+      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(userLatLng, 16));
+      _getAddressFromLatLng(userLatLng);
     } catch (e) {
       print('Error getting current location: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ไม่สามารถดึงตำแหน่งปัจจุบันได้: $e')),
-        );
-      }
-      setState(() {
-        _isLoadingLocation = false;
-        _pickedLocation = const LatLng(13.7563, 100.5018); // Default to Bangkok
-        _currentAddress = 'กรุงเทพมหานคร (ค่าเริ่มต้น)';
-      });
+      _setDefaultLocation();
     }
   }
 
-  // แปลง LatLng เป็นที่อยู่ (Reverse Geocoding)
-  Future<void> _updateAddress(LatLng position) async {
+  void _setDefaultLocation() {
+    setState(() {
+      _pickedLocation = _initialPosition;
+      _isLoading = false;
+    });
+    _getAddressFromLatLng(_initialPosition);
+  }
+
+  Future<void> _getAddressFromLatLng(LatLng position) async {
     try {
-      List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
+      List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
         setState(() {
-          // สร้างที่อยู่จากข้อมูล Placemark
-          _currentAddress =
-              '${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea} ${p.postalCode}';
+          _currentAddress = '${p.street}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea} ${p.postalCode}';
         });
       } else {
-        setState(() {
-          _currentAddress = 'ไม่พบที่อยู่สำหรับพิกัดนี้';
-        });
+        setState(() => _currentAddress = 'ไม่พบที่อยู่สำหรับพิกัดนี้');
       }
     } catch (e) {
       print('Error reverse geocoding: $e');
-      setState(() {
-        _currentAddress = 'ไม่สามารถระบุที่อยู่ได้';
+      setState(() => _currentAddress = 'ไม่สามารถระบุที่อยู่ได้');
+    }
+  }
+
+  Future<void> _searchLocation(String query) async {
+    if (query.isEmpty) return;
+    FocusScope.of(context).unfocus(); // Hide keyboard
+    setState(() => _isLoading = true);
+    try {
+      List<Location> locations = await locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        final firstLocation = locations.first;
+        final newLatLng = LatLng(firstLocation.latitude, firstLocation.longitude);
+        setState(() {
+          _pickedLocation = newLatLng;
+        });
+        _mapController?.animateCamera(CameraUpdate.newLatLngZoom(newLatLng, 16));
+        _getAddressFromLatLng(newLatLng);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ไม่พบที่อยู่ดังกล่าว')),
+        );
+      }
+    } catch (e) {
+      print("Error searching location: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการค้นหา: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _onMapTapped(LatLng position) {
+    setState(() {
+      _pickedLocation = position;
+    });
+    _getAddressFromLatLng(position);
+  }
+
+  void _confirmSelection() {
+    if (_pickedLocation != null) {
+      Navigator.pop(context, {
+        'latitude': _pickedLocation!.latitude,
+        'longitude': _pickedLocation!.longitude,
+        'address': _currentAddress,
       });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเลือกตำแหน่งบนแผนที่ก่อน')),
+      );
     }
   }
 
@@ -216,108 +176,133 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ปักหมุดตำแหน่งร้าน', style: TextStyle(color: Colors.black)),
-        backgroundColor: const Color(0xFFE8F4FD),
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: _isLoadingLocation || _pickedLocation == null
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF9C6ADE)))
-          : Column(
-              children: [
-                Expanded(
-                  child: GoogleMap(
-                    mapType: MapType.normal,
-                    initialCameraPosition: CameraPosition(
-                      target: _pickedLocation!,
-                      zoom: 15,
-                    ),
-                    onMapCreated: (GoogleMapController controller) {
-                      _mapController = controller; // กำหนดค่าให้ _mapController ที่นี่
-                      // ใช้ _mapController เพื่อเลื่อนกล้องไปยังตำแหน่งที่เลือก
-                      _mapController?.animateCamera(
-                        CameraUpdate.newLatLng(_pickedLocation!),
-                      );
-                    },
-                    onTap: (LatLng latLng) {
-                      setState(() {
-                        _pickedLocation = latLng; // อัปเดตตำแหน่งที่ผู้ใช้แตะ
-                        _updateAddress(latLng); // อัปเดตที่อยู่ตามตำแหน่งใหม่
-                        // ใช้ _mapController เพื่อเลื่อนกล้องไปยังตำแหน่งที่ผู้ใช้แตะ
-                        _mapController?.animateCamera(
-                          CameraUpdate.newLatLng(latLng),
-                        );
-                      });
-                    },
-                    markers: _pickedLocation == null
-                        ? {}
-                        : {
-                            Marker(
-                              markerId: const MarkerId('pickedLocation'),
-                              position: _pickedLocation!,
-                              infoWindow: InfoWindow(title: 'ตำแหน่งร้าน', snippet: _currentAddress),
-                            ),
-                          },
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(16.0),
-                  color: Colors.white,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'ตำแหน่งที่เลือก:',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[700]),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _currentAddress,
-                        style: const TextStyle(fontSize: 18, color: Colors.black87),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          if (_pickedLocation != null) {
-                            // คืนค่าเป็น Map<String, double> และ String address
-                            Navigator.pop(context, {
-                              'latitude': _pickedLocation!.latitude,
-                              'longitude': _pickedLocation!.longitude,
-                              'address': _currentAddress, // เพิ่ม address กลับไปด้วย
-                            });
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('กรุณาเลือกตำแหน่งบนแผนที่ก่อน')),
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF9C6ADE),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          elevation: 3,
-                        ),
-                        child: const Text(
-                          'ยืนยันตำแหน่งนี้',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        title: const Text('ปักหมุดตำแหน่งร้าน'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF2196F3), Color(0xFF21CBF3)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+          ),
+        ),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.my_location),
+            onPressed: _getUserLocation,
+            tooltip: 'ตำแหน่งปัจจุบัน',
+            color: Colors.white,
+          )
+        ],
+      ),
+      body: Stack(
+        children: [
+          _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF0288D1)))
+              : GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _pickedLocation ?? _initialPosition,
+                    zoom: 16,
+                  ),
+                  onMapCreated: (controller) {
+                    _mapController = controller;
+                  },
+                  onTap: _onMapTapped,
+                  markers: _pickedLocation == null
+                      ? {}
+                      : {
+                          Marker(
+                            markerId: const MarkerId('pickedLocation'),
+                            position: _pickedLocation!,
+                            infoWindow: InfoWindow(title: 'ตำแหน่งร้าน', snippet: _currentAddress),
+                            draggable: true,
+                            onDragEnd: (newPosition) {
+                              _onMapTapped(newPosition);
+                            },
+                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                          ),
+                        },
+                ),
+          Positioned(
+            top: 10,
+            left: 10,
+            right: 10,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'ค้นหาที่อยู่...',
+                  hintStyle: TextStyle(color: Colors.grey[600]),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.search, color: Color(0xFF0288D1)),
+                    onPressed: () => _searchLocation(_searchController.text),
+                  ),
+                ),
+                onSubmitted: _searchLocation,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    spreadRadius: 5,
+                  )
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('ตำแหน่งที่เลือก', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  const SizedBox(height: 8),
+                  Text(_currentAddress, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _confirmSelection,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0288D1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('ยืนยันตำแหน่งนี้', style: TextStyle(fontSize: 16)),
+                    ),
+                  )
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

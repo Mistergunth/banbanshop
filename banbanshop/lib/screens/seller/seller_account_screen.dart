@@ -460,7 +460,7 @@ class _SellerAccountScreenState extends State<SellerAccountScreen> {
                   _buildActionButton(
                     icon: Icons.add_business_outlined,
                     text: 'สร้างร้านค้า',
-                    color: const Color(0xFF0288D1), // Blue
+                    color: Colors.white, // Blue
                     onTap: _navigateAndRefreshOnStoreCreation,
                   ),
 

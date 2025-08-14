@@ -197,20 +197,24 @@ exports.searchStoresWithAI = onCall({
                 stores: [],
             };
         }
+        
+        // [การเปลี่ยนแปลงสำคัญ] จัดเรียงร้านค้าตามเรตติ้ง (จากสูงไปต่ำ)
+        // เพื่อให้ผลลัพธ์ที่ได้ดูเหมือน "การแนะนำ" มากขึ้น
+        matchedStores.sort((a, b) => b.rating - a.rating);
 
         const limitedStores = matchedStores.slice(0, 5);
 
-        // --- 5. [การเปลี่ยนแปลงสำคัญ] ใช้ AI สร้างแค่ประโยคพูด ---
+        // --- 5. ใช้ AI สร้างแค่ประโยคพูด ---
         const finalResponseModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
         const finalPrompt = `
             คุณคือผู้ช่วย AI ของแอปชื่อ "BanBanShop"
             คำถามเดิมของผู้ใช้คือ: "${userQuery}"
-            และนี่คือรายชื่อร้านค้าที่เราค้นเจอ: ${limitedStores.map(s => s.name).join(', ')}.
+            และนี่คือรายชื่อร้านค้าที่เราค้นเจอ (เรียงตามความนิยม): ${limitedStores.map(s => s.name).join(', ')}.
             
             คำสั่ง:
             จากข้อมูลทั้งหมด ให้สร้าง "ประโยคเกริ่นนำที่เป็นมิตร" เพียง 1 ประโยค เพื่อบอกผู้ใช้ว่าเราเจออะไรบ้าง
             - ถ้าเจอร้านเดียว: "เจอร้าน...ให้แล้วค่ะ"
-            - ถ้าเจอหลายร้าน: "นี่คือร้านค้า...ที่เราเจอค่ะ"
+            - ถ้าเจอหลายร้าน: "นี่คือร้านค้าที่น่าสนใจ...ที่เราเจอค่ะ"
             - ทำให้เป็นธรรมชาติที่สุด
             - ตอบกลับมาเป็นประโยคพูดธรรมดา ไม่ต้องมี JSON หรือสัญลักษณ์ใดๆ
         `;
@@ -225,8 +229,7 @@ exports.searchStoresWithAI = onCall({
         
         logger.log("Final AI-generated sentence:", friendlyResponseText);
 
-        // --- 6. [การเปลี่ยนแปลงสำคัญ] Code ของเราสร้าง JSON สุดท้ายเอง ---
-        // วิธีนี้จะรับประกันว่าโครงสร้างถูกต้องเสมอ
+        // --- 6. Code ของเราสร้าง JSON สุดท้ายเอง ---
         return {
             responseText: friendlyResponseText,
             stores: limitedStores
@@ -240,3 +243,4 @@ exports.searchStoresWithAI = onCall({
         throw new HttpsError("internal", "ขออภัยค่ะ เกิดข้อผิดพลาดที่ไม่คาดคิดในการค้นหา กรุณาลองใหม่อีกครั้ง");
     }
 });
+

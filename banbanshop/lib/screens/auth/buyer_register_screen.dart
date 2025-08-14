@@ -24,7 +24,7 @@ class BuyerRegisterScreen extends StatefulWidget {
 
 class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
   // --- API Configuration (Visai.ai) ---
-  final String _apiKey = '1704b23b84937d7be4a1a7e82839e010'; 
+  final String _apiKey = '1704b23b84937d7be4a1a7e82839e010';
   final String _apiUrl = 'https://ocridcard.infer.visai.ai/predict';
 
   final _formKey = GlobalKey<FormState>();
@@ -322,6 +322,19 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
         'isPhoneVerified': true,
       });
 
+      // --- [การแก้ไข] เพิ่มโค้ดส่วนนี้เข้ามา ---
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // กลับไปที่หน้าแรกสุดเพื่อให้ AuthWrapper ทำงานและแสดงหน้า VerifyEmailScreen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      // --- สิ้นสุดส่วนที่แก้ไข ---
+
     } on FirebaseAuthException catch (e) {
       String message = 'เกิดข้อผิดพลาดในการสมัครสมาชิก';
       if (e.code == 'weak-password') {
@@ -343,6 +356,7 @@ class _BuyerRegisterScreenState extends State<BuyerRegisterScreen> {
         );
       }
     } finally {
+      // ส่วนนี้จะทำงานเฉพาะกรณีที่เกิดข้อผิดพลาด เนื่องจากกรณีสำเร็จจะมีการ navigate ออกไปก่อน
       if (mounted) setState(() => _isLoading = false);
     }
   }
