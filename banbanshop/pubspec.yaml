@@ -51,7 +51,6 @@ dependencies:
   location: ^8.0.1
   flutter_polyline_points: ^2.1.0
   cloud_functions: ^5.6.1
-  google_mlkit_text_recognition: ^0.15.0
   flutter_tesseract_ocr: ^0.4.29
   
 
